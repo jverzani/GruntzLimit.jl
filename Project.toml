@@ -1,0 +1,13 @@
+name = "GruntzLimit"
+uuid = "549ac5eb-4437-4bd1-88f1-51d4e2fa49c9"
+authors = ["jverzani <jverzani@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.10.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
