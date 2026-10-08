@@ -1,0 +1,1015 @@
+"""
+    Gruntz
+
+Limits of univariate real expressions using Gruntz's algorithm
+(D. Gruntz, "On Computing Limits in a Symbolic Manipulation System", 1996).
+
+Expressions are symbolic terms implementing the TermInterface.jl methods `iscall`,
+`operation` and `arguments`, with operations that are Julia `Function`s. Tested
+targets are SimpleExpressions.jl and SymEngine.jl (`Basic`):
+
+    using SimpleExpressions
+    @symbolic x
+    gruntz_limit(sin(x)/x, x, 0)          # 1
+    gruntz_limit(x^2 * exp(-x), x)        # 0
+    gruntz_limit(x^2 + 1, x, -Inf)        # Inf
+
+    import SymEngine; SymEngine.@vars y
+    gruntz_limit(atan(y)/y, y, 0)         # 1
+
+    gruntz_limit(f, x, x0 = Inf; dir = :+, build = (op, args...) -> op(args...), lift = auto)
+
+* `f` is the expression, `x` the symbolic variable (the same object used in `f`).
+* `x0` may be `Inf`, `-Inf`, or a finite number / term not containing `x`.
+* `dir` is `:+`, `:-` or `:both` (only relevant for finite `x0`).
+* Returns `Inf`, `-Inf`, an `Int`/`Rational`, or a term. Non-rational results are
+  rebuilt by *calling the operations as functions* (`+`, `*`, `^`, `exp`, `log`,
+  `sin`, `cos`) on the pieces; with a symbolic variable inside that gives a
+  symbolic term back. Constant results such as `-π/2` or `exp(1)` stay symbolic
+  too: for SimpleExpressions they are built as unevaluated terms (evaluate with
+  `r()`), for SymEngine they use `Basic` constants.
+  Pass `build` to construct results differently (e.g. `maketerm`-based). `lift`
+  converts plain numbers/π into the package's number type; by default it is the
+  constructor of `typeof(f)` when that is a non-`Real` `Number` such as `Basic`,
+  so a SymEngine limit of exp(1) comes back as `E`, not a float.
+
+Operations understood (given as `Function`s; `Symbol` names are accepted too):
+`+ - * / ^ inv sqrt cbrt exp log sin cos tan atan abs sinh cosh tanh`. Limits that do not
+exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
+
+Design: terms are converted to an internal canonical form (sums of monomials with
+rational coefficients/exponents over "atoms": variables, exp/log/sin/cos
+applications and multi-term bases). That supplies the zero recognition Gruntz's
+algorithm needs without depending on a particular CAS.
+"""
+module Gruntz
+
+using TermInterface: iscall, operation, arguments, maketerm
+
+export gruntz_limit, GruntzError
+
+const Q = Rational{BigInt}
+const HUGE = Q(10)^12   # "exact" precision marker for power series
+
+struct GruntzError <: Exception
+    msg::String
+end
+Base.showerror(io::IO, e::GruntzError) = print(io, "GruntzError: ", e.msg)
+
+struct NeedMorePrecision <: Exception end
+struct Infinity
+    sign::Int
+end
+
+# ---------------------------------------------------------------------------
+# Canonical form
+# ---------------------------------------------------------------------------
+struct Atom
+    kind::Symbol          # :leaf, :fun (exp/log/sin/cos), :base (multi-term sum used as base)
+    head::Any
+    args::Vector{Any}     # Vector of Sum
+    key::String
+end
+Base.:(==)(a::Atom, b::Atom) = a.key == b.key
+Base.hash(a::Atom, h::UInt) = hash(a.key, h)
+
+struct Mono
+    fs::Vector{Pair{Atom,Q}}   # sorted by atom key, exponents nonzero
+    key::String
+end
+Mono(fs::Vector{Pair{Atom,Q}}) = Mono(fs, join(("$(a.key)^$(e)" for (a, e) in fs), "*"))
+Base.:(==)(a::Mono, b::Mono) = a.key == b.key
+Base.hash(a::Mono, h::UInt) = hash(a.key, h)
+
+struct Sum
+    t::Dict{Mono,Q}
+end
+Base.iszero(s::Sum) = isempty(s.t)
+
+const ONEMONO = Mono(Pair{Atom,Q}[])
+zeroS() = Sum(Dict{Mono,Q}())
+constS(c) = iszero(c) ? zeroS() : Sum(Dict{Mono,Q}(ONEMONO => Q(c)))
+oneS() = constS(1)
+monoS(m::Mono, c::Q) = Sum(Dict{Mono,Q}(m => c))
+atomS(a::Atom) = monoS(Mono(Pair{Atom,Q}[a => Q(1)]), Q(1))
+
+skey(s::Sum) = isempty(s.t) ? "0" : join(sort!(String["$(c)*$(m.key)" for (m, c) in s.t]), "+")
+
+leafatom(obj) = Atom(:leaf, obj, Any[], "L:" * string(obj))
+funatom(h::Symbol, args::Vector{Sum}) =
+    Atom(:fun, h, Any[args...], string(h, "(", join([skey(a) for a in args], ","), ")"))
+baseatom(s::Sum) = Atom(:base, nothing, Any[s], "B(" * skey(s) * ")")
+
+const WLEAF = leafatom(:__gruntz_w__)
+
+mono(d::Dict{Atom,Q}) = Mono(sort!(collect(d); by = p -> p.first.key))
+
+function mulMono(a::Mono, b::Mono)
+    d = Dict{Atom,Q}(a.fs)
+    for (at, e) in b.fs
+        v = get(d, at, zero(Q)) + e
+        iszero(v) ? delete!(d, at) : (d[at] = v)
+    end
+    mono(d)
+end
+powMono(m::Mono, q::Q) = Mono(Pair{Atom,Q}[a => e * q for (a, e) in m.fs])
+
+function addS(a::Sum, b::Sum)
+    d = copy(a.t)
+    for (m, c) in b.t
+        v = get(d, m, zero(Q)) + c
+        iszero(v) ? delete!(d, m) : (d[m] = v)
+    end
+    Sum(d)
+end
+scaleS(a::Sum, c::Q) = iszero(c) ? zeroS() : Sum(Dict{Mono,Q}(m => c * v for (m, v) in a.t))
+negS(a::Sum) = scaleS(a, Q(-1))
+subS(a::Sum, b::Sum) = addS(a, negS(b))
+function mulS(a::Sum, b::Sum)
+    d = Dict{Mono,Q}()
+    for (m1, c1) in a.t, (m2, c2) in b.t
+        m = mulMono(m1, m2)
+        v = get(d, m, zero(Q)) + c1 * c2
+        iszero(v) ? delete!(d, m) : (d[m] = v)
+    end
+    Sum(d)
+end
+
+function ratconst(s::Sum)
+    isempty(s.t) && return Q(0)
+    length(s.t) == 1 || return nothing
+    m, c = first(s.t)
+    isempty(m.fs) ? c : nothing
+end
+
+hasleaf(a::Atom, k::String) =
+    a.kind === :leaf ? a.key == k : any(u -> hasleaf(u::Sum, k), a.args)
+hasleaf(s::Sum, k::String) = any(m -> any(p -> hasleaf(p.first, k), m.fs), keys(s.t))
+
+# --- rational powers --------------------------------------------------------
+function iroot(n::BigInt, k::Int)
+    n == 0 && return big(0)
+    r = round(BigInt, BigFloat(n)^inv(BigFloat(k)))
+    r^k == n ? r : nothing
+end
+
+function ratpow(c::Q, e::Q)
+    if isone(denominator(e))
+        n = numerator(e)
+        abs(n) > 100_000 && throw(GruntzError("exponent too large"))
+        return c^Int(n)
+    end
+    c < 0 && throw(GruntzError("complex power of a negative number"))
+    p, d = Int(numerator(e)), Int(denominator(e))
+    rn = iroot(numerator(c), d)
+    rd = iroot(denominator(c), d)
+    (rn === nothing || rd === nothing) && return nothing
+    (rn // rd)^p
+end
+
+function powS(s::Sum, q::Q)
+    iszero(q) && return oneS()
+    if isempty(s.t)
+        q > 0 && return zeroS()
+        throw(GruntzError("division by zero"))
+    end
+    if length(s.t) == 1
+        m, c = first(s.t)
+        mm = powMono(m, q)
+        r = ratpow(c, q)
+        if r === nothing
+            mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(constS(c)) => q]))
+            r = Q(1)
+        end
+        return monoS(mm, r)
+    end
+    if isone(denominator(q)) && 0 < q <= 8
+        res = s
+        for _ in 2:Int(q)
+            res = mulS(res, s)
+        end
+        return res
+    end
+    monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))
+end
+
+# --- exp / log / trig constructors -------------------------------------------
+# exp of a sum. Constants are pulled out (exp(c) = exp(1)^c) and so are terms
+# c*log(y) (= y^c). The remaining non-constant terms are kept together in ONE
+# atom exp(u0)^c, with u0 normalised to have coefficient 1 on its first monomial.
+# Splitting them into separate exp atoms would destroy cancellations between the
+# terms, e.g. exp(t^2 log(sin(1/t)) + t^2 log t) has a bounded argument although
+# each term alone diverges.
+function mkexp(u::Sum)
+    res = oneS()
+    rest = Dict{Mono,Q}()
+    for (m, c) in u.t
+        a1 = length(m.fs) == 1 ? m.fs[1] : nothing
+        if isempty(m.fs)
+            a = funatom(:exp, Sum[oneS()])
+            res = mulS(res, monoS(Mono(Pair{Atom,Q}[a => c]), Q(1)))
+        elseif a1 !== nothing && a1.second == 1 && a1.first.kind === :fun && a1.first.head === :log
+            res = mulS(res, powS(a1.first.args[1]::Sum, c))     # exp(c*log y) = y^c
+        else
+            rest[m] = c
+        end
+    end
+    if !isempty(rest)
+        c = first(sort!(collect(rest); by = p -> p.first.key)).second
+        u0 = Sum(Dict{Mono,Q}(m => v / c for (m, v) in rest))
+        a = funatom(:exp, Sum[u0])
+        res = mulS(res, monoS(Mono(Pair{Atom,Q}[a => c]), Q(1)))
+    end
+    res
+end
+
+function factorint(n::BigInt)
+    f = Pair{BigInt,Int}[]
+    p = big(2)
+    while p * p <= n && p < 1_000_000
+        k = 0
+        while n % p == 0
+            n ÷= p
+            k += 1
+        end
+        k > 0 && push!(f, p => k)
+        p += (p == 2 ? 1 : 2)
+    end
+    n > 1 && push!(f, n => 1)
+    f
+end
+
+function lograt(c::Q)
+    res = zeroS()
+    for (p, k) in factorint(numerator(c))
+        res = addS(res, scaleS(atomS(funatom(:log, Sum[constS(p)])), Q(k)))
+    end
+    for (p, k) in factorint(denominator(c))
+        res = subS(res, scaleS(atomS(funatom(:log, Sum[constS(p)])), Q(k)))
+    end
+    res
+end
+
+function logatom(a::Atom)
+    if a.kind === :fun && a.head === :exp
+        a.args[1]::Sum
+    elseif a.kind === :base
+        mklog(a.args[1]::Sum)
+    else
+        atomS(funatom(:log, Sum[atomS(a)]))
+    end
+end
+
+function mklog(s::Sum)
+    isempty(s.t) && throw(GruntzError("log(0)"))
+    if length(s.t) == 1
+        m, c = first(s.t)
+        c < 0 && throw(GruntzError("log of a negative number"))
+        res = lograt(c)
+        for (a, e) in m.fs
+            res = addS(res, scaleS(logatom(a), e))
+        end
+        return res
+    end
+    atomS(funatom(:log, Sum[s]))
+end
+
+mksin(s::Sum) = isempty(s.t) ? zeroS() : atomS(funatom(:sin, Sum[s]))
+mkcos(s::Sum) = isempty(s.t) ? oneS() : atomS(funatom(:cos, Sum[s]))
+
+# atan is odd: pull a negative sign of a single-term argument outside
+function mkatan(s::Sum)
+    isempty(s.t) && return zeroS()
+    if length(s.t) == 1 && first(s.t).second < 0
+        return negS(mkatan(negS(s)))
+    end
+    atomS(funatom(:atan, Sum[s]))
+end
+
+const PI_ATOM = leafatom(π)
+
+# abs: |c*m| = |c| * abs(m); sign-normalised so abs(u) and abs(-u) coincide.
+# It is eliminated before the limit is computed (see `resolve_abs`).
+function mkabs(s::Sum)
+    isempty(s.t) && return zeroS()
+    r = ratconst(s)
+    r !== nothing && return constS(abs(r))
+    if length(s.t) == 1
+        m, c = first(s.t)
+        return scaleS(atomS(funatom(:abs, Sum[monoS(m, Q(1))])), abs(c))
+    end
+    c1 = first(sort!(collect(s.t); by = p -> p.first.key)).second
+    atomS(funatom(:abs, Sum[c1 < 0 ? negS(s) : s]))
+end
+
+function mkfun(h::Symbol, a::Vector{Sum})
+    h === :exp ? mkexp(a[1]) :
+    h === :log ? mklog(a[1]) :
+    h === :sin ? mksin(a[1]) :
+    h === :atan ? mkatan(a[1]) :
+    h === :abs ? mkabs(a[1]) :
+    h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
+end
+
+function mkpow(a::Sum, b::Sum)
+    r = ratconst(b)
+    r !== nothing ? powS(a, r) : mkexp(mulS(b, mklog(a)))
+end
+
+# --- substitution --------------------------------------------------------------
+function subs_atoms(s::Sum, f)::Sum
+    res = zeroS()
+    for (m, c) in s.t
+        term = constS(c)
+        for (a, e) in m.fs
+            r = f(a)
+            r === nothing && (r = rebuild(a, f))
+            term = mulS(term, powS(r, e))
+        end
+        res = addS(res, term)
+    end
+    res
+end
+function rebuild(a::Atom, f)
+    a.kind === :leaf && return atomS(a)
+    a.kind === :base && return subs_atoms(a.args[1]::Sum, f)
+    mkfun(a.head, Sum[subs_atoms(u::Sum, f) for u in a.args])
+end
+
+# --- numeric evaluation (for signs of constants) -----------------------------
+# Real numbers convert directly. Other `Number` leaves (e.g. SymEngine's `Basic`
+# constants) are tried through Float64; anything that is not a finite number is a
+# free symbol, whose sign cannot be decided.
+function leaf_big(h)
+    h isa Real && return BigFloat(h)
+    for conv in (BigFloat, Float64)
+        try
+            v = BigFloat(conv(h))
+            isfinite(v) && return v
+        catch
+        end
+    end
+    throw(GruntzError("cannot decide the sign of an expression containing the free symbol `$h`"))
+end
+
+function numval(a::Atom)
+    if a.kind === :leaf
+        return leaf_big(a.head)
+    elseif a.kind === :base
+        return numval(a.args[1]::Sum)
+    end
+    v = numval(a.args[1]::Sum)
+    a.head === :exp ? exp(v) : a.head === :log ? log(v) : a.head === :sin ? sin(v) :
+    a.head === :atan ? atan(v) : a.head === :abs ? abs(v) : cos(v)
+end
+function numval(s::Sum)
+    acc = BigFloat(0)
+    for (m, c) in s.t
+        v = BigFloat(numerator(c)) / BigFloat(denominator(c))
+        for (a, e) in m.fs
+            v *= numval(a)^(BigFloat(numerator(e)) / BigFloat(denominator(e)))
+        end
+        acc += v
+    end
+    acc
+end
+function csign(s::Sum)::Int
+    isempty(s.t) && return 0
+    r = ratconst(s)
+    r !== nothing && return Int(sign(r))
+    v = try
+        numval(s)
+    catch err
+        err isa GruntzError ? rethrow() : throw(GruntzError("cannot evaluate constant $(skey(s))"))
+    end
+    abs(v) < big"1e-60" ? 0 : (v > 0 ? 1 : -1)
+end
+
+# ---------------------------------------------------------------------------
+# Truncated power series in w with rational exponents
+# ---------------------------------------------------------------------------
+struct PS
+    c::Dict{Q,Sum}   # exponent -> nonzero coefficient (an x-expression)
+    prec::Q          # exact for exponents < prec
+end
+val(a::PS) = isempty(a.c) ? a.prec : minimum(keys(a.c))
+onePS() = PS(Dict{Q,Sum}(Q(0) => oneS()), HUGE)
+
+function trunc_ps(c::Dict{Q,Sum}, prec::Q)
+    d = Dict{Q,Sum}()
+    for (k, v) in c
+        (k < prec && !isempty(v.t)) && (d[k] = v)
+    end
+    PS(d, prec)
+end
+function addPS(a::PS, b::PS)
+    c = copy(a.c)
+    for (k, v) in b.c
+        c[k] = haskey(c, k) ? addS(c[k], v) : v
+    end
+    trunc_ps(c, min(a.prec, b.prec))
+end
+scalePS(a::PS, s::Sum) = trunc_ps(Dict{Q,Sum}(k => mulS(v, s) for (k, v) in a.c), a.prec)
+shiftPS(a::PS, d::Q) = PS(Dict{Q,Sum}(k + d => v for (k, v) in a.c), a.prec + d)
+function mulPS(a::PS, b::PS)
+    prec = min(a.prec + val(b), b.prec + val(a))
+    c = Dict{Q,Sum}()
+    for (ka, ca) in a.c, (kb, cb) in b.c
+        k = ka + kb
+        k >= prec && continue
+        v = mulS(ca, cb)
+        c[k] = haskey(c, k) ? addS(c[k], v) : v
+    end
+    trunc_ps(c, prec)
+end
+
+binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end; r)
+
+# sum_{k>=kmin} coef(k) u^k, u having positive valuation; relative target `Trel`
+function polyPS(u::PS, coef, kmin::Int, Trel::Q)
+    acc = PS(Dict{Q,Sum}(), min(Trel, u.prec))
+    K = isempty(u.c) ? kmin : max(kmin, Int(ceil(BigInt, Trel / val(u))))
+    pw = onePS()
+    for k in 0:K
+        if k >= kmin
+            ck = coef(k)
+            iszero(ck) || (acc = addPS(acc, scalePS(pw, constS(ck))))
+        end
+        k < K && (pw = mulPS(pw, u))
+    end
+    acc
+end
+
+# a = c0 * w^v * (1 + r); returns (v, c0, r)
+function split_lead(a::PS)
+    isempty(a.c) && throw(NeedMorePrecision())
+    v = val(a)
+    c0 = a.c[v]
+    ic0 = powS(c0, Q(-1))
+    r = PS(Dict{Q,Sum}(k - v => mulS(cc, ic0) for (k, cc) in a.c if k != v), a.prec - v)
+    v, c0, r
+end
+
+function powPS(a::PS, q::Q, P::Q)
+    q == 1 && return a
+    iszero(q) && return onePS()
+    v, c0, r = split_lead(a)
+    T = polyPS(r, k -> binomq(q, k), 0, P)
+    shiftPS(scalePS(T, powS(c0, q)), v * q)
+end
+
+function const_and_rest(a::PS)
+    a.prec <= 0 && throw(NeedMorePrecision())
+    any(k -> k < 0, keys(a.c)) &&
+        throw(GruntzError("argument of exp/sin/cos diverges (oscillation or essential singularity)"))
+    c0 = get(a.c, Q(0), zeroS())
+    c0, trunc_ps(Dict{Q,Sum}(k => v for (k, v) in a.c if k != 0), a.prec)
+end
+
+function expPS(a::PS, P::Q)
+    c0, u = const_and_rest(a)
+    scalePS(polyPS(u, k -> Q(1) // factorial(big(k)), 0, P), mkexp(c0))
+end
+
+function trigPS(a::PS, P::Q)
+    c0, u = const_and_rest(a)
+    su = polyPS(u, k -> iseven(k) ? Q(0) : Q((-1)^((k - 1) ÷ 2)) // factorial(big(k)), 0, P)
+    cu = polyPS(u, k -> isodd(k) ? Q(0) : Q((-1)^(k ÷ 2)) // factorial(big(k)), 0, P)
+    s0, k0 = mksin(c0), mkcos(c0)
+    addPS(scalePS(cu, s0), scalePS(su, k0)), addPS(scalePS(cu, k0), scalePS(su, negS(s0)))
+end
+
+constPS(s::Sum) = PS(isempty(s.t) ? Dict{Q,Sum}() : Dict{Q,Sum}(Q(0) => s), HUGE)
+
+# atan(v) for v with positive valuation
+atanSeries(v::PS, P::Q) =
+    polyPS(v, k -> iseven(k) ? Q(0) : Q((-1)^((k - 1) ÷ 2)) // k, 0, P)
+
+function atanPS(a::PS, x::Atom, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    if val(a) < 0
+        # a -> ±oo as w -> 0:  atan(a) = σ π/2 - atan(1/a)
+        _, c0, _ = split_lead(a)
+        σ = sgn(c0, x)
+        σ == 0 && throw(GruntzError("could not determine the sign of an atan argument"))
+        half_pi = scaleS(atomS(PI_ATOM), Q(σ) // 2)
+        return addPS(constPS(half_pi), scalePS(atanSeries(powPS(a, Q(-1), P), P), negS(oneS())))
+    end
+    # atan(c + u) = atan(c) + atan(u / (1 + c^2 + c u)), valid for every real c
+    c0, u = const_and_rest(a)
+    den = addPS(constPS(addS(oneS(), mulS(c0, c0))), scalePS(u, c0))
+    v = mulPS(u, powPS(den, Q(-1), P))
+    addPS(atanSeries(v, P), constPS(mkatan(c0)))
+end
+
+function logPS(a::PS, logw::Sum, P::Q)
+    v, c0, r = split_lead(a)
+    L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
+    cst = addS(mklog(c0), scaleS(logw, v))
+    addPS(L, PS(isempty(cst.t) ? Dict{Q,Sum}() : Dict{Q,Sum}(Q(0) => cst), HUGE))
+end
+
+function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
+    a.kind === :leaf && return PS(Dict{Q,Sum}(Q(1) => oneS()), HUGE)
+    a.kind === :base && return series(a.args[1]::Sum, w, logw, P, x)
+    arg = series(a.args[1]::Sum, w, logw, P, x)
+    h = a.head
+    h === :exp ? expPS(arg, P) :
+    h === :log ? logPS(arg, logw, P) :
+    h === :atan ? atanPS(arg, x, P) :
+    h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
+end
+
+function series(s::Sum, w::Atom, logw::Sum, P::Q, x::Atom)::PS
+    acc = PS(Dict{Q,Sum}(), P)
+    for (m, c) in s.t
+        cst = constS(c)
+        ps = nothing
+        for (a, e) in m.fs
+            if hasleaf(a, w.key)
+                pe = powPS(series_atom(a, w, logw, P, x), e, P)
+                ps = ps === nothing ? pe : mulPS(ps, pe)
+            else
+                cst = mulS(cst, powS(atomS(a), e))
+            end
+        end
+        term = ps === nothing ?
+               PS(isempty(cst.t) ? Dict{Q,Sum}() : Dict{Q,Sum}(Q(0) => cst), HUGE) :
+               scalePS(ps, cst)
+        acc = addPS(acc, term)
+    end
+    acc
+end
+
+function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom)
+    P = Q(4)
+    for _ in 1:8
+        try
+            ps = series(f, w, logw, P, x)
+            if !isempty(ps.c)
+                k = minimum(keys(ps.c))
+                return ps.c[k], k
+            end
+        catch err
+            err isa NeedMorePrecision || rethrow()
+        end
+        P *= 2
+    end
+    throw(GruntzError("could not determine the leading term (deep cancellation, " *
+                      "or a zero that the internal simplifier cannot recognise)"))
+end
+
+# ---------------------------------------------------------------------------
+# Gruntz's algorithm
+# ---------------------------------------------------------------------------
+const DEPTH = Ref(0)
+
+function limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
+    hasleaf(e, x.key) || return e
+    DEPTH[] > 120 && throw(GruntzError("recursion limit reached: the expression is too " *
+                                       "complicated for the algorithm as implemented"))
+    DEPTH[] += 1
+    try
+        c0, e0 = mrv_leadterm(e, x)
+        if e0 > 0
+            zeroS()
+        elseif e0 < 0
+            s = sgn(c0, x)
+            s == 0 && throw(GruntzError("could not determine the sign of the leading coefficient"))
+            Infinity(s)
+        else
+            skey(c0) == skey(e) &&
+                throw(GruntzError("no progress: leading coefficient equals the expression"))
+            limitinf(c0, x)
+        end
+    finally
+        DEPTH[] -= 1
+    end
+end
+
+# sign of e as x -> +oo (nonzero for nonzero e)
+function sgn(c::Sum, x::Atom)::Int
+    hasleaf(c, x.key) || return csign(c)
+    if length(c.t) == 1
+        m, co = first(c.t)
+        sg = co < 0 ? -1 : 1
+        simple = true
+        for (a, e) in m.fs
+            if hasleaf(a, x.key)
+                if !(a == x || (a.kind === :fun && a.head === :exp))
+                    simple = false
+                    break
+                end
+            else
+                s2 = csign(atomS(a))
+                s2 == 0 && throw(GruntzError("zero constant factor"))
+                if s2 < 0
+                    isone(denominator(e)) || throw(GruntzError("complex power"))
+                    isodd(numerator(e)) && (sg = -sg)
+                end
+            end
+        end
+        simple && return sg
+    end
+    L = limitinf(c, x)
+    L isa Infinity && return L.sign
+    v = csign(L)
+    v != 0 && return v
+    c1, _ = mrv_leadterm(c, x)
+    sgn(c1, x)
+end
+
+logof(a::Atom) = (a.kind === :fun && a.head === :exp) ? a.args[1]::Sum : mklog(atomS(a))
+
+function compare(a::Atom, b::Atom, x::Atom)
+    c = limitinf(mulS(logof(a), powS(logof(b), Q(-1))), x)
+    c isa Infinity ? :gt : (iszero(c) ? :lt : :eq)
+end
+
+function mrv_max(f::Vector{Atom}, g::Vector{Atom}, x::Atom)
+    isempty(f) && return g
+    isempty(g) && return f
+    any(a -> a in g, f) && return union(f, g)
+    c = compare(f[1], g[1], x)
+    c === :gt ? f : c === :lt ? g : union(f, g)
+end
+
+function mrv(e::Sum, x::Atom)::Vector{Atom}
+    Ω = Atom[]
+    hasleaf(e, x.key) || return Ω
+    for m in keys(e.t), (a, _) in m.fs
+        Ω = mrv_max(Ω, mrv_atom(a, x), x)
+    end
+    Ω
+end
+
+function mrv_atom(a::Atom, x::Atom)::Vector{Atom}
+    hasleaf(a, x.key) || return Atom[]
+    a.kind === :leaf && return Atom[a]
+    a.kind === :base && return mrv(a.args[1]::Sum, x)
+    if a.head === :exp
+        u = a.args[1]::Sum
+        L = limitinf(u, x)
+        return L isa Infinity ? mrv_max(Atom[a], mrv(u, x), x) : mrv(u, x)
+    end
+    Ω = Atom[]
+    for u in a.args
+        Ω = mrv_max(Ω, mrv(u::Sum, x), x)
+    end
+    Ω
+end
+
+function single_atom(s::Sum)
+    length(s.t) == 1 || return nothing
+    m, c = first(s.t)
+    (isone(c) && length(m.fs) == 1) ? m.fs[1].first : nothing
+end
+
+# returns (c0, e0) with e = c0 * w^e0 + ..., w -> 0+ the exponential of the mrv class
+function mrv_leadterm(e::Sum, x::Atom)
+    Ω = mrv(e, x)
+    isempty(Ω) && return e, Q(0)
+    if any(==(x), Ω)
+        # move up: x -> exp(x). The mrv set is mapped, never recomputed (avoids infinite recursion).
+        xup = mkexp(atomS(x))
+        up = a -> a == x ? xup : nothing
+        newΩ = Atom[]
+        ok = true
+        for a in Ω
+            at = single_atom(subs_atoms(atomS(a), up))
+            (at === nothing || at.kind !== :fun || at.head !== :exp) ? (ok = false) : push!(newΩ, at)
+        end
+        e = subs_atoms(e, up)
+        Ω = ok ? newΩ : mrv(e, x)
+        any(==(x), Ω) && throw(GruntzError("internal error while moving up"))
+    end
+    sort!(Ω; by = a -> length(a.key))
+    g1 = Ω[1].args[1]::Sum
+    σ = sgn(g1, x)
+    wS = atomS(WLEAF)
+    wpow = Dict{String,Sum}()      # exp(g_i) = w^(-σ c_i) * exp(g_i - c_i g_1)
+    rest = Dict{String,Sum}()      # g_i - c_i g_1
+    for a in Ω
+        gi = a.args[1]::Sum
+        ci = limitinf(mulS(gi, powS(g1, Q(-1))), x)
+        ci isa Infinity && throw(GruntzError("internal error: mrv class is inconsistent"))
+        cq = ratconst(ci)
+        (cq === nothing || iszero(cq)) &&
+            throw(GruntzError("irrational ratio between exponents of comparable terms is unsupported"))
+        wpow[a.key] = powS(wS, Q(-σ) * cq)
+        rest[a.key] = subS(gi, scaleS(g1, cq))
+    end
+    # The factor exp(g_i - c_i g_1) may itself contain members of Ω inside its
+    # argument (e.g. exp(exp(-x)) = exp(w)), so it is rewritten recursively.
+    memo = Dict{String,Sum}()
+    function rewrite(a::Atom)
+        haskey(wpow, a.key) || return nothing
+        haskey(memo, a.key) && return memo[a.key]
+        v = mulS(wpow[a.key], subs_atoms(mkexp(rest[a.key]), rewrite))
+        memo[a.key] = v
+        v
+    end
+    f = subs_atoms(e, rewrite)
+    leadterm(f, WLEAF, scaleS(g1, Q(-σ)), x)   # log(w) = -σ g1
+end
+
+# ---------------------------------------------------------------------------
+# TermInterface <-> canonical form
+# ---------------------------------------------------------------------------
+function from_number(t)
+    t isa Integer && return constS(Q(t))
+    t isa Rational && return constS(Q(t))
+    if t isa AbstractIrrational
+        return t === ℯ ? mkexp(oneS()) : atomS(leafatom(t))
+    end
+    if t isa AbstractFloat
+        isfinite(t) || throw(GruntzError("non-finite number in expression"))
+        return constS(rationalize(BigInt, t))
+    end
+    t isa Complex && throw(GruntzError("complex numbers are not supported"))
+    atomS(leafatom(t))          # symbolic wrapper types (e.g. Num) that are leaves
+end
+
+safe_iscall(t) = try iscall(t) === true catch; false end
+
+const NAMED_CONSTANTS = Dict{String,Any}(
+    "pi" => π, "π" => π, "E" => ℯ,
+    "EulerGamma" => Base.MathConstants.eulergamma,
+    "Catalan" => Base.MathConstants.catalan,
+    "GoldenRatio" => Base.MathConstants.golden)
+
+# A leaf that is a callable constant (e.g. a symbolic number) is evaluated; a
+# variable or parameter cannot be called with no arguments and stays an atom.
+function leaf_value(t)
+    t isa Function || return nothing
+    try
+        v = t()
+        v isa Real ? v : nothing
+    catch
+        nothing
+    end
+end
+
+# Numeric leaves of symbolic packages that are neither Julia numbers nor
+# callable (e.g. SymEngine's `Basic` integers, rationals, floats and named
+# constants such as `E`, `pi`) are recognised through their printed form, which
+# is exact and package independent. Returns a `Sum`, or `nothing` for a symbol.
+function leaf_number(t)
+    if t isa Function
+        v = leaf_value(t)
+        return v === nothing ? nothing : from_number(v)
+    end
+    t isa Number || return nothing
+    s = string(t)
+    m = match(r"^(-?\d+)(?:/(\d+))?$", s)
+    if m !== nothing
+        n = parse(BigInt, m.captures[1])
+        d = m.captures[2] === nothing ? big(1) : parse(BigInt, m.captures[2])
+        return constS(Q(n // d))
+    end
+    if occursin(r"^-?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$", s)
+        return constS(rationalize(BigInt, parse(Float64, s)))
+    end
+    haskey(NAMED_CONSTANTS, s) ? from_number(NAMED_CONSTANTS[s]) : nothing
+end
+
+function from_term(t)::Sum
+    if safe_iscall(t)
+        args = arguments(t)
+        isempty(args) || return apply_op(operation(t), Sum[from_term(a) for a in args])
+    end
+    t isa Union{Integer,Rational,AbstractFloat,AbstractIrrational,Complex} && return from_number(t)
+    v = leaf_number(t)
+    v === nothing ? atomS(leafatom(t)) : v
+end
+
+function apply_op(op, a::Vector{Sum})
+    n = op isa Symbol ? op : (op isa Function ? nameof(op) : Symbol(string(op)))
+    na = length(a)
+    half = Q(1) // 2
+    if n === :+
+        foldl(addS, a; init = zeroS())
+    elseif n === :-
+        na == 1 ? negS(a[1]) : subS(a[1], foldl(addS, a[2:end]; init = zeroS()))
+    elseif n === :*
+        foldl(mulS, a; init = oneS())
+    elseif n === :/ && na == 2
+        mulS(a[1], powS(a[2], Q(-1)))
+    elseif n === :inv && na == 1
+        powS(a[1], Q(-1))
+    elseif n === :^ && na == 2
+        mkpow(a[1], a[2])
+    elseif n === :sqrt && na == 1
+        powS(a[1], half)
+    elseif n === :cbrt && na == 1
+        powS(a[1], Q(1) // 3)
+    elseif n === :exp && na == 1
+        mkexp(a[1])
+    elseif n === :log && na == 1
+        mklog(a[1])
+    elseif n === :log && na == 2
+        mulS(mklog(a[2]), powS(mklog(a[1]), Q(-1)))
+    elseif n === :atan && na == 1
+        mkatan(a[1])
+    elseif n === :abs && na == 1
+        mkabs(a[1])
+    elseif n === :sin && na == 1
+        mksin(a[1])
+    elseif n === :cos && na == 1
+        mkcos(a[1])
+    elseif n === :tan && na == 1
+        mulS(mksin(a[1]), powS(mkcos(a[1]), Q(-1)))
+    elseif n in (:sinh, :cosh, :tanh) && na == 1
+        p, m = mkexp(a[1]), mkexp(negS(a[1]))
+        s = scaleS(subS(p, m), half)
+        c = scaleS(addS(p, m), half)
+        n === :sinh ? s : n === :cosh ? c : mulS(s, powS(c, Q(-1)))
+    else
+        throw(GruntzError("unsupported function/operator `$n` with $na argument(s)"))
+    end
+end
+
+const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log => log,
+                                  :sin => sin, :cos => cos, :atan => atan, :abs => abs,
+                                  :sqrt => sqrt)
+default_build(op, args...) = op(args...)
+
+# Build `op(args...)` for constant arguments WITHOUT evaluating it, for symbolic
+# types that defer evaluation only when a symbolic variable is involved
+# (SimpleExpressions). Plain Julia would turn e.g. sqrt(2) or (-1//2)*π into a
+# Float64 at once. Strategies, in order:
+#  1. placeholder substitution: build op(x, args[2:end]...) with the symbolic
+#     variable `x` as first argument, then substitute args[1] for it with
+#     `u(args[1], :)`, which SimpleExpressions documents as leaving a symbolic
+#     expression (evaluated later with `u()`);
+#  2. TermInterface's `maketerm`, trying both conventions for `head`;
+#  3. evaluating eagerly (the result is then a plain number).
+function placeholder_call(x, op, args)
+    isempty(args) && return nothing
+    try
+        u = op(x, args[2:end]...)
+        u isa Function || return nothing
+        r = u(args[1], :)
+        r isa Function ? r : nothing
+    catch
+        nothing
+    end
+end
+
+function maketerm_call(T, op, args)
+    for TT in unique(Any[T, Base.typename(T).wrapper])
+        for attempt in (() -> maketerm(TT, op, Any[args...], nothing),
+                        () -> maketerm(TT, :call, Any[op; args...], nothing))
+            try
+                r = attempt()
+                r isa Function && return r
+            catch
+            end
+        end
+    end
+    nothing
+end
+
+function deferred_call(x, op, args)
+    r = placeholder_call(x, op, args)
+    r === nothing || return r
+    r = maketerm_call(typeof(x), op, args)
+    r === nothing || return r
+    op(args...)
+end
+
+# Default builder. Function-like symbolic types (SimpleExpressions) defer
+# evaluation only when some argument is symbolic; for constant-only terms we
+# construct the node explicitly. Other types (e.g. SymEngine's `Basic`) simply
+# apply the operation, which stays symbolic through their own number type.
+function auto_build(f, x)
+    typeof(x) <: Function || return default_build
+    (op, args...) -> any(a -> a isa Function, args) ? op(args...) : deferred_call(x, op, args)
+end
+
+# `build(op, args...)` constructs a compound term; `lift(v)` turns plain Julia
+# numbers (and π) into the symbolic package's own number type.
+struct Builder
+    build::Any
+    lift::Any
+end
+mk(bd::Builder, name::Symbol, args) = bd.build(OPS[name], args...)
+
+fitint(n::BigInt) = typemin(Int) <= n <= typemax(Int) ? Int(n) : n
+function num(c::Q)
+    n, d = numerator(c), denominator(c)
+    isone(d) && return fitint(n)
+    (typemin(Int) <= n <= typemax(Int) && d <= typemax(Int)) ? Int(n) // Int(d) : c
+end
+
+atom_term(b, a::Atom) =
+    a.kind === :leaf ? (a.head isa AbstractIrrational ? b.lift(a.head) : a.head) :
+    a.kind === :base ? to_term(b, a.args[1]::Sum) :
+    mk(b, a.head, Any[to_term(b, a.args[1]::Sum)])
+
+function mono_term(b, m::Mono, c::Q)
+    fs = Any[]
+    for (a, e) in m.fs
+        t = atom_term(b, a)
+        push!(fs, isone(e) ? t : e == Q(1) // 2 ? mk(b, :sqrt, Any[t]) :
+                  mk(b, :^, Any[t, b.lift(num(e))]))
+    end
+    isempty(fs) && return b.lift(num(c))
+    isone(c) && return length(fs) == 1 ? fs[1] : mk(b, :*, fs)
+    mk(b, :*, Any[b.lift(num(c)); fs])
+end
+
+function to_term(b, s::Sum)
+    isempty(s.t) && return b.lift(0)
+    ts = Any[mono_term(b, m, c) for (m, c) in sort!(collect(s.t); by = p -> p.first.key)]
+    length(ts) == 1 ? ts[1] : mk(b, :+, ts)
+end
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+function lim_equal(a, b)
+    (a isa Infinity && b isa Infinity) && return a.sign == b.sign
+    (a isa Sum && b isa Sum) && return skey(a) == skey(b)
+    false
+end
+
+# +1 / -1 for +/-infinity (Julia floats or a symbolic package's infinity), else 0
+function infdir(x0)
+    x0 isa AbstractFloat && return isinf(x0) ? (x0 > 0 ? 1 : -1) : 0
+    x0 isa Number || return 0
+    s = string(x0)
+    s in ("Inf", "+Inf", "inf", "oo", "+oo", "Infinity") ? 1 :
+    s in ("-Inf", "-inf", "-oo", "-Infinity") ? -1 : 0
+end
+
+# At x -> +oo every expression handled here has an eventual constant sign, so
+# abs(u) = sign(u) * u. Inner abs are resolved first. An abs of a constant whose
+# sign cannot be decided (free parameter) stays as an `abs` atom.
+function resolve_abs(e::Sum, x::Atom)
+    function res(a::Atom)
+        (a.kind === :fun && a.head === :abs) || return nothing
+        u = subs_atoms(a.args[1]::Sum, res)
+        hasleaf(u, x.key) && return scaleS(u, Q(sgn(u, x)))
+        sg = try
+            csign(u)
+        catch err
+            err isa GruntzError ? nothing : rethrow()
+        end
+        sg === nothing ? mkabs(u) : scaleS(u, Q(sg))
+    end
+    subs_atoms(e, res)
+end
+
+limit_pos(e::Sum, x::Atom) = limitinf(resolve_abs(e, x), x)
+
+function _limit(e::Sum, xa::Atom, x0, dir::Symbol)
+    xS = atomS(xa)
+    inf = infdir(x0)
+    if inf != 0
+        return inf > 0 ? limit_pos(e, xa) :
+               limit_pos(subs_atoms(e, a -> a == xa ? negS(xS) : nothing), xa)
+    end
+    p = from_term(x0)
+    hasleaf(p, xa.key) && throw(GruntzError("the limit point must not contain the variable"))
+    inv_x = powS(xS, Q(-1))
+    side(sg) = limit_pos(subs_atoms(e, a -> a == xa ? addS(p, scaleS(inv_x, Q(sg))) : nothing), xa)
+    if dir === :+
+        side(1)
+    elseif dir === :-
+        side(-1)
+    elseif dir === :both
+        l, r = side(1), side(-1)
+        lim_equal(l, r) || throw(GruntzError("one-sided limits differ"))
+        l
+    else
+        throw(GruntzError("dir must be :+, :- or :both"))
+    end
+end
+
+# Symbolic number types that are not `Real` (e.g. SymEngine's `Basic`) are built
+# from plain numbers by their constructor, so results like exp(1) stay exact.
+function auto_lift(f, x)
+    for t in (f, x)
+        if t isa Number && !(t isa Real)
+            T = typeof(t)
+            return v -> try
+                T(v)
+            catch
+                v
+            end
+        end
+    end
+    identity
+end
+
+function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = nothing)
+    L = _limit(from_term(f), leafatom(x), x0, dir)
+    L isa Infinity && return L.sign > 0 ? Inf : -Inf
+    r = ratconst(L)
+    r !== nothing && return num(r)
+    to_term(Builder(build === nothing ? auto_build(f, x) : build,
+                    lift === nothing ? auto_lift(f, x) : lift), L)
+end
+
+end # module
