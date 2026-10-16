@@ -1,5 +1,10 @@
 using Documenter, MaterialDocs
 using GruntzLimit
+using Latexify, SymEngine
+
+# show symbolic answers in the examples as typeset math
+Base.show(io::IO, ::MIME"text/latex", ex::SymEngine.Basic) = print(io, latexify(string(ex); cdot = false))
+Base.show(io::IO, ::MIME"text/latex", ex::Expr) = print(io, latexify(ex; cdot = false))
 
 DocMeta.setdocmeta!(GruntzLimit, :DocTestSetup, :(using GruntzLimit); recursive = true)
 
