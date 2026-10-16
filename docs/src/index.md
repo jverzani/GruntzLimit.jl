@@ -1,0 +1,45 @@
+# GruntzLimit.jl
+
+Limits of univariate real expressions using the algorithm of D. Gruntz,
+*On Computing Limits in a Symbolic Manipulation System* (PhD thesis, ETH Zürich, 1996).
+
+The package does not depend on a computer algebra system. Any symbolic term type that
+implements the [TermInterface.jl](https://github.com/JuliaSymbolics/TermInterface.jl)
+methods `iscall`, `operation` and `arguments` can be used. These docs show two such types:
+
+* [SymEngine.jl](https://github.com/symengine/SymEngine.jl) (`Basic`), a full symbolic
+  library whose answers come back as exact `Basic` values;
+* Julia's own `Expr`, which needs no extra packages at all.
+
+[SimpleExpressions.jl](https://github.com/jverzani/SimpleExpressions.jl) is also tested.
+
+The input is converted to an internal canonical form. All of the algorithm's work (finding
+the most rapidly varying subexpressions, rewriting, series expansion) is done there, and the
+answer is rebuilt in your term type by calling operations as functions.
+
+This package was implemented by Claude Code. See also
+[SymbolicLimits.jl](https://github.com/SciML/SymbolicLimits.jl), which implements Gruntz's
+algorithm for Symbolics.jl.
+
+## Example
+
+```@example index
+using GruntzLimit
+using SymEngine: @vars
+@vars x a
+
+gruntz_limit((1 + a/x)^x, x, Inf)
+```
+
+```@example index
+gruntz_limit((x^x - x^a)/(a^x - a^a), x, a)
+```
+
+The same limit with `Expr` input, with the variable and parameter given as `Symbol`s:
+
+```@example index
+gruntz_limit(:((x^x - x^a)/(a^x - a^a)), :x, :a)
+```
+
+The only entry point is [`gruntz_limit`](@ref). When a limit does not exist, or cannot be
+computed, it throws a [`GruntzError`](@ref).

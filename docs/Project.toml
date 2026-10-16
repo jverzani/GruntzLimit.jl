@@ -1,0 +1,8 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GruntzLimit = "549ac5eb-4437-4bd1-88f1-51d4e2fa49c9"
+MaterialDocs = "10bdffc8-969c-4dd4-83f3-742518eccd6b"
+SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
+
+[sources]
+GruntzLimit = {path = ".."}
