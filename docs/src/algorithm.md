@@ -64,7 +64,9 @@ repeated.
 A rational answer is returned as an `Int` or `Rational`, and an infinite one as `±Inf`.
 Anything else is converted back from the canonical form by calling `build(op, args...)` for
 each compound node, and `lift` for each number. By default `build` calls `op(args...)`,
-except for `Expr` input, where it constructs an unevaluated call (see [`Expr` answers](@ref)).
+except for `Expr` input, where it constructs an unevaluated call (see [`Expr` answers](@ref)),
+and for term types such as SymbolicUtils, where a call on numbers only is built with
+TermInterface's `maketerm` so that it stays exact.
 
 ## Limitations
 

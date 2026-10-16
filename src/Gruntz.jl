@@ -6,7 +6,8 @@ Limits of univariate real expressions using Gruntz's algorithm
 
 Expressions are symbolic terms implementing the TermInterface.jl methods `iscall`,
 `operation` and `arguments`, with operations that are Julia `Function`s. Tested
-targets are SimpleExpressions.jl and SymEngine.jl (`Basic`):
+targets are SimpleExpressions.jl, SymEngine.jl (`Basic`), SymbolicUtils.jl and
+Julia's `Expr`:
 
     using SimpleExpressions
     @symbolic x
