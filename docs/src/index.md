@@ -1,7 +1,8 @@
 # GruntzLimit.jl
 
 Limits of univariate real expressions using the algorithm of D. Gruntz,
-*On Computing Limits in a Symbolic Manipulation System* (PhD thesis, ETH Zürich, 1996).
+[*On Computing Limits in a Symbolic Manipulation System*](https://doi.org/10.3929/ethz-a-001631582)
+(PhD thesis, ETH Zürich, 1996).
 
 The package does not depend on a computer algebra system. Any symbolic term type that
 implements the [TermInterface.jl](https://github.com/JuliaSymbolics/TermInterface.jl)

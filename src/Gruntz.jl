@@ -745,7 +745,7 @@ end
 safe_iscall(t) = try iscall(t) === true catch; false end
 
 const NAMED_CONSTANTS = Dict{String,Any}(
-    "pi" => π, "π" => π, "E" => ℯ, "exp(1)" => ℯ,   # SymEngine prints E as exp(1)
+    "pi" => π, "π" => π, "E" => ℯ, "ℯ" => ℯ, "exp(1)" => ℯ,   # SymEngine prints E as exp(1)
     "EulerGamma" => Base.MathConstants.eulergamma,
     "Catalan" => Base.MathConstants.catalan,
     "GoldenRatio" => Base.MathConstants.golden)
@@ -762,18 +762,23 @@ function leaf_value(t)
     end
 end
 
-# Numeric leaves of symbolic packages that are neither Julia numbers nor
-# callable (e.g. SymEngine's `Basic` integers, rationals, floats and named
-# constants such as `E`, `pi`) are recognised through their printed form, which
-# is exact and package independent. Returns a `Sum`, or `nothing` for a symbol.
+# Numeric leaves of symbolic packages that are not Julia numbers (e.g. SymEngine's
+# `Basic` integers, rationals, floats and named constants such as `E`, `pi`, or
+# SymbolicUtils' constants, which print like `2` or `(10//3)`) are recognised
+# through their printed form, which is exact and package independent. Only the
+# unambiguous names `π` and `ℯ` are taken as constants for leaves that are not
+# `Number`s, where a name like `E` could be a variable. Returns a `Sum`, or
+# `nothing` for a symbol.
 function leaf_number(t)
     if t isa Function
         v = leaf_value(t)
         return v === nothing ? nothing : from_number(v)
     end
-    t isa Number || return nothing
+    t isa Symbol && return nothing      # an `Expr` variable
     s = string(t)
-    m = match(r"^(-?\d+)(?:/(\d+))?$", s)
+    m = match(r"^\((.*)\)$", s)
+    m === nothing || (s = m.captures[1])
+    m = match(r"^(-?\d+)(?:/{1,2}(\d+))?$", s)
     if m !== nothing
         n = parse(BigInt, m.captures[1])
         d = m.captures[2] === nothing ? big(1) : parse(BigInt, m.captures[2])
@@ -782,6 +787,7 @@ function leaf_number(t)
     if occursin(r"^-?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$", s)
         return constS(rationalize(BigInt, parse(Float64, s)))
     end
+    (t isa Number || s in ("π", "ℯ")) || return nothing
     haskey(NAMED_CONSTANTS, s) ? from_number(NAMED_CONSTANTS[s]) : nothing
 end
 
@@ -810,7 +816,9 @@ function apply_op(op, a::Vector{Sum})
     n = op isa Symbol ? op : (op isa Function ? nameof(op) : Symbol(string(op)))
     na = length(a)
     half = Q(1) // 2
-    if n === :+
+    if n === :identity && na == 1       # SymbolicUtils wraps constants such as π
+        a[1]
+    elseif n === :+
         foldl(addS, a; init = zeroS())
     elseif n === :-
         na == 1 ? negS(a[1]) : subS(a[1], foldl(addS, a[2:end]; init = zeroS()))
@@ -919,14 +927,52 @@ end
 
 expr_build(op, args...) = Expr(:call, nameof(op), args...)
 
+# Term types that are neither numbers nor callable (SymbolicUtils): a call on
+# plain numbers only is built with `maketerm` for the type of the variable, which
+# keeps it unevaluated (sqrt(2), not 1.414…). A power of a number with exponent
+# p/2 or p/3 is built from sqrt or cbrt, as such types may fold numeric powers to
+# floats. Anything else applies the operation.
+function term_build(x)
+    T = typeof(x)
+    mt(op, args) = (r = try maketerm(T, op, Any[args...], nothing) catch; nothing end; r isa T ? r : nothing)
+    function build(op, args...)
+        all(a -> a isa Number, args) || return op(args...)
+        if op === (^) && length(args) == 2
+            n, e = args
+            if e isa Integer && n isa Union{Integer,Rational}
+                return num(Q(n)^e)
+            elseif e isa Rational && denominator(e) in (2, 3)
+                root = mt(denominator(e) == 2 ? sqrt : cbrt, Any[n])
+                root === nothing || return isone(numerator(e)) ? root : root^numerator(e)
+            end
+        end
+        r = mt(op, args)
+        r === nothing ? op(args...) : r
+    end
+end
+
+# A constant such as π is turned into a term of the variable's type through
+# `maketerm(T, identity, [π])` (how SymbolicUtils represents it), else left as is.
+function term_lift(x)
+    T = typeof(x)
+    v -> v isa AbstractIrrational ?
+         (r = try maketerm(T, identity, Any[v], nothing) catch; nothing end; r isa T ? r : v) : v
+end
+
+# A term type that is neither a Julia number (SymEngine), callable
+# (SimpleExpressions) nor a `Symbol` (`Expr`), e.g. SymbolicUtils.
+other_terms(x) = !(x isa Number || x isa Function || x isa Symbol)
+
 # Default builder. Julia `Expr`s (variable given as a `Symbol`) are built as
 # unevaluated calls, so results stay exact and may contain parameters.
 # Function-like symbolic types (SimpleExpressions) defer evaluation only when
 # some argument is symbolic; for constant-only terms we construct the node
-# explicitly. Other types (e.g. SymEngine's `Basic`) simply apply the operation,
-# which stays symbolic through their own number type.
+# explicitly. Numeric types (e.g. SymEngine's `Basic`) simply apply the
+# operation, which stays symbolic through their own number type. Other term
+# types use `term_build`.
 function auto_build(f, x)
     x isa Symbol && return expr_build
+    other_terms(x) && return term_build(x)
     typeof(x) <: Function || return default_build
     (op, args...) -> any(a -> a isa Function, args) ? op(args...) : deferred_call(x, op, args)
 end
@@ -1031,6 +1077,12 @@ function _limit(e::Sum, xa::Atom, x0, dir::Symbol)
     end
 end
 
+# Callable term types (SimpleExpressions): a constant such as π becomes a term,
+# π * one(x), the same as a user writes it.
+function callable_lift(x)
+    v -> v isa AbstractIrrational ? (try v * one(x) catch; v end) : v
+end
+
 # Symbolic number types that are not `Real` (e.g. SymEngine's `Basic`) are built
 # from plain numbers by their constructor, so results like exp(1) stay exact.
 function auto_lift(f, x)
@@ -1044,7 +1096,7 @@ function auto_lift(f, x)
             end
         end
     end
-    identity
+    other_terms(x) ? term_lift(x) : x isa Function ? callable_lift(x) : identity
 end
 
 """
