@@ -4,6 +4,7 @@ GruntzLimit = "549ac5eb-4437-4bd1-88f1-51d4e2fa49c9"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 MaterialDocs = "10bdffc8-969c-4dd4-83f3-742518eccd6b"
 SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
+SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
 
 [sources]
 GruntzLimit = {path = ".."}

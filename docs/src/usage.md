@@ -86,6 +86,81 @@ SymEngine's own infinity, `oo`, can be used as the limit point:
 gruntz_limit(x^x / exp(x), x, oo)
 ```
 
+## SymbolicUtils
+
+With [SymbolicUtils.jl](https://github.com/JuliaSymbolics/SymbolicUtils.jl), create the
+variable (and any parameters) with `@syms`, declaring them `Real`:
+
+```@example su
+using GruntzLimit
+using SymbolicUtils
+using SymbolicUtils: @syms
+@syms x::Real a::Real
+
+gruntz_limit(sin(x)/x, x, 0)
+```
+
+```@example su
+gruntz_limit((x^2 + 1) / (2x^2 - 3), x)
+```
+
+Answers that are not rational are built as SymbolicUtils terms with TermInterface's
+`maketerm`, so constants stay exact rather than becoming floating point numbers:
+
+```@example su
+gruntz_limit((1 + 1/x)^x, x)
+```
+
+```@example su
+gruntz_limit(atan(1/x), x, 0; dir = :-)
+```
+
+```@example su
+gruntz_limit(sqrt(1 - cos(2x))/x, x, 0; dir = :+)
+```
+
+Parameters may appear in the expression and in the limit point:
+
+```@example su
+gruntz_limit((1 + a/x)^x, x)
+```
+
+```@example su
+gruntz_limit(sqrt(x^2 + a*x) - x, x)
+```
+
+```@example su
+gruntz_limit((x^x - x^a)/(a^x - a^a), x, a)
+```
+
+A symbolic answer can be evaluated with SymbolicUtils' `substitute`:
+
+```@example su
+L = gruntz_limit((sin(x)/x)^(1/x^2), x, 0)
+```
+
+```@example su
+SymbolicUtils.substitute(L, Dict(); fold = Val(true))
+```
+
+### Constants in SymbolicUtils input
+
+SymbolicUtils turns some constants into floating point numbers when an expression is built.
+`π*x` keeps `π` exact, but `atan(x) - π/2` becomes `atan(x) - 1.5707963267948966`. The limit
+is then taken for that floating point number, which changes the answer:
+
+```@example su
+gruntz_limit(x * (atan(x) - π/2), x)       # exact answer: -1
+```
+
+To keep `π` exact in such an expression, build it the way SymbolicUtils represents it in
+`π*x`:
+
+```@example su
+PI = SymbolicUtils.maketerm(typeof(x), identity, Any[π], nothing)
+gruntz_limit(x * (atan(x) - PI/2), x)
+```
+
 ## Julia `Expr`
 
 TermInterface.jl defines `iscall`, `operation` and `arguments` for Julia's `Expr`, so a quoted

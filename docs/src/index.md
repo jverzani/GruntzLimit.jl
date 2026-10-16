@@ -1,14 +1,17 @@
 # GruntzLimit.jl
 
 Limits of univariate real expressions using the algorithm of D. Gruntz,
-*On Computing Limits in a Symbolic Manipulation System* (PhD thesis, ETH Zürich, 1996).
+[*On Computing Limits in a Symbolic Manipulation System*](https://doi.org/10.3929/ethz-a-001631582)
+(PhD thesis, ETH Zürich, 1996).
 
 The package does not depend on a computer algebra system. Any symbolic term type that
 implements the [TermInterface.jl](https://github.com/JuliaSymbolics/TermInterface.jl)
-methods `iscall`, `operation` and `arguments` can be used. These docs show two such types:
+methods `iscall`, `operation` and `arguments` can be used. These docs show three such types:
 
 * [SymEngine.jl](https://github.com/symengine/SymEngine.jl) (`Basic`), a full symbolic
   library whose answers come back as exact `Basic` values;
+* [SymbolicUtils.jl](https://github.com/JuliaSymbolics/SymbolicUtils.jl), the term
+  library underlying Symbolics.jl;
 * Julia's own `Expr`, which needs no extra packages at all.
 
 [SimpleExpressions.jl](https://github.com/jverzani/SimpleExpressions.jl) is also tested.
