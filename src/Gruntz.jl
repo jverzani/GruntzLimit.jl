@@ -27,7 +27,8 @@ targets are SimpleExpressions.jl and SymEngine.jl (`Basic`):
   `sin`, `cos`) on the pieces; with a symbolic variable inside that gives a
   symbolic term back. Constant results such as `-π/2` or `exp(1)` stay symbolic
   too: for SimpleExpressions they are built as unevaluated terms (evaluate with
-  `r()`), for SymEngine they use `Basic` constants.
+  `r()`), for SymEngine they use `Basic` constants, and for `Expr` input (`x` a
+  `Symbol`) results are unevaluated `Expr` calls such as `:(exp(1))`.
   Pass `build` to construct results differently (e.g. `maketerm`-based). `lift`
   converts plain numbers/π into the package's number type; by default it is the
   constructor of `typeof(f)` when that is a non-`Real` `Number` such as `Basic`,
@@ -51,6 +52,15 @@ export gruntz_limit, GruntzError
 const Q = Rational{BigInt}
 const HUGE = Q(10)^12   # "exact" precision marker for power series
 
+"""
+    GruntzError(msg)
+
+Thrown by [`gruntz_limit`](@ref) when a limit cannot be computed: the limit does not
+exist (bounded oscillation such as `sin(x)` at `Inf`, or one-sided limits that differ
+with `dir = :both`), the expression uses an unsupported function, or the
+algorithm as implemented cannot finish (e.g. the sign of a constant involving a free
+parameter cannot be decided).
+"""
 struct GruntzError <: Exception
     msg::String
 end
@@ -773,12 +783,16 @@ function leaf_number(t)
     haskey(NAMED_CONSTANTS, s) ? from_number(NAMED_CONSTANTS[s]) : nothing
 end
 
+# Constants written as bare symbols in a Julia `Expr`, e.g. :(pi * x)
+const EXPR_CONSTANTS = Dict{Symbol,Any}(:pi => π, :π => π, :ℯ => ℯ)
+
 function from_term(t)::Sum
     if safe_iscall(t)
         args = arguments(t)
         isempty(args) || return apply_op(operation(t), Sum[from_term(a) for a in args])
     end
     t isa Union{Integer,Rational,AbstractFloat,AbstractIrrational,Complex} && return from_number(t)
+    t isa Symbol && haskey(EXPR_CONSTANTS, t) && return from_number(EXPR_CONSTANTS[t])
     v = leaf_number(t)
     v === nothing ? atomS(leafatom(t)) : v
 end
@@ -878,11 +892,16 @@ function deferred_call(x, op, args)
     op(args...)
 end
 
-# Default builder. Function-like symbolic types (SimpleExpressions) defer
-# evaluation only when some argument is symbolic; for constant-only terms we
-# construct the node explicitly. Other types (e.g. SymEngine's `Basic`) simply
-# apply the operation, which stays symbolic through their own number type.
+expr_build(op, args...) = Expr(:call, nameof(op), args...)
+
+# Default builder. Julia `Expr`s (variable given as a `Symbol`) are built as
+# unevaluated calls, so results stay exact and may contain parameters.
+# Function-like symbolic types (SimpleExpressions) defer evaluation only when
+# some argument is symbolic; for constant-only terms we construct the node
+# explicitly. Other types (e.g. SymEngine's `Basic`) simply apply the operation,
+# which stays symbolic through their own number type.
 function auto_build(f, x)
+    x isa Symbol && return expr_build
     typeof(x) <: Function || return default_build
     (op, args...) -> any(a -> a isa Function, args) ? op(args...) : deferred_call(x, op, args)
 end
@@ -1003,6 +1022,48 @@ function auto_lift(f, x)
     identity
 end
 
+"""
+    gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing)
+
+Compute ``\\lim_{x \\to x_0} f(x)`` with Gruntz's algorithm.
+
+* `f`: a symbolic expression implementing TermInterface's `iscall`, `operation` and
+  `arguments` (e.g. a SymEngine `Basic` or a Julia `Expr`).
+* `x`: the variable, the same object that appears in `f` (a `Basic` symbol, or a
+  `Symbol` for an `Expr`).
+* `x0`: `Inf`, `-Inf`, or a finite point: a number or an expression not containing `x`.
+* `dir`: `:+` (from the right, the default), `:-` (from the left) or `:both` (both
+  one-sided limits must agree). Only used for finite `x0`.
+* `build`: `build(op, args...)` constructs a compound result term. When `x` is a
+  `Symbol` (`Expr` input) the default is `Expr(:call, nameof(op), args...)`, giving an
+  unevaluated `Expr`; otherwise it calls `op(args...)`, which is right for types like
+  SymEngine's `Basic`.
+* `lift`: converts plain Julia numbers (and `π`) in the result to the symbolic number
+  type. The default uses the constructor of `typeof(f)` when that is a non-`Real`
+  `Number` (as with `Basic`); otherwise numbers are left as they are.
+
+Returns `Inf`, `-Inf`, an `Int`/`Rational` for rational limits, or otherwise a term
+assembled with `build`. Throws [`GruntzError`](@ref) when the limit does not exist or
+cannot be computed.
+
+# Examples
+
+```jldoctest
+julia> using GruntzLimit
+
+julia> gruntz_limit(:(sin(x)/x), :x, 0)
+1
+
+julia> gruntz_limit(:(1/x), :x, 0; dir = :-)
+-Inf
+
+julia> gruntz_limit(:((1 + a/x)^x), :x)
+:(exp(a))
+
+julia> gruntz_limit(:(atan(x)), :x)
+:(1//2 * π)
+```
+"""
 function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = nothing)
     L = _limit(from_term(f), leafatom(x), x0, dir)
     L isa Infinity && return L.sign > 0 ? Inf : -Inf
