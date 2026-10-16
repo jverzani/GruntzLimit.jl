@@ -783,12 +783,16 @@ function leaf_number(t)
     haskey(NAMED_CONSTANTS, s) ? from_number(NAMED_CONSTANTS[s]) : nothing
 end
 
+# Constants written as bare symbols in a Julia `Expr`, e.g. :(pi * x)
+const EXPR_CONSTANTS = Dict{Symbol,Any}(:pi => π, :π => π, :ℯ => ℯ)
+
 function from_term(t)::Sum
     if safe_iscall(t)
         args = arguments(t)
         isempty(args) || return apply_op(operation(t), Sum[from_term(a) for a in args])
     end
     t isa Union{Integer,Rational,AbstractFloat,AbstractIrrational,Complex} && return from_number(t)
+    t isa Symbol && haskey(EXPR_CONSTANTS, t) && return from_number(EXPR_CONSTANTS[t])
     v = leaf_number(t)
     v === nothing ? atomS(leafatom(t)) : v
 end
