@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GruntzLimit.jl — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="./assets/materialdocs.css?v=8dcbf47c">
+  <link rel="stylesheet" href="./assets/materialdocs.css?v=b6c905c6">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="GruntzLimit.jl — GruntzLimit.jl">
   <meta property="og:title" content="GruntzLimit.jl — GruntzLimit.jl">
@@ -72,7 +72,9 @@ using SymEngine: @vars
 
 gruntz_limit((1 + a/x)^x, x, Inf)</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">exp(a)</code></pre>
+<div class="md-math md-math-display">
+\[e^{a}\]
+</div>
 </div>
 <div class="md-multi-output">
 <div class="md-code-block">
@@ -106,8 +108,16 @@ gruntz_limit((1 + a/x)^x, x, Inf)</code></pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
   <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.js"></script>
+  <script>var MD_KATEX_OPTIONS = {};
+document.querySelectorAll('.md-math').forEach(function (el) {
+  var tex = el.textContent.trim().replace(/^\\[\[(]/, '').replace(/\\[\])]$/, '');
+  katex.render(tex, el, Object.assign({ throwOnError: false }, MD_KATEX_OPTIONS,
+    { displayMode: el.classList.contains('md-math-display') }));
+});</script>
   <script src="./siteinfo.js"></script>
   <script src="./../versions.js"></script>
-  <script src="./assets/materialdocs.js?v=8dcbf47c"></script>
+  <script src="./assets/materialdocs.js?v=b6c905c6"></script>
 </body>
 </html>
