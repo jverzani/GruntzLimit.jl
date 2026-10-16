@@ -35,7 +35,9 @@ targets are SimpleExpressions.jl and SymEngine.jl (`Basic`):
   so a SymEngine limit of exp(1) comes back as `E`, not a float.
 
 Operations understood (given as `Function`s; `Symbol` names are accepted too):
-`+ - * / ^ inv sqrt cbrt exp log sin cos tan atan abs sinh cosh tanh`. Limits that do not
+`+ - * / ^ inv sqrt cbrt exp log abs`, `sin cos tan sec csc cot`, their inverses
+`asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
+their inverses `asinh acosh atanh asech acsch acoth`. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 
 Design: terms are converted to an internal canonical form (sums of monomials with
@@ -743,7 +745,7 @@ end
 safe_iscall(t) = try iscall(t) === true catch; false end
 
 const NAMED_CONSTANTS = Dict{String,Any}(
-    "pi" => π, "π" => π, "E" => ℯ,
+    "pi" => π, "π" => π, "E" => ℯ, "exp(1)" => ℯ,   # SymEngine prints E as exp(1)
     "EulerGamma" => Base.MathConstants.eulergamma,
     "Catalan" => Base.MathConstants.catalan,
     "GoldenRatio" => Base.MathConstants.golden)
@@ -797,6 +799,13 @@ function from_term(t)::Sum
     v === nothing ? atomS(leafatom(t)) : v
 end
 
+# Functions rewritten in terms of others: f(u) = 1/RECIPROCALS[f](u) and
+# f(u) = INVERSES[f](1/u) (Julia's definitions of asec, acsc, acot, ...).
+const RECIPROCALS = Dict(:sec => :cos, :csc => :sin, :cot => :tan,
+                         :sech => :cosh, :csch => :sinh, :coth => :tanh)
+const INVERSES = Dict(:asec => :acos, :acsc => :asin, :acot => :atan,
+                      :asech => :acosh, :acsch => :asinh, :acoth => :atanh)
+
 function apply_op(op, a::Vector{Sum})
     n = op isa Symbol ? op : (op isa Function ? nameof(op) : Symbol(string(op)))
     na = length(a)
@@ -838,6 +847,22 @@ function apply_op(op, a::Vector{Sum})
         s = scaleS(subS(p, m), half)
         c = scaleS(addS(p, m), half)
         n === :sinh ? s : n === :cosh ? c : mulS(s, powS(c, Q(-1)))
+    elseif haskey(RECIPROCALS, n) && na == 1
+        powS(apply_op(RECIPROCALS[n], a), Q(-1))      # sec = 1/cos, coth = 1/tanh, ...
+    elseif n === :asin && na == 1                     # asin(u) = atan(u / sqrt(1 - u^2))
+        mkatan(mulS(a[1], powS(subS(oneS(), mulS(a[1], a[1])), -half)))
+    elseif n === :acos && na == 1                     # acos(u) = π/2 - asin(u)
+        subS(scaleS(atomS(PI_ATOM), half), apply_op(:asin, a))
+    elseif n in (:asec, :acsc, :acot) && na == 1      # asec(u) = acos(1/u), ...
+        apply_op(INVERSES[n], Sum[powS(a[1], Q(-1))])
+    elseif n === :asinh && na == 1                    # log(u + sqrt(u^2 + 1))
+        mklog(addS(a[1], powS(addS(mulS(a[1], a[1]), oneS()), half)))
+    elseif n === :acosh && na == 1                    # log(u + sqrt(u^2 - 1))
+        mklog(addS(a[1], powS(subS(mulS(a[1], a[1]), oneS()), half)))
+    elseif n === :atanh && na == 1                    # log((1 + u)/(1 - u)) / 2
+        scaleS(subS(mklog(addS(oneS(), a[1])), mklog(subS(oneS(), a[1]))), half)
+    elseif n in (:asech, :acsch, :acoth) && na == 1   # asech(u) = acosh(1/u), ...
+        apply_op(INVERSES[n], Sum[powS(a[1], Q(-1))])
     else
         throw(GruntzError("unsupported function/operator `$n` with $na argument(s)"))
     end

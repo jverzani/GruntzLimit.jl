@@ -23,7 +23,11 @@ application of `exp`, `log`, `sin`, `cos`, `atan` or `abs`, or a sum used as a b
 simplifications are applied during conversion:
 
 * `exp(a + c*log(y))` becomes `y^c * exp(a)`, and `log` of a product splits into a sum;
-* `tan`, `sinh`, `cosh` and `tanh` are rewritten in terms of `sin`, `cos` and `exp`;
+* `tan`, `sec`, `csc`, `cot` and the hyperbolic functions are rewritten in terms of `sin`,
+  `cos` and `exp`;
+* the inverse trigonometric functions are rewritten in terms of `atan` (for example
+  ``\arcsin u = \arctan\big(u/\sqrt{1-u^2}\big)``), and the inverse hyperbolic functions in
+  terms of `log` (for example ``\operatorname{arsinh} u = \log\big(u + \sqrt{u^2+1}\big)``);
 * integer powers of short sums are expanded.
 
 These rules give the algorithm the zero recognition it needs, without a full computer
