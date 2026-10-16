@@ -1,1 +1,5 @@
 /Manifest*.toml
+.idea/
+/docs/build/
+/docs/Manifest*.toml
+*.iml
