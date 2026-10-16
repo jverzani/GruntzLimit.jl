@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GruntzLimit.jl — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="./assets/materialdocs.css?v=dd5d13f5">
+  <link rel="stylesheet" href="./assets/materialdocs.css?v=8e659409">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="GruntzLimit.jl — GruntzLimit.jl">
   <meta property="og:title" content="GruntzLimit.jl — GruntzLimit.jl">
@@ -51,10 +51,12 @@
       <article class="md-article">
       <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/jverzani/GruntzLimit.jl/blob/main/docs/src/index.md" title="Edit source on GitHub" aria-label="Edit source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></a></div>
 <h1 id="GruntzLimit.jl" class="md-heading">GruntzLimit.jl<a href="#GruntzLimit.jl" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
-<p>Limits of univariate real expressions using the algorithm of D. Gruntz, <em>On Computing Limits in a Symbolic Manipulation System</em> (PhD thesis, ETH Zürich, 1996).</p>
-<p>The package does not depend on a computer algebra system. Any symbolic term type that implements the <a href="https://github.com/JuliaSymbolics/TermInterface.jl">TermInterface.jl</a> methods <code class="md-code-inline">iscall</code>, <code class="md-code-inline">operation</code> and <code class="md-code-inline">arguments</code> can be used. These docs show two such types:</p>
+<p>Limits of univariate real expressions using the algorithm of D. Gruntz, <a href="https://doi.org/10.3929/ethz-a-001631582"><em>On Computing Limits in a Symbolic Manipulation System</em></a> (PhD thesis, ETH Zürich, 1996).</p>
+<p>The package does not depend on a computer algebra system. Any symbolic term type that implements the <a href="https://github.com/JuliaSymbolics/TermInterface.jl">TermInterface.jl</a> methods <code class="md-code-inline">iscall</code>, <code class="md-code-inline">operation</code> and <code class="md-code-inline">arguments</code> can be used. These docs show three such types:</p>
 <ul class="md-list-tight">
 <li><p><a href="https://github.com/symengine/SymEngine.jl">SymEngine.jl</a> (<code class="md-code-inline">Basic</code>), a full symbolic library whose answers come back as exact <code class="md-code-inline">Basic</code> values;</p>
+</li>
+<li><p><a href="https://github.com/JuliaSymbolics/SymbolicUtils.jl">SymbolicUtils.jl</a>, the term library underlying Symbolics.jl;</p>
 </li>
 <li><p>Julia&#39;s own <code class="md-code-inline">Expr</code>, which needs no extra packages at all.</p>
 </li>
@@ -118,6 +120,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="./siteinfo.js"></script>
   <script src="./../versions.js"></script>
-  <script src="./assets/materialdocs.js?v=dd5d13f5"></script>
+  <script src="./assets/materialdocs.js?v=8e659409"></script>
 </body>
 </html>

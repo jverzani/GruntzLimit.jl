@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How it works — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=b38e6a91">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=ffbccea6">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="How it works — GruntzLimit.jl">
   <meta property="og:title" content="How it works — GruntzLimit.jl">
@@ -93,7 +93,7 @@
 </ul>
 <p>When the leading coefficient cancels, the series precision is increased and the expansion is repeated.</p>
 <h2 id="Rebuilding-the-answer" class="md-heading">Rebuilding the answer<a href="#Rebuilding-the-answer" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
-<p>A rational answer is returned as an <code class="md-code-inline">Int</code> or <code class="md-code-inline">Rational</code>, and an infinite one as <code class="md-code-inline">±Inf</code>. Anything else is converted back from the canonical form by calling <code class="md-code-inline">build(op, args...)</code> for each compound node, and <code class="md-code-inline">lift</code> for each number. By default <code class="md-code-inline">build</code> calls <code class="md-code-inline">op(args...)</code>, except for <code class="md-code-inline">Expr</code> input, where it constructs an unevaluated call (see <a href="../usage/#Expr-answers"><code class="md-code-inline">Expr</code> answers</a>).</p>
+<p>A rational answer is returned as an <code class="md-code-inline">Int</code> or <code class="md-code-inline">Rational</code>, and an infinite one as <code class="md-code-inline">±Inf</code>. Anything else is converted back from the canonical form by calling <code class="md-code-inline">build(op, args...)</code> for each compound node, and <code class="md-code-inline">lift</code> for each number. By default <code class="md-code-inline">build</code> calls <code class="md-code-inline">op(args...)</code>, except for <code class="md-code-inline">Expr</code> input, where it constructs an unevaluated call (see <a href="../usage/#Expr-answers"><code class="md-code-inline">Expr</code> answers</a>), and for term types such as SymbolicUtils, where a call on numbers only is built with TermInterface&#39;s <code class="md-code-inline">maketerm</code> so that it stays exact.</p>
 <h2 id="Limitations" class="md-heading">Limitations<a href="#Limitations" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <ul class="md-list-tight">
 <li><p>Only the functions listed in <a href="../usage/#Supported-functions">Supported functions</a> are understood.</p>
@@ -136,6 +136,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=b38e6a91"></script>
+  <script src="../assets/materialdocs.js?v=ffbccea6"></script>
 </body>
 </html>

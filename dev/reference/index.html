@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reference — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=2d41f3d7">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=b40594d7">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Reference — GruntzLimit.jl">
   <meta property="og:title" content="Reference — GruntzLimit.jl">
@@ -54,7 +54,7 @@
 <div class="md-docstring" id="GruntzLimit.Gruntz.gruntz_limit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz.gruntz_limit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/3ab4e7338a8fe104f6c189a31d5c9baba0c9ed30/src/Gruntz.jl#L1050-L1091" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/876fc0dafb9859f66d46a336048c7e5bfae22604/src/Gruntz.jl#L1103-L1144" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -99,7 +99,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.Gruntz.GruntzError">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz.GruntzError</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/3ab4e7338a8fe104f6c189a31d5c9baba0c9ed30/src/Gruntz.jl#L57-L65" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/876fc0dafb9859f66d46a336048c7e5bfae22604/src/Gruntz.jl#L58-L66" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -114,7 +114,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.Gruntz">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/3ab4e7338a8fe104f6c189a31d5c9baba0c9ed30/src/Gruntz.jl#L1-L47" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/876fc0dafb9859f66d46a336048c7e5bfae22604/src/Gruntz.jl#L1-L48" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -122,7 +122,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <pre><code class="language-julia">Gruntz</code></pre>
 </div>
 <p>Limits of univariate real expressions using Gruntz&#39;s algorithm (D. Gruntz, &quot;On Computing Limits in a Symbolic Manipulation System&quot;, 1996).</p>
-<p>Expressions are symbolic terms implementing the TermInterface.jl methods <code class="md-code-inline">iscall</code>, <code class="md-code-inline">operation</code> and <code class="md-code-inline">arguments</code>, with operations that are Julia <code class="md-code-inline">Function</code>s. Tested targets are SimpleExpressions.jl and SymEngine.jl (<code class="md-code-inline">Basic</code>):</p>
+<p>Expressions are symbolic terms implementing the TermInterface.jl methods <code class="md-code-inline">iscall</code>, <code class="md-code-inline">operation</code> and <code class="md-code-inline">arguments</code>, with operations that are Julia <code class="md-code-inline">Function</code>s. Tested targets are SimpleExpressions.jl, SymEngine.jl (<code class="md-code-inline">Basic</code>), SymbolicUtils.jl and Julia&#39;s <code class="md-code-inline">Expr</code>:</p>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">using SimpleExpressions
@@ -176,6 +176,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=2d41f3d7"></script>
+  <script src="../assets/materialdocs.js?v=b40594d7"></script>
 </body>
 </html>

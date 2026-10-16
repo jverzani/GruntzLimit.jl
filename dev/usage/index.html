@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=9593de02">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=ea066911">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -169,6 +169,118 @@ gruntz_limit(sin(x)/x, x, 0)</code></pre>
 <pre><code class="language-julia">gruntz_limit(x^x / exp(x), x, oo)</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">Inf</code></pre>
+</div>
+<h2 id="SymbolicUtils" class="md-heading">SymbolicUtils<a href="#SymbolicUtils" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>With <a href="https://github.com/JuliaSymbolics/SymbolicUtils.jl">SymbolicUtils.jl</a>, create the variable (and any parameters) with <code class="md-code-inline">@syms</code>, declaring them <code class="md-code-inline">Real</code>:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using GruntzLimit
+using SymbolicUtils
+using SymbolicUtils: @syms
+@syms x::Real a::Real
+
+gruntz_limit(sin(x)/x, x, 0)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">1</code></pre>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit((x^2 + 1) / (2x^2 - 3), x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">1//2</code></pre>
+</div>
+<p>Answers that are not rational are built as SymbolicUtils terms with TermInterface&#39;s <code class="md-code-inline">maketerm</code>, so constants stay exact rather than becoming floating point numbers:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit((1 + 1/x)^x, x)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[e^{1}\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(atan(1/x), x, 0; dir = :-)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[\frac{-1}{2} \pi\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(sqrt(1 - cos(2x))/x, x, 0; dir = :+)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[\sqrt{2}\]
+</div>
+</div>
+<p>Parameters may appear in the expression and in the limit point:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit((1 + a/x)^x, x)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[e^{a}\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(sqrt(x^2 + a*x) - x, x)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[\frac{1}{2} a\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit((x^x - x^a)/(a^x - a^a), x, a)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">1</code></pre>
+</div>
+<p>A symbolic answer can be evaluated with SymbolicUtils&#39; <code class="md-code-inline">substitute</code>:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">L = gruntz_limit((sin(x)/x)^(1/x^2), x, 0)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[\frac{1}{\left( e^{1} \right)^{\frac{1}{6}}}\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">SymbolicUtils.substitute(L, Dict(); fold = Val(true))</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[0.8464817248906141\]
+</div>
+</div>
+<h3 id="Constants-in-SymbolicUtils-input" class="md-heading">Constants in SymbolicUtils input<a href="#Constants-in-SymbolicUtils-input" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>SymbolicUtils turns some constants into floating point numbers when an expression is built. <code class="md-code-inline">π*x</code> keeps <code class="md-code-inline">π</code> exact, but <code class="md-code-inline">atan(x) - π/2</code> becomes <code class="md-code-inline">atan(x) - 1.5707963267948966</code>. The limit is then taken for that floating point number, which changes the answer:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(x * (atan(x) - π/2), x)       # exact answer: -1</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">Inf</code></pre>
+</div>
+<p>To keep <code class="md-code-inline">π</code> exact in such an expression, build it the way SymbolicUtils represents it in <code class="md-code-inline">π*x</code>:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">PI = SymbolicUtils.maketerm(typeof(x), identity, Any[π], nothing)
+gruntz_limit(x * (atan(x) - PI/2), x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">-1</code></pre>
 </div>
 <h2 id="Julia-Expr" class="md-heading">Julia <code class="md-code-inline">Expr</code><a href="#Julia-Expr" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>TermInterface.jl defines <code class="md-code-inline">iscall</code>, <code class="md-code-inline">operation</code> and <code class="md-code-inline">arguments</code> for Julia&#39;s <code class="md-code-inline">Expr</code>, so a quoted expression works without any symbolic package. The variable is passed as a <code class="md-code-inline">Symbol</code>:</p>
@@ -354,6 +466,8 @@ end</code></pre>
       <div class="md-toc-inner">
         <p class="md-toc-title">On this page</p>
           <a class="md-toc-link md-toc-h2" href="#SymEngine">SymEngine</a>
+          <a class="md-toc-link md-toc-h2" href="#SymbolicUtils">SymbolicUtils</a>
+            <a class="md-toc-link md-toc-h3" href="#Constants-in-SymbolicUtils-input">Constants in SymbolicUtils input</a>
           <a class="md-toc-link md-toc-h2" href="#Julia-Expr">Julia Expr</a>
             <a class="md-toc-link md-toc-h3" href="#Expr-answers">Expr answers</a>
           <a class="md-toc-link md-toc-h2" href="#Supported-functions">Supported functions</a>
@@ -375,6 +489,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=9593de02"></script>
+  <script src="../assets/materialdocs.js?v=ea066911"></script>
 </body>
 </html>
