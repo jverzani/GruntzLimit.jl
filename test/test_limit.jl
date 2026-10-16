@@ -57,6 +57,38 @@
     @test gruntz_limit(sqrt((1 - cos(2x)))/x, x, 0; dir=:+) == sqrt(2*one(x))
     @test gruntz_limit(sqrt((1 - cos(2x)))/x, x, 0; dir=:-) == -sqrt(2*one(x))
 
+    # reciprocal trigonometric and hyperbolic functions
+    @test gruntz_limit(x * cot(x), x, 0) == 1
+    @test gruntz_limit((sec(x) - 1)/x^2, x, 0) == 1//2
+    @test gruntz_limit(csc(x) - cot(x), x, 0) == 0
+    @test gruntz_limit(csc(x), x, 0; dir = :-) == -Inf
+    @test gruntz_limit(sech(x), x) == 0
+    @test gruntz_limit(x * csch(x), x, 0) == 1
+    @test gruntz_limit(coth(x), x, -Inf) == -1
+    @test gruntz_limit(exp(x) * sech(x), x) == 2
+    @test gruntz_limit(exp(x) / cosh(x), x) == 2
+
+    # inverse trigonometric functions
+    @test gruntz_limit((asin(x) - x)/x^3, x, 0) == 1//6
+    @test gruntz_limit(asin(x), x, 1; dir = :-) == (π*one(x))/2
+    @test gruntz_limit(asin(x), x, 1//2) == (π*one(x))/6
+    @test gruntz_limit(acos(x), x, 1//2) == (π*one(x))/3
+    @test gruntz_limit(acos(x), x, -1; dir = :+) == π*one(x)
+    @test gruntz_limit(acos(x)/sqrt(1 - x), x, 1; dir = :-) == sqrt(2*one(x))
+    @test gruntz_limit(asec(x), x) == (π*one(x))/2
+    @test gruntz_limit(x * acsc(x), x) == 1
+    @test gruntz_limit(x * acot(x), x) == 1
+    @test gruntz_limit(acot(x), x, 0; dir = :-) == (-1 * (π * one(x))) / 2
+
+    # inverse hyperbolic functions
+    @test gruntz_limit(asinh(x) - log(x), x) == log(2*one(x))
+    @test gruntz_limit(acosh(x)/sqrt(x - 1), x, 1; dir = :+) == sqrt(2*one(x))
+    @test gruntz_limit(atanh(x)/x, x, 0) == 1
+    @test gruntz_limit(atanh(x), x, 1; dir = :-) == Inf
+    @test gruntz_limit(asech(x), x, 0; dir = :+) == Inf
+    @test gruntz_limit(x * acsch(x), x) == 1
+    @test gruntz_limit(x * acoth(x), x) == 1
+
     # bounded oscillation has no limit
     @test_throws GruntzError gruntz_limit(sin(x), x)
 end

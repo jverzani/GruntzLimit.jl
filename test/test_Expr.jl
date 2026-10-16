@@ -49,6 +49,37 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test r isa Expr && ev(r) ≈ 1/log(2)
     end
 
+    @testset "reciprocal and inverse trigonometric/hyperbolic functions" begin
+        @test gruntz_limit(:(x * cot(x)), :x, 0) == 1
+        @test gruntz_limit(:(sec(x)), :x, 0) == 1
+        @test gruntz_limit(:(x * csc(x)), :x, 0) == 1
+        @test gruntz_limit(:(cot(x) - 1/x), :x, 0) == 0
+        @test gruntz_limit(:(coth(x)), :x) == 1
+        @test gruntz_limit(:(x * coth(x)), :x, 0) == 1
+        @test gruntz_limit(:(exp(x) * sech(x)), :x) == 2
+        @test gruntz_limit(:(asin(x)/x), :x, 0) == 1
+        @test gruntz_limit(:(asin(1/x) * x), :x) == 1
+        @test gruntz_limit(:(asin(sin(x))/x), :x, 0) == 1
+        @test gruntz_limit(:(acos(x)), :x, 1; dir = :-) == 0
+        @test gruntz_limit(:(acos(x)), :x, -1; dir = :+) === π
+        @test gruntz_limit(:(asec(x)), :x, 1; dir = :+) == 0
+        @test gruntz_limit(:(acot(x)), :x) == 0
+        @test gruntz_limit(:(acot(x)), :x, 0; dir = :+) == :($(1//2) * $π)
+        @test gruntz_limit(:(asinh(x)/x), :x, 0) == 1
+        @test gruntz_limit(:(sinh(asinh(x))/x), :x) == 1
+        @test gruntz_limit(:(acosh(x) - log(x)), :x) == :(log(2))
+
+        # constant answers are correct, though written in terms of atan, log, sqrt
+        for (f, x0, val) in [(:(asin(x)), 1//2, π/6), (:(acos(x)), 1//2, π/3),
+                             (:(acsc(x)), 2, π/6), (:(tanh(atanh(x))), 1//2, 1/2)]
+            @test ev(gruntz_limit(f, :x, x0)) ≈ val
+        end
+
+        # complex-valued near the limit point
+        @test_throws GruntzError gruntz_limit(:(asin(x)), :x, 1; dir = :+)
+        @test_throws GruntzError gruntz_limit(:(acosh(x)), :x, 0)
+    end
+
     @testset "exact Expr results" begin
         @test gruntz_limit(:((1 + 1/x)^x), :x) == :(exp(1))
         @test gruntz_limit(:(atan(x)), :x) == :($(1//2) * $π)

@@ -152,8 +152,30 @@ gruntz_limit(:((1 + 1/x)^x), :x; build = (op, args...) -> op(args...))
 
 The operations understood are
 
-`+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `exp`, `log` (one or two arguments), `sin`,
-`cos`, `tan`, `atan`, `abs`, `sinh`, `cosh`, `tanh`.
+* arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`;
+* `exp`, and `log` (one or two arguments);
+* trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
+* inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
+* hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
+* inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`.
+
+Inside the package, most of these are rewritten in terms of `sin`, `cos`, `atan`, `exp` and `log`.
+An answer involving them is correct, but it may be written differently from the input.
+For example, ``\arcsin(1/2)`` comes back in terms of `atan`:
+
+```@example expr
+L = gruntz_limit(:(asin(x)), :x, 1//2)
+```
+
+```@example expr
+eval(L) ≈ π/6
+```
+
+SymEngine simplifies the same answer when it is rebuilt:
+
+```@example sym
+gruntz_limit(asin(x), x, 1//2)
+```
 
 Each operation can be given as a Julia `Function` or as its `Symbol` name. The named constants `pi`/`π`, `E`/`ℯ`,
 `EulerGamma`, `Catalan` and `GoldenRatio` are recognised. In an `Expr`, the bare symbols
