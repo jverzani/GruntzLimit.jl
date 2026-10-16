@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=178e4bb1">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=541f6f21">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -242,7 +242,15 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 <h2 id="Supported-functions" class="md-heading">Supported functions<a href="#Supported-functions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>The operations understood are</p>
 <p><code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code> (one or two arguments), <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">tan</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code>, <code class="md-code-inline">tanh</code>.</p>
-<p>Each operation can be given as a Julia <code class="md-code-inline">Function</code> or as its <code class="md-code-inline">Symbol</code> name. The named constants <code class="md-code-inline">pi</code>/<code class="md-code-inline">π</code>, <code class="md-code-inline">E</code>/<code class="md-code-inline">ℯ</code>, <code class="md-code-inline">EulerGamma</code>, <code class="md-code-inline">Catalan</code> and <code class="md-code-inline">GoldenRatio</code> are recognised. Anything else gives a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a>:</p>
+<p>Each operation can be given as a Julia <code class="md-code-inline">Function</code> or as its <code class="md-code-inline">Symbol</code> name. The named constants <code class="md-code-inline">pi</code>/<code class="md-code-inline">π</code>, <code class="md-code-inline">E</code>/<code class="md-code-inline">ℯ</code>, <code class="md-code-inline">EulerGamma</code>, <code class="md-code-inline">Catalan</code> and <code class="md-code-inline">GoldenRatio</code> are recognised. In an <code class="md-code-inline">Expr</code>, the bare symbols <code class="md-code-inline">pi</code>, <code class="md-code-inline">π</code> and <code class="md-code-inline">ℯ</code> are treated as these constants, not as parameters:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(:(x * (atan(x) - pi/2)), :x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">-1</code></pre>
+</div>
+<p>Anything else gives a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a>:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -309,6 +317,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=178e4bb1"></script>
+  <script src="../assets/materialdocs.js?v=541f6f21"></script>
 </body>
 </html>
