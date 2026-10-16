@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How it works — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=110d4b4d">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=7f8b74e7">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="How it works — GruntzLimit.jl">
   <meta property="og:title" content="How it works — GruntzLimit.jl">
@@ -70,7 +70,9 @@
 <ul class="md-list-tight">
 <li><p><code class="md-code-inline">exp(a + c*log(y))</code> becomes <code class="md-code-inline">y^c * exp(a)</code>, and <code class="md-code-inline">log</code> of a product splits into a sum;</p>
 </li>
-<li><p><code class="md-code-inline">tan</code>, <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code> and <code class="md-code-inline">tanh</code> are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code> and <code class="md-code-inline">exp</code>;</p>
+<li><p><code class="md-code-inline">tan</code>, <code class="md-code-inline">sec</code>, <code class="md-code-inline">csc</code>, <code class="md-code-inline">cot</code> and the hyperbolic functions are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code> and <code class="md-code-inline">exp</code>;</p>
+</li>
+<li><p>the inverse trigonometric functions are rewritten in terms of <code class="md-code-inline">atan</code> (for example <span class="md-math md-math-inline">\(\arcsin u = \arctan\big(u/\sqrt{1-u^2}\big)\)</span>), and the inverse hyperbolic functions in terms of <code class="md-code-inline">log</code> (for example <span class="md-math md-math-inline">\(\operatorname{arsinh} u = \log\big(u + \sqrt{u^2+1}\big)\)</span>);</p>
 </li>
 <li><p>integer powers of short sums are expanded.</p>
 </li>
@@ -134,6 +136,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=110d4b4d"></script>
+  <script src="../assets/materialdocs.js?v=7f8b74e7"></script>
 </body>
 </html>

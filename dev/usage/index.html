@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=818cc74c">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=3fdbb303">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -153,9 +153,7 @@ gruntz_limit(sin(x)/x, x, 0)</code></pre>
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">gruntz_limit(exp(x + exp(-x)) - exp(x), x)</code></pre>
 </div>
-<div class="md-math md-math-display">
-\[1\]
-</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">1</code></pre>
 </div>
 <div class="md-multi-output">
 <div class="md-code-block">
@@ -261,7 +259,47 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </div>
 <h2 id="Supported-functions" class="md-heading">Supported functions<a href="#Supported-functions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>The operations understood are</p>
-<p><code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code> (one or two arguments), <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">tan</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code>, <code class="md-code-inline">tanh</code>.</p>
+<ul class="md-list-tight">
+<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>;</p>
+</li>
+<li><p><code class="md-code-inline">exp</code>, and <code class="md-code-inline">log</code> (one or two arguments);</p>
+</li>
+<li><p>trigonometric: <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">tan</code>, <code class="md-code-inline">sec</code>, <code class="md-code-inline">csc</code>, <code class="md-code-inline">cot</code>;</p>
+</li>
+<li><p>inverse trigonometric: <code class="md-code-inline">asin</code>, <code class="md-code-inline">acos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">asec</code>, <code class="md-code-inline">acsc</code>, <code class="md-code-inline">acot</code>;</p>
+</li>
+<li><p>hyperbolic: <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code>, <code class="md-code-inline">tanh</code>, <code class="md-code-inline">sech</code>, <code class="md-code-inline">csch</code>, <code class="md-code-inline">coth</code>;</p>
+</li>
+<li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>.</p>
+</li>
+</ul>
+<p>Inside the package, most of these are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">exp</code> and <code class="md-code-inline">log</code>. An answer involving them is correct, but it may be written differently from the input. For example, <span class="md-math md-math-inline">\(\arcsin(1/2)\)</span> comes back in terms of <code class="md-code-inline">atan</code>:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">L = gruntz_limit(:(asin(x)), :x, 1//2)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[\arctan\left( \frac{1}{2} \left( \frac{3}{4} \right)^{\frac{-1}{2}} \right)\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">eval(L) ≈ π/6</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">true</code></pre>
+</div>
+<p>SymEngine simplifies the same answer when it is rebuilt:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(asin(x), x, 1//2)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[\frac{1}{6} \pi\]
+</div>
+</div>
 <p>Each operation can be given as a Julia <code class="md-code-inline">Function</code> or as its <code class="md-code-inline">Symbol</code> name. The named constants <code class="md-code-inline">pi</code>/<code class="md-code-inline">π</code>, <code class="md-code-inline">E</code>/<code class="md-code-inline">ℯ</code>, <code class="md-code-inline">EulerGamma</code>, <code class="md-code-inline">Catalan</code> and <code class="md-code-inline">GoldenRatio</code> are recognised. In an <code class="md-code-inline">Expr</code>, the bare symbols <code class="md-code-inline">pi</code>, <code class="md-code-inline">π</code> and <code class="md-code-inline">ℯ</code> are treated as these constants, not as parameters:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
@@ -337,6 +375,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=818cc74c"></script>
+  <script src="../assets/materialdocs.js?v=3fdbb303"></script>
 </body>
 </html>

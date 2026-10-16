@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reference — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=e47089c1">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=b1909172">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Reference — GruntzLimit.jl">
   <meta property="og:title" content="Reference — GruntzLimit.jl">
@@ -54,7 +54,7 @@
 <div class="md-docstring" id="GruntzLimit.Gruntz.gruntz_limit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz.gruntz_limit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/3e23c00fbe6e28690c0e926e5f0d7c87c3940e35/src/Gruntz.jl#L1025-L1066" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/bc027389c3eec98dfdd55837fc08bc2636a7b7e4/src/Gruntz.jl#L1050-L1091" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -99,7 +99,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.Gruntz.GruntzError">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz.GruntzError</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/3e23c00fbe6e28690c0e926e5f0d7c87c3940e35/src/Gruntz.jl#L55-L63" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/bc027389c3eec98dfdd55837fc08bc2636a7b7e4/src/Gruntz.jl#L57-L65" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -114,7 +114,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.Gruntz">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/3e23c00fbe6e28690c0e926e5f0d7c87c3940e35/src/Gruntz.jl#L1-L45" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/bc027389c3eec98dfdd55837fc08bc2636a7b7e4/src/Gruntz.jl#L1-L47" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -146,7 +146,7 @@ gruntz_limit(f, x, x0 = Inf; dir = :+, build = (op, args...) -&gt; op(args...), 
 <li><p>Returns <code class="md-code-inline">Inf</code>, <code class="md-code-inline">-Inf</code>, an <code class="md-code-inline">Int</code>/<code class="md-code-inline">Rational</code>, or a term. Non-rational results are rebuilt by <em>calling the operations as functions</em> (<code class="md-code-inline">+</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code>, <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>) on the pieces; with a symbolic variable inside that gives a symbolic term back. Constant results such as <code class="md-code-inline">-π/2</code> or <code class="md-code-inline">exp(1)</code> stay symbolic too: for SimpleExpressions they are built as unevaluated terms (evaluate with <code class="md-code-inline">r()</code>), for SymEngine they use <code class="md-code-inline">Basic</code> constants, and for <code class="md-code-inline">Expr</code> input (<code class="md-code-inline">x</code> a <code class="md-code-inline">Symbol</code>) results are unevaluated <code class="md-code-inline">Expr</code> calls such as <code class="md-code-inline">:(exp(1))</code>. Pass <code class="md-code-inline">build</code> to construct results differently (e.g. <code class="md-code-inline">maketerm</code>-based). <code class="md-code-inline">lift</code> converts plain numbers/π into the package&#39;s number type; by default it is the constructor of <code class="md-code-inline">typeof(f)</code> when that is a non-<code class="md-code-inline">Real</code> <code class="md-code-inline">Number</code> such as <code class="md-code-inline">Basic</code>, so a SymEngine limit of exp(1) comes back as <code class="md-code-inline">E</code>, not a float.</p>
 </li>
 </ul>
-<p>Operations understood (given as <code class="md-code-inline">Function</code>s; <code class="md-code-inline">Symbol</code> names are accepted too): <code class="md-code-inline">+ - * / ^ inv sqrt cbrt exp log sin cos tan atan abs sinh cosh tanh</code>. Limits that do not exist because of bounded oscillation (e.g. <code class="md-code-inline">sin(x)</code> at Inf) raise <code class="md-code-inline">GruntzError</code>.</p>
+<p>Operations understood (given as <code class="md-code-inline">Function</code>s; <code class="md-code-inline">Symbol</code> names are accepted too): <code class="md-code-inline">+ - * / ^ inv sqrt cbrt exp log abs</code>, <code class="md-code-inline">sin cos tan sec csc cot</code>, their inverses <code class="md-code-inline">asin acos atan asec acsc acot</code>, the hyperbolic <code class="md-code-inline">sinh cosh tanh sech csch coth</code> and their inverses <code class="md-code-inline">asinh acosh atanh asech acsch acoth</code>. Limits that do not exist because of bounded oscillation (e.g. <code class="md-code-inline">sin(x)</code> at Inf) raise <code class="md-code-inline">GruntzError</code>.</p>
 <p>Design: terms are converted to an internal canonical form (sums of monomials with rational coefficients/exponents over &quot;atoms&quot;: variables, exp/log/sin/cos applications and multi-term bases). That supplies the zero recognition Gruntz&#39;s algorithm needs without depending on a particular CAS.</p>
 </div>
 </div>
@@ -176,6 +176,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=e47089c1"></script>
+  <script src="../assets/materialdocs.js?v=b1909172"></script>
 </body>
 </html>
