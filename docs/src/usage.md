@@ -156,7 +156,14 @@ The operations understood are
 `cos`, `tan`, `atan`, `abs`, `sinh`, `cosh`, `tanh`.
 
 Each operation can be given as a Julia `Function` or as its `Symbol` name. The named constants `pi`/`π`, `E`/`ℯ`,
-`EulerGamma`, `Catalan` and `GoldenRatio` are recognised. Anything else gives a
+`EulerGamma`, `Catalan` and `GoldenRatio` are recognised. In an `Expr`, the bare symbols
+`pi`, `π` and `ℯ` are treated as these constants, not as parameters:
+
+```@example expr
+gruntz_limit(:(x * (atan(x) - pi/2)), :x)
+```
+
+Anything else gives a
 [`GruntzError`](@ref):
 
 ```@example expr
