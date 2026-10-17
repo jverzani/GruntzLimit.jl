@@ -136,12 +136,13 @@ Then add it to the loop in `run_all.jl` and to `METHODS` in `build.jl`.
 out" section is written by hand in `template.html`; check it against the new
 results and edit it before publishing.
 
-The package README has a badge comparing the number of problems solved
+The package README and the docs' home page (`docs/src/index.md`) have a
+badge comparing the number of problems solved
 correctly by `symbolicutils` (GruntzLimit, SymbolicUtils) and `symboliclimits`
 (SymbolicLimits, the same terms). It links to the page through
 htmlpreview.github.io, from `main`, so the page must be committed and pushed
 there. It is a static badge: after a run that changes these numbers, update
-them in the badge URL and its alt text.
+them in the badge URL and its alt text, in both places.
 
 ## Results so far
 
