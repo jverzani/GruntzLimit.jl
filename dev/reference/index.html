@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reference — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=b40594d7">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=1d6ab8ad">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Reference — GruntzLimit.jl">
   <meta property="og:title" content="Reference — GruntzLimit.jl">
@@ -54,12 +54,12 @@
 <div class="md-docstring" id="GruntzLimit.Gruntz.gruntz_limit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz.gruntz_limit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/876fc0dafb9859f66d46a336048c7e5bfae22604/src/Gruntz.jl#L1103-L1144" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/f80d4b5723d1805916a62e62202e36ae1641da80/src/Gruntz.jl#L1259-L1305" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-julia">gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing)</code></pre>
+<pre><code class="language-julia">gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())</code></pre>
 </div>
 <p>Compute <span class="md-math md-math-inline">\(\lim_{x \to x_0} f(x)\)</span> with Gruntz&#39;s algorithm.</p>
 <ul class="md-list-tight">
@@ -74,6 +74,8 @@
 <li><p><code class="md-code-inline">build</code>: <code class="md-code-inline">build(op, args...)</code> constructs a compound result term. When <code class="md-code-inline">x</code> is a <code class="md-code-inline">Symbol</code> (<code class="md-code-inline">Expr</code> input) the default is <code class="md-code-inline">Expr(:call, nameof(op), args...)</code>, giving an unevaluated <code class="md-code-inline">Expr</code>; otherwise it calls <code class="md-code-inline">op(args...)</code>, which is right for types like SymEngine&#39;s <code class="md-code-inline">Basic</code>.</p>
 </li>
 <li><p><code class="md-code-inline">lift</code>: converts plain Julia numbers (and <code class="md-code-inline">π</code>) in the result to the symbolic number type. The default uses the constructor of <code class="md-code-inline">typeof(f)</code> when that is a non-<code class="md-code-inline">Real</code> <code class="md-code-inline">Number</code> (as with <code class="md-code-inline">Basic</code>); otherwise numbers are left as they are.</p>
+</li>
+<li><p><code class="md-code-inline">signs</code> (<strong>experimental</strong>, may change): the signs of free parameters, as pairs <code class="md-code-inline">parameter =&gt; 1</code> or <code class="md-code-inline">parameter =&gt; -1</code> (e.g. <code class="md-code-inline">Dict(a =&gt; 1)</code>), for limits that depend on them, such as <code class="md-code-inline">x^a</code>. A parameter is otherwise taken to be nonzero, of unknown sign. The sign of an expression in the parameters is decided only when every term of it has the same sign (so <code class="md-code-inline">2a + b</code> with <code class="md-code-inline">a, b &gt; 0</code>, but not <code class="md-code-inline">a - 2</code>).</p>
 </li>
 </ul>
 <p>Returns <code class="md-code-inline">Inf</code>, <code class="md-code-inline">-Inf</code>, an <code class="md-code-inline">Int</code>/<code class="md-code-inline">Rational</code> for rational limits, or otherwise a term assembled with <code class="md-code-inline">build</code>. Throws <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> when the limit does not exist or cannot be computed.</p>
@@ -99,7 +101,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.Gruntz.GruntzError">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz.GruntzError</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/876fc0dafb9859f66d46a336048c7e5bfae22604/src/Gruntz.jl#L58-L66" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/f80d4b5723d1805916a62e62202e36ae1641da80/src/Gruntz.jl#L58-L66" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -114,7 +116,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.Gruntz">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.Gruntz</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/876fc0dafb9859f66d46a336048c7e5bfae22604/src/Gruntz.jl#L1-L48" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/f80d4b5723d1805916a62e62202e36ae1641da80/src/Gruntz.jl#L1-L48" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -134,7 +136,7 @@ gruntz_limit(x^2 + 1, x, -Inf)        # Inf
 import SymEngine; SymEngine.@vars y
 gruntz_limit(atan(y)/y, y, 0)         # 1
 
-gruntz_limit(f, x, x0 = Inf; dir = :+, build = (op, args...) -&gt; op(args...), lift = auto)</code></pre>
+gruntz_limit(f, x, x0 = Inf; dir = :+, build = (op, args...) -&gt; op(args...), lift = auto, signs = ())</code></pre>
 </div>
 <ul class="md-list-tight">
 <li><p><code class="md-code-inline">f</code> is the expression, <code class="md-code-inline">x</code> the symbolic variable (the same object used in <code class="md-code-inline">f</code>).</p>
@@ -176,6 +178,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=b40594d7"></script>
+  <script src="../assets/materialdocs.js?v=1d6ab8ad"></script>
 </body>
 </html>

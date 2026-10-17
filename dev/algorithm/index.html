@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How it works — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=ffbccea6">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=7b61d53f">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="How it works — GruntzLimit.jl">
   <meta property="og:title" content="How it works — GruntzLimit.jl">
@@ -100,9 +100,11 @@
 </li>
 <li><p>The limit point is real, and so are all values; complex numbers are rejected.</p>
 </li>
-<li><p>The sign of a constant is decided numerically (in <code class="md-code-inline">BigFloat</code>). A constant that contains a free parameter has no decidable sign, and when the algorithm needs that sign a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> is thrown.</p>
+<li><p>The sign of a constant is decided numerically (in <code class="md-code-inline">BigFloat</code>), and a constant that is zero to that precision is taken to be zero. Sines and cosines of rational multiples of <span class="md-math md-math-inline">\(\pi\)</span> with denominators 1, 2, 3, 4 and 6 are evaluated exactly.</p>
 </li>
-<li><p>Exponents of comparable terms must have rational ratios.</p>
+<li><p>A free parameter is taken to be nonzero, of unknown sign. When the algorithm needs the sign of a constant that contains one, a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> is thrown, unless the sign follows from those given with the experimental <code class="md-code-inline">signs</code> keyword (see <a href="../usage/#Parameters-and-their-signs">Parameters and their signs</a>). Where only the size of a limit matters, as when deciding that <span class="md-math md-math-inline">\(x^a\)</span> and <span class="md-math md-math-inline">\(x\)</span> are comparable, the sign is not needed.</p>
+</li>
+<li><p>Comparable terms whose exponents have an irrational ratio, such as <span class="md-math md-math-inline">\(3^x\)</span> and <span class="md-math md-math-inline">\(5^x\)</span>, are handled with irrational powers of <span class="md-math md-math-inline">\(\omega\)</span>; such powers are ordered by the sign of their difference.</p>
 </li>
 </ul>
       </article>
@@ -136,6 +138,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=ffbccea6"></script>
+  <script src="../assets/materialdocs.js?v=7b61d53f"></script>
 </body>
 </html>

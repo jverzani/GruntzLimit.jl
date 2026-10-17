@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GruntzLimit.jl — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="./assets/materialdocs.css?v=8e659409">
+  <link rel="stylesheet" href="./assets/materialdocs.css?v=9aada2e1">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="GruntzLimit.jl — GruntzLimit.jl">
   <meta property="og:title" content="GruntzLimit.jl — GruntzLimit.jl">
@@ -51,6 +51,11 @@
       <article class="md-article">
       <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/jverzani/GruntzLimit.jl/blob/main/docs/src/index.md" title="Edit source on GitHub" aria-label="Edit source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></a></div>
 <h1 id="GruntzLimit.jl" class="md-heading">GruntzLimit.jl<a href="#GruntzLimit.jl" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p><a href="https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html"><figure class="md-figure">
+<img src="https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2019-2f8a4c" alt="Limits, correct of 66: GruntzLimit 66, SymbolicLimits 19" loading="lazy">
+<figcaption>Limits, correct of 66: GruntzLimit 66, SymbolicLimits 19</figcaption>
+</figure>
+</a></p>
 <p>Limits of univariate real expressions using the algorithm of D. Gruntz, <a href="https://doi.org/10.3929/ethz-a-001631582"><em>On Computing Limits in a Symbolic Manipulation System</em></a> (PhD thesis, ETH Zürich, 1996).</p>
 <p>The package does not depend on a computer algebra system. Any symbolic term type that implements the <a href="https://github.com/JuliaSymbolics/TermInterface.jl">TermInterface.jl</a> methods <code class="md-code-inline">iscall</code>, <code class="md-code-inline">operation</code> and <code class="md-code-inline">arguments</code> can be used. These docs show three such types:</p>
 <ul class="md-list-tight">
@@ -63,7 +68,7 @@
 </ul>
 <p><a href="https://github.com/jverzani/SimpleExpressions.jl">SimpleExpressions.jl</a> is also tested.</p>
 <p>The input is converted to an internal canonical form. All of the algorithm&#39;s work (finding the most rapidly varying subexpressions, rewriting, series expansion) is done there, and the answer is rebuilt in your term type by calling operations as functions.</p>
-<p>This package was implemented by Claude Code. See also <a href="https://github.com/SciML/SymbolicLimits.jl">SymbolicLimits.jl</a>, which implements Gruntz&#39;s algorithm for Symbolics.jl.</p>
+<p>This package was implemented by Claude Code. See also <a href="https://github.com/SciML/SymbolicLimits.jl">SymbolicLimits.jl</a>, which implements Gruntz&#39;s algorithm for Symbolics.jl. The <a href="https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html">comparison</a> (the badge above) has both packages on 66 limit problems, the examples of Gruntz&#39;s thesis among them; see <code class="md-code-inline">benchmark/limits/README.md</code> in the repository to rerun it.</p>
 <h2 id="Example" class="md-heading">Example<a href="#Example" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <div class="md-multi-output">
 <div class="md-code-block">
@@ -120,6 +125,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="./siteinfo.js"></script>
   <script src="./../versions.js"></script>
-  <script src="./assets/materialdocs.js?v=8e659409"></script>
+  <script src="./assets/materialdocs.js?v=9aada2e1"></script>
 </body>
 </html>
