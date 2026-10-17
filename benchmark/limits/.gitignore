@@ -1,0 +1,3 @@
+results/std*.log
+results/run_all.log
+env_*/Manifest.toml

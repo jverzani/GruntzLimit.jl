@@ -1,0 +1,7 @@
+# SymbolicLimits.jl (SciML, from the registry), with SymbolicUtils terms
+[deps]
+SymbolicLimits = "19f23fe9-fdab-4a78-91af-e7b7767979c3"
+SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
+
+[compat]
+SymbolicUtils = "4"
