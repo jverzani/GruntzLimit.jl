@@ -1,7 +1,7 @@
 # Usage
 
 ```julia
-gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing)
+gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
 ```
 
 computes ``\lim_{x \to x_0} f(x)``. The limit point `x0` may be `Inf`, `-Inf`, a number, or an
@@ -269,6 +269,60 @@ try
 catch err
     err
 end
+```
+
+## Parameters and their signs
+
+!!! warning "Experimental"
+    The `signs` keyword is experimental and may change or be replaced. One possibility
+    being considered is a return type that gives the limit for each case of the
+    parameters (for example, `a < 2`, `a = 2` and `a > 2`).
+
+A parameter is taken to be a nonzero real number of unknown sign. That is enough for many
+limits, such as
+
+```@example expr
+gruntz_limit(:(x^a / exp(x)), :x)
+```
+
+which is 0 whatever the sign of `a`. When the limit depends on the sign, a
+[`GruntzError`](@ref) is thrown:
+
+```@example expr
+try
+    gruntz_limit(:(x^a), :x)
+catch err
+    err
+end
+```
+
+TermInterface has no way to state assumptions, so the signs are given to `gruntz_limit` with
+the `signs` keyword, as pairs `parameter => 1` (positive) or `parameter => -1` (negative):
+
+```@example expr
+gruntz_limit(:(x^a), :x; signs = Dict(:a => 1))
+```
+
+```@example expr
+gruntz_limit(:(x^a * exp(-b*x)), :x; signs = Dict(:a => 1, :b => 1))
+```
+
+The keys are the parameters as they appear in the expression: `Symbol`s for an `Expr`, the
+symbolic variables otherwise:
+
+```@example sym
+@vars b
+gruntz_limit(exp(a*b*x), x; signs = Dict(a => 1, b => -1))
+```
+
+The sign of an expression in the parameters is decided from these when every term of it has
+the same sign: `2a + b`, `a*b` and `exp(a)*b` are decided for `a, b > 0`, but `a - 2` is not,
+so ``\lim_{x\to\infty} x^{a-2}`` still throws. Substituting, say, `a = 2 + c` and giving
+`c => 1` handles the case `a > 2`:
+
+```@example sym
+@vars c
+gruntz_limit(x^(2 + c), x; signs = Dict(c => 1))
 ```
 
 ## When there is no limit

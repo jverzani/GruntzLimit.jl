@@ -1,0 +1,11 @@
+# GruntzLimit, with Expr, SymEngine and SymbolicUtils terms
+[deps]
+GruntzLimit = "549ac5eb-4437-4bd1-88f1-51d4e2fa49c9"
+SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
+SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
+
+[sources]
+GruntzLimit = {path = "../../.."}
+
+[compat]
+SymbolicUtils = "4"

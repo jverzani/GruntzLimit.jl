@@ -138,6 +138,13 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test r isa Expr && ev(r; a = 3) ≈ 16
     end
 
+    @testset "signs of parameters (experimental)" begin
+        @test gruntz_limit(:(x^a * exp(-b*x)), :x; signs = Dict(:a => 1, :b => 1)) == 0
+        @test gruntz_limit(:(exp(a*b*x)), :x; signs = Dict(:a => 1, :b => -1)) == 0
+        @test gruntz_limit(:(x^a), :x, 0; signs = [:a => 1]) == 0
+        @test_throws GruntzError gruntz_limit(:(x^a), :x, 0)
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf
@@ -150,6 +157,24 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(pi*x/x), :x, 0) === π
         @test gruntz_limit(:(sin(π*x)/x), :x, 0) === π
         @test gruntz_limit(:((1 + ℯ/x)^x), :x) == :(exp(exp(1)))
+    end
+
+    @testset "trigonometric functions at multiples of π" begin
+        @test gruntz_limit(:(tan(x)^tan(2x)), :x, :(π/4); dir = :both) == :(exp(1) ^ -1)
+        @test ev(gruntz_limit(:(sin(x - π/4)/(cos(x) - sin(x))), :x, :(π/4); dir = :both)) ≈ -1/sqrt(2)
+        @test gruntz_limit(:(cos(π/3) + x), :x, 0) == 1//2
+    end
+
+    @testset "irrational ratio of exponents" begin
+        @test ev(gruntz_limit(:((2^x - 1)/(3^x - 1)), :x, 0; dir = :both)) ≈ log(2)/log(3)
+        @test gruntz_limit(:((2^(1/x) + 3^(1/x))^x), :x, 0) == 3
+    end
+
+    @testset "rational literals" begin
+        @test gruntz_limit(:(x^(5//7)/x), :x) == 0
+        @test gruntz_limit(:(sin(x)/x + 1//3), :x, 0) == 4//3
+        @test gruntz_limit(:(exp(exp(5//2*x^(-5//7) + 21//8*x^(6//11) + 2*x^(-8) + 54//17*x^(49//45)))^8 /
+                             log(log(-log(4//3*x^(-5//14))))^(7//6)), :x) == Inf
     end
 
     @testset "custom build" begin

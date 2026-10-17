@@ -2,6 +2,7 @@
 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jverzani.github.io/GruntzLimit.jl/dev/)
 [![Build Status](https://github.com/jverzani/GruntzLimit.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/jverzani/GruntzLimit.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 19](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2019-2f8a4c)](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html)
 
 
 Implementation of the Gruntz algorithm from (D. Gruntz, ["On Computing Limits in a Symbolic Manipulation System"](https://doi.org/10.3929/ethz-a-001631582), PhD thesis, ETH Zürich, 1996) for symbolic algebra systems in Julia supporting the `TermInterface` interface (such as [SymEngine.jl](https://github.com/symengine/SymEngine.jl), [SymbolicUtils.jl](https://github.com/JuliaSymbolics/SymbolicUtils.jl), [SimpleExpressions.jl](https://github.com/jverzani/SimpleExpressions.jl), ..., as well as Julia's own `Expr` objects) .
@@ -19,5 +20,14 @@ gruntz_limit((x^x - x^a)/(a^x - a^a), x, a) # 1
 ```
 
 
+
+## Comparison
+
+The limits badge compares GruntzLimit to [SymbolicLimits](https://github.com/SciML/SymbolicLimits.jl),
+both with SymbolicUtils terms: the number of the 66 problems of `benchmark/limits/problems.jl`
+(the examples of Gruntz's thesis, hard limits at ±∞ and at finite points, and limits with
+parameters) each computes with the right answer. The [comparison](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html) also has
+GruntzLimit with `Expr` and SymEngine terms, and SymbolicLimits with powers rewritten as `exp`
+and `log`; see `benchmark/limits/README.md` to rerun it.
 
 See also [SymbolicLimits](https://github.com/SciML/SymbolicLimits.jl).
