@@ -72,7 +72,14 @@ TermInterface's `maketerm` so that it stays exact.
 
 * Only the functions listed in [Supported functions](@ref) are understood.
 * The limit point is real, and so are all values; complex numbers are rejected.
-* The sign of a constant is decided numerically (in `BigFloat`). A constant that contains a
-  free parameter has no decidable sign, and when the algorithm needs that sign a
-  [`GruntzError`](@ref) is thrown.
-* Exponents of comparable terms must have rational ratios.
+* The sign of a constant is decided numerically (in `BigFloat`), and a constant that is zero
+  to that precision is taken to be zero. Sines and cosines of rational multiples of ``\pi``
+  with denominators 1, 2, 3, 4 and 6 are evaluated exactly.
+* A free parameter is taken to be nonzero, of unknown sign. When the algorithm needs the sign
+  of a constant that contains one, a [`GruntzError`](@ref) is thrown, unless the sign follows
+  from those given with the experimental `signs` keyword (see
+  [Parameters and their signs](@ref)). Where only the size of a limit matters, as when
+  deciding that ``x^a`` and ``x`` are comparable, the sign is not needed.
+* Comparable terms whose exponents have an irrational ratio, such as ``3^x`` and ``5^x``, are
+  handled with irrational powers of ``\omega``; such powers are ordered by the sign of their
+  difference.

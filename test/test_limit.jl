@@ -102,6 +102,37 @@
     @test gruntz_limit(x * acsch(x), x) == 1
     @test gruntz_limit(x * acoth(x), x) == 1
 
+    # trigonometric functions at rational multiples of π (cos(π/2) is zero)
+    @test gruntz_limit((PI/2 - x)*tan(x), x, PI/2; dir = :both) == 1
+    @test gruntz_limit(cos(x)/(x - PI/2), x, PI/2; dir = :both) == -1
+    @test gruntz_limit(sin(x)/(x - PI), x, PI; dir = :both) == -1
+    @test gruntz_limit(sin(x)^2/(1 + cos(x)), x, PI; dir = :both) == 2
+
+    # comparable exponentials with an irrational ratio of exponents
+    @test gruntz_limit((2^x + 3^x)/3^x, x) == 1
+    @test gruntz_limit(x^100 * 2^x/3^x, x) == 0
+    @test gruntz_limit((3^x + 5^x)^(1/x), x) == 5
+    @test gruntz_limit((2^x + 3^x)^(1/x), x, -Inf) == 2
+    @test gruntz_limit(exp(exp(exp(x + exp(-x))))/exp(exp(exp(x))), x) == Inf
+
+    # a parameter whose sign does not matter, and one whose sign does
+    @test gruntz_limit(x^a/exp(x), x) == 0
+    @test gruntz_limit(exp(x)/x^a, x) == Inf
+    @test gruntz_limit(log(x)^a/x, x) == 0
+    @test_throws GruntzError gruntz_limit(x^a/x^2, x)
+    @test_throws GruntzError gruntz_limit(exp(a*x), x)
+
+    # signs of parameters, given with `signs` (experimental)
+    @test gruntz_limit(x^a, x; signs = Dict(a => 1)) == Inf
+    @test gruntz_limit(x^a, x; signs = Dict(a => -1)) == 0
+    @test gruntz_limit(x^a, x, 0; signs = Dict(a => 1)) == 0
+    @test gruntz_limit(exp(a*x), x; signs = [a => -1]) == 0
+    @test gruntz_limit(x^100 * exp(-a*x), x; signs = Dict(a => 1)) == 0
+    @test gruntz_limit((2a + 1)*x, x; signs = Dict(a => 1)) == Inf
+    @test gruntz_limit(x^(2 + a), x; signs = Dict(a => 1)) == Inf
+    @test_throws GruntzError gruntz_limit(x^(a - 2), x; signs = Dict(a => 1))   # a > 0 is not enough
+    @test_throws ArgumentError gruntz_limit(a*x, x; signs = Dict(a => 0))
+
     # bounded oscillation has no limit
     @test_throws GruntzError gruntz_limit(sin(x), x)
 end

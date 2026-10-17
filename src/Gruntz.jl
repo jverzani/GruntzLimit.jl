@@ -18,7 +18,7 @@ Julia's `Expr`:
     import SymEngine; SymEngine.@vars y
     gruntz_limit(atan(y)/y, y, 0)         # 1
 
-    gruntz_limit(f, x, x0 = Inf; dir = :+, build = (op, args...) -> op(args...), lift = auto)
+    gruntz_limit(f, x, x0 = Inf; dir = :+, build = (op, args...) -> op(args...), lift = auto, signs = ())
 
 * `f` is the expression, `x` the symbolic variable (the same object used in `f`).
 * `x0` may be `Inf`, `-Inf`, or a finite number / term not containing `x`.
@@ -70,9 +70,15 @@ end
 Base.showerror(io::IO, e::GruntzError) = print(io, "GruntzError: ", e.msg)
 
 struct NeedMorePrecision <: Exception end
+# An infinite limit. The sign is 0 when it depends on a free parameter (e.g.
+# a*log(x) as x -> oo): enough to classify exp(a*log(x)) in the mrv set, where only
+# finiteness matters. Where the sign itself is needed, `signof` throws `why`.
 struct Infinity
     sign::Int
+    why::String
 end
+Infinity(s::Int) = Infinity(s, "")
+signof(L::Infinity) = L.sign == 0 ? throw(GruntzError(L.why)) : L.sign
 
 # ---------------------------------------------------------------------------
 # Canonical form
@@ -287,8 +293,42 @@ function mklog(s::Sum)
     atomS(funatom(:log, Sum[s]))
 end
 
-mksin(s::Sum) = isempty(s.t) ? zeroS() : atomS(funatom(:sin, Sum[s]))
-mkcos(s::Sum) = isempty(s.t) ? oneS() : atomS(funatom(:cos, Sum[s]))
+const PI_ATOM = leafatom(π)
+
+# q for a constant q*π, q rational; otherwise nothing
+function piratio(s::Sum)
+    length(s.t) == 1 || return nothing
+    m, c = first(s.t)
+    (length(m.fs) == 1 && m.fs[1].first == PI_ATOM && isone(m.fs[1].second)) ? c : nothing
+end
+
+# sin(q*π) exactly, for q with denominator 1, 2, 3, 4 or 6; otherwise nothing
+function sinpi_exact(q::Q)
+    r = mod(q, 2)
+    sg = r >= 1 ? -1 : 1               # sin(π + t) = -sin(t)
+    r >= 1 && (r -= 1)
+    r > 1//2 && (r = 1 - r)            # sin(π - t) = sin(t)
+    half = Q(1) // 2
+    v = iszero(r) ? zeroS() : r == half ? oneS() : r == Q(1) // 6 ? constS(half) :
+        r == Q(1) // 4 ? scaleS(powS(constS(2), half), half) :
+        r == Q(1) // 3 ? scaleS(powS(constS(3), half), half) : nothing
+    v === nothing ? nothing : scaleS(v, Q(sg))
+end
+
+# sin and cos of a rational multiple of π with a small denominator are evaluated,
+# so that zeros such as cos(π/2) are recognised
+function mksin(s::Sum)
+    isempty(s.t) && return zeroS()
+    q = piratio(s)
+    v = q === nothing ? nothing : sinpi_exact(q)
+    v === nothing ? atomS(funatom(:sin, Sum[s])) : v
+end
+function mkcos(s::Sum)
+    isempty(s.t) && return oneS()
+    q = piratio(s)
+    v = q === nothing ? nothing : sinpi_exact(q + Q(1) // 2)   # cos(t) = sin(t + π/2)
+    v === nothing ? atomS(funatom(:cos, Sum[s])) : v
+end
 
 # atan is odd: pull a negative sign of a single-term argument outside
 function mkatan(s::Sum)
@@ -298,8 +338,6 @@ function mkatan(s::Sum)
     end
     atomS(funatom(:atan, Sum[s]))
 end
-
-const PI_ATOM = leafatom(π)
 
 # abs: |c*m| = |c| * abs(m); sign-normalised so abs(u) and abs(-u) coincide.
 # It is eliminated before the limit is computed (see `resolve_abs`).
@@ -353,6 +391,8 @@ end
 # Real numbers convert directly. Other `Number` leaves (e.g. SymEngine's `Basic`
 # constants) are tried through Float64; anything that is not a finite number is a
 # free symbol, whose sign cannot be decided.
+const FREE_SYMBOL_SIGN = "cannot decide the sign of an expression containing the free symbol"
+
 function leaf_big(h)
     h isa Real && return BigFloat(h)
     for conv in (BigFloat, Float64)
@@ -362,7 +402,7 @@ function leaf_big(h)
         catch
         end
     end
-    throw(GruntzError("cannot decide the sign of an expression containing the free symbol `$h`"))
+    throw(GruntzError(FREE_SYMBOL_SIGN * " `$h`"))
 end
 
 function numval(a::Atom)
@@ -386,6 +426,44 @@ function numval(s::Sum)
     end
     acc
 end
+# Signs of free parameters given with `gruntz_limit(...; signs)`, by leaf key.
+# Experimental.
+const SIGNS = Ref(Dict{String,Int}())
+
+# The sign of a constant with free parameters, from the signs given for them: each
+# term's sign is that of its coefficient times its factors' (exp(u) > 0, numbers by
+# value); the constant's sign is decided only when every term has the same sign.
+# Returns ±1 or `nothing`.
+function infer_sign(s::Sum)
+    isempty(SIGNS[]) && return nothing
+    sg = 0
+    for (m, c) in s.t
+        t = Int(sign(c))
+        for (a, e) in m.fs
+            sa = atom_sign(a)
+            sa === nothing && return nothing
+            if sa < 0
+                isone(denominator(e)) || return nothing
+                isodd(numerator(e)) && (t = -t)
+            end
+        end
+        sg == 0 ? (sg = t) : (sg == t || return nothing)
+    end
+    sg == 0 ? nothing : sg
+end
+function atom_sign(a::Atom)
+    a.kind === :leaf && haskey(SIGNS[], a.key) && return SIGNS[][a.key]
+    a.kind === :fun && a.head === :exp && return 1
+    a.kind === :fun && a.head === :abs && return 1      # parameters are taken to be nonzero
+    a.kind === :base && return infer_sign(a.args[1]::Sum)
+    v = try
+        numval(a)
+    catch
+        return nothing
+    end
+    abs(v) < big"1e-60" ? nothing : (v > 0 ? 1 : -1)
+end
+
 function csign(s::Sum)::Int
     isempty(s.t) && return 0
     r = ratconst(s)
@@ -393,23 +471,64 @@ function csign(s::Sum)::Int
     v = try
         numval(s)
     catch err
-        err isa GruntzError ? rethrow() : throw(GruntzError("cannot evaluate constant $(skey(s))"))
+        err isa GruntzError || throw(GruntzError("cannot evaluate constant $(skey(s))"))
+        sg = infer_sign(s)
+        sg === nothing ? rethrow() : return sg
     end
     abs(v) < big"1e-60" ? 0 : (v > 0 ? 1 : -1)
 end
 
 # ---------------------------------------------------------------------------
-# Truncated power series in w with rational exponents
+# Truncated power series in w
 # ---------------------------------------------------------------------------
+# Exponents of w are rational, except when comparable exponentials have an
+# irrational ratio (e.g. 3^x and 5^x, ratio log(5)/log(3)): then an exponent is
+# q + r, r a constant free of x (it may contain a parameter, as for x^a).
+# Rational exponents compare exactly; others by the sign of their difference.
+struct Ex
+    q::Q
+    r::Sum                          # zeroS() for a rational exponent
+    rkey::String
+end
+Ex(q::Q) = Ex(q, zeroS(), "0")
+Ex(q::Integer) = Ex(Q(q))
+function Ex(q::Q, r::Sum)
+    rc = ratconst(r)
+    rc !== nothing && return Ex(q + rc)
+    Ex(q, r, skey(r))
+end
+israt(a::Ex) = a.rkey == "0"
+value(a::Ex) = israt(a) ? BigFloat(numerator(a.q)) / BigFloat(denominator(a.q)) : numval(toS(a))
+Base.:(==)(a::Ex, b::Ex) = a.q == b.q && a.rkey == b.rkey
+Base.hash(a::Ex, h::UInt) = hash(a.q, hash(a.rkey, h))
+Base.:+(a::Ex, b::Ex) = israt(a) && israt(b) ? Ex(a.q + b.q) : Ex(a.q + b.q, addS(a.r, b.r))
+Base.:-(a::Ex) = israt(a) ? Ex(-a.q) : Ex(-a.q, negS(a.r))
+Base.:-(a::Ex, b::Ex) = a + (-b)
+Base.:*(a::Ex, q::Q) = israt(a) ? Ex(a.q * q) : Ex(a.q * q, scaleS(a.r, q))
+# The precision marker HUGE (an exact series) dominates any parameter in an exponent
+function Base.isless(a::Ex, b::Ex)
+    (israt(a) && israt(b)) || abs(a.q - b.q) >= HUGE / 2 ? a.q < b.q :
+        (a != b && csign(subS(toS(b), toS(a))) > 0)
+end
+Base.iszero(a::Ex) = israt(a) && iszero(a.q)
+Base.sign(a::Ex) = israt(a) ? Int(sign(a.q)) : csign(toS(a))
+toS(a::Ex) = addS(constS(a.q), a.r)
+const EX0, EX1, HUGE_EX = Ex(0), Ex(1), Ex(HUGE)
+
+# the leaf w^r for an irrational constant r (see `mrv_leadterm`)
+wpowatom(r::Sum) = Atom(:leaf, r, Any[], WLEAF.key * "^(" * skey(r) * ")")
+iswleaf(a::Atom) = a.kind === :leaf && startswith(a.key, WLEAF.key)
+hasw(a::Atom) = iswleaf(a) || (a.kind !== :leaf && any(u -> any(m -> any(p -> hasw(p.first), m.fs), keys((u::Sum).t)), a.args))
+
 struct PS
-    c::Dict{Q,Sum}   # exponent -> nonzero coefficient (an x-expression)
-    prec::Q          # exact for exponents < prec
+    c::Dict{Ex,Sum}   # exponent -> nonzero coefficient (an x-expression)
+    prec::Ex         # exact for exponents < prec
 end
 val(a::PS) = isempty(a.c) ? a.prec : minimum(keys(a.c))
-onePS() = PS(Dict{Q,Sum}(Q(0) => oneS()), HUGE)
+onePS() = PS(Dict{Ex,Sum}(EX0 => oneS()), HUGE_EX)
 
-function trunc_ps(c::Dict{Q,Sum}, prec::Q)
-    d = Dict{Q,Sum}()
+function trunc_ps(c::Dict{Ex,Sum}, prec::Ex)
+    d = Dict{Ex,Sum}()
     for (k, v) in c
         (k < prec && !isempty(v.t)) && (d[k] = v)
     end
@@ -422,11 +541,11 @@ function addPS(a::PS, b::PS)
     end
     trunc_ps(c, min(a.prec, b.prec))
 end
-scalePS(a::PS, s::Sum) = trunc_ps(Dict{Q,Sum}(k => mulS(v, s) for (k, v) in a.c), a.prec)
-shiftPS(a::PS, d::Q) = PS(Dict{Q,Sum}(k + d => v for (k, v) in a.c), a.prec + d)
+scalePS(a::PS, s::Sum) = trunc_ps(Dict{Ex,Sum}(k => mulS(v, s) for (k, v) in a.c), a.prec)
+shiftPS(a::PS, d::Ex) = PS(Dict{Ex,Sum}(k + d => v for (k, v) in a.c), a.prec + d)
 function mulPS(a::PS, b::PS)
     prec = min(a.prec + val(b), b.prec + val(a))
-    c = Dict{Q,Sum}()
+    c = Dict{Ex,Sum}()
     for (ka, ca) in a.c, (kb, cb) in b.c
         k = ka + kb
         k >= prec && continue
@@ -440,8 +559,9 @@ binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end
 
 # sum_{k>=kmin} coef(k) u^k, u having positive valuation; relative target `Trel`
 function polyPS(u::PS, coef, kmin::Int, Trel::Q)
-    acc = PS(Dict{Q,Sum}(), min(Trel, u.prec))
-    K = isempty(u.c) ? kmin : max(kmin, Int(ceil(BigInt, Trel / val(u))))
+    acc = PS(Dict{Ex,Sum}(), min(Ex(Trel), u.prec))
+    v = val(u)
+    K = isempty(u.c) ? kmin : max(kmin, Int(israt(v) ? ceil(BigInt, Trel / v.q) : ceil(BigInt, BigFloat(Trel) / value(v))))
     pw = onePS()
     for k in 0:K
         if k >= kmin
@@ -459,7 +579,7 @@ function split_lead(a::PS)
     v = val(a)
     c0 = a.c[v]
     ic0 = powS(c0, Q(-1))
-    r = PS(Dict{Q,Sum}(k - v => mulS(cc, ic0) for (k, cc) in a.c if k != v), a.prec - v)
+    r = PS(Dict{Ex,Sum}(k - v => mulS(cc, ic0) for (k, cc) in a.c if k != v), a.prec - v)
     v, c0, r
 end
 
@@ -472,11 +592,11 @@ function powPS(a::PS, q::Q, P::Q)
 end
 
 function const_and_rest(a::PS)
-    a.prec <= 0 && throw(NeedMorePrecision())
-    any(k -> k < 0, keys(a.c)) &&
+    a.prec <= EX0 && throw(NeedMorePrecision())
+    any(k -> k < EX0, keys(a.c)) &&
         throw(GruntzError("argument of exp/sin/cos diverges (oscillation or essential singularity)"))
-    c0 = get(a.c, Q(0), zeroS())
-    c0, trunc_ps(Dict{Q,Sum}(k => v for (k, v) in a.c if k != 0), a.prec)
+    c0 = get(a.c, EX0, zeroS())
+    c0, trunc_ps(Dict{Ex,Sum}(k => v for (k, v) in a.c if k != EX0), a.prec)
 end
 
 function expPS(a::PS, P::Q)
@@ -492,7 +612,7 @@ function trigPS(a::PS, P::Q)
     addPS(scalePS(cu, s0), scalePS(su, k0)), addPS(scalePS(cu, k0), scalePS(su, negS(s0)))
 end
 
-constPS(s::Sum) = PS(isempty(s.t) ? Dict{Q,Sum}() : Dict{Q,Sum}(Q(0) => s), HUGE)
+constPS(s::Sum) = PS(isempty(s.t) ? Dict{Ex,Sum}() : Dict{Ex,Sum}(EX0 => s), HUGE_EX)
 
 # atan(v) for v with positive valuation
 atanSeries(v::PS, P::Q) =
@@ -500,7 +620,7 @@ atanSeries(v::PS, P::Q) =
 
 function atanPS(a::PS, x::Atom, P::Q)
     isempty(a.c) && throw(NeedMorePrecision())
-    if val(a) < 0
+    if sign(val(a)) < 0
         # a -> ±oo as w -> 0:  atan(a) = σ π/2 - atan(1/a)
         _, c0, _ = split_lead(a)
         σ = sgn(c0, x)
@@ -518,12 +638,12 @@ end
 function logPS(a::PS, logw::Sum, P::Q)
     v, c0, r = split_lead(a)
     L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
-    cst = addS(mklog(c0), scaleS(logw, v))
-    addPS(L, PS(isempty(cst.t) ? Dict{Q,Sum}() : Dict{Q,Sum}(Q(0) => cst), HUGE))
+    cst = addS(mklog(c0), mulS(logw, toS(v)))
+    addPS(L, constPS(cst))
 end
 
 function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
-    a.kind === :leaf && return PS(Dict{Q,Sum}(Q(1) => oneS()), HUGE)
+    a.kind === :leaf && return PS(Dict{Ex,Sum}((a == w ? EX1 : Ex(Q(0), a.head::Sum)) => oneS()), HUGE_EX)
     a.kind === :base && return series(a.args[1]::Sum, w, logw, P, x)
     arg = series(a.args[1]::Sum, w, logw, P, x)
     h = a.head
@@ -534,12 +654,12 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
 end
 
 function series(s::Sum, w::Atom, logw::Sum, P::Q, x::Atom)::PS
-    acc = PS(Dict{Q,Sum}(), P)
+    acc = PS(Dict{Ex,Sum}(), HUGE_EX)     # inexact terms carry their own precision
     for (m, c) in s.t
         cst = constS(c)
         ps = nothing
         for (a, e) in m.fs
-            if hasleaf(a, w.key)
+            if hasw(a)
                 pe = powPS(series_atom(a, w, logw, P, x), e, P)
                 ps = ps === nothing ? pe : mulPS(ps, pe)
             else
@@ -547,11 +667,24 @@ function series(s::Sum, w::Atom, logw::Sum, P::Q, x::Atom)::PS
             end
         end
         term = ps === nothing ?
-               PS(isempty(cst.t) ? Dict{Q,Sum}() : Dict{Q,Sum}(Q(0) => cst), HUGE) :
+               constPS(cst) :
                scalePS(ps, cst)
         acc = addPS(acc, term)
     end
     acc
+end
+
+# A coefficient free of x whose value is zero (to the precision `csign` uses) is
+# a zero the simplifier did not recognise; taking it as the leading coefficient
+# would give a wrong limit.
+function numzero(s::Sum, x::Atom)
+    hasleaf(s, x.key) && return false
+    v = try
+        numval(s)
+    catch
+        return false
+    end
+    abs(v) < big"1e-60"
 end
 
 function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom)
@@ -559,10 +692,9 @@ function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom)
     for _ in 1:8
         try
             ps = series(f, w, logw, P, x)
-            if !isempty(ps.c)
-                k = minimum(keys(ps.c))
-                return ps.c[k], k
-            end
+            ks = sort!(collect(keys(ps.c)))
+            i = findfirst(k -> !numzero(ps.c[k], x), ks)
+            i === nothing || return ps.c[ks[i]], ks[i]
         catch err
             err isa NeedMorePrecision || rethrow()
         end
@@ -584,10 +716,15 @@ function limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
     DEPTH[] += 1
     try
         c0, e0 = mrv_leadterm(e, x)
-        if e0 > 0
+        if sign(e0) > 0
             zeroS()
-        elseif e0 < 0
-            s = sgn(c0, x)
+        elseif sign(e0) < 0
+            s = try
+                sgn(c0, x)
+            catch err
+                (err isa GruntzError && startswith(err.msg, FREE_SYMBOL_SIGN)) || rethrow()
+                return Infinity(0, err.msg)
+            end
             s == 0 && throw(GruntzError("could not determine the sign of the leading coefficient"))
             Infinity(s)
         else
@@ -625,7 +762,7 @@ function sgn(c::Sum, x::Atom)::Int
         simple && return sg
     end
     L = limitinf(c, x)
-    L isa Infinity && return L.sign
+    L isa Infinity && return signof(L)
     v = csign(L)
     v != 0 && return v
     c1, _ = mrv_leadterm(c, x)
@@ -681,7 +818,7 @@ end
 # returns (c0, e0) with e = c0 * w^e0 + ..., w -> 0+ the exponential of the mrv class
 function mrv_leadterm(e::Sum, x::Atom)
     Ω = mrv(e, x)
-    isempty(Ω) && return e, Q(0)
+    isempty(Ω) && return e, EX0
     if any(==(x), Ω)
         # move up: x -> exp(x). The mrv set is mapped, never recomputed (avoids infinite recursion).
         xup = mkexp(atomS(x))
@@ -707,10 +844,14 @@ function mrv_leadterm(e::Sum, x::Atom)
         ci = limitinf(mulS(gi, powS(g1, Q(-1))), x)
         ci isa Infinity && throw(GruntzError("internal error: mrv class is inconsistent"))
         cq = ratconst(ci)
-        (cq === nothing || iszero(cq)) &&
-            throw(GruntzError("irrational ratio between exponents of comparable terms is unsupported"))
-        wpow[a.key] = powS(wS, Q(-σ) * cq)
-        rest[a.key] = subS(gi, scaleS(g1, cq))
+        iszero(ci) && throw(GruntzError("internal error: mrv class is inconsistent"))
+        if cq === nothing      # an irrational ratio: w^(-σ ci) is a leaf of its own
+            wpow[a.key] = atomS(wpowatom(scaleS(ci, Q(-σ))))
+            rest[a.key] = subS(gi, mulS(g1, ci))
+        else
+            wpow[a.key] = powS(wS, Q(-σ) * cq)
+            rest[a.key] = subS(gi, scaleS(g1, cq))
+        end
     end
     # The factor exp(g_i - c_i g_1) may itself contain members of Ω inside its
     # argument (e.g. exp(exp(-x)) = exp(w)), so it is rewritten recursively.
@@ -825,7 +966,7 @@ function apply_op(op, a::Vector{Sum})
         na == 1 ? negS(a[1]) : subS(a[1], foldl(addS, a[2:end]; init = zeroS()))
     elseif n === :*
         foldl(mulS, a; init = oneS())
-    elseif n === :/ && na == 2
+    elseif n in (:/, ://) && na == 2                  # `//` from rational literals in an `Expr`
         mulS(a[1], powS(a[2], Q(-1)))
     elseif n === :inv && na == 1
         powS(a[1], Q(-1))
@@ -1020,12 +1161,27 @@ end
 # Public API
 # ---------------------------------------------------------------------------
 function lim_equal(a, b)
-    (a isa Infinity && b isa Infinity) && return a.sign == b.sign
+    (a isa Infinity && b isa Infinity) && return signof(a) == signof(b)
     (a isa Sum && b isa Sum) && return skey(a) == skey(b)
     false
 end
 
 # +1 / -1 for +/-infinity (Julia floats or a symbolic package's infinity), else 0
+function with_signs(g, signs)
+    d = Dict{String,Int}()
+    for (p, sg) in signs
+        sg in (1, -1) || throw(ArgumentError("the sign of `$p` must be 1 or -1, got $sg"))
+        d[leafatom(p).key] = sg
+    end
+    old = SIGNS[]
+    SIGNS[] = d
+    try
+        g()
+    finally
+        SIGNS[] = old
+    end
+end
+
 function infdir(x0)
     x0 isa AbstractFloat && return isinf(x0) ? (x0 > 0 ? 1 : -1) : 0
     x0 isa Number || return 0
@@ -1101,7 +1257,7 @@ function auto_lift(f, x)
 end
 
 """
-    gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing)
+    gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
 
 Compute ``\\lim_{x \\to x_0} f(x)`` with Gruntz's algorithm.
 
@@ -1119,6 +1275,11 @@ Compute ``\\lim_{x \\to x_0} f(x)`` with Gruntz's algorithm.
 * `lift`: converts plain Julia numbers (and `π`) in the result to the symbolic number
   type. The default uses the constructor of `typeof(f)` when that is a non-`Real`
   `Number` (as with `Basic`); otherwise numbers are left as they are.
+* `signs` (**experimental**, may change): the signs of free parameters, as pairs
+  `parameter => 1` or `parameter => -1` (e.g. `Dict(a => 1)`), for limits that depend on
+  them, such as `x^a`. A parameter is otherwise taken to be nonzero, of unknown sign.
+  The sign of an expression in the parameters is decided only when every term of it has
+  the same sign (so `2a + b` with `a, b > 0`, but not `a - 2`).
 
 Returns `Inf`, `-Inf`, an `Int`/`Rational` for rational limits, or otherwise a term
 assembled with `build`. Throws [`GruntzError`](@ref) when the limit does not exist or
@@ -1142,9 +1303,12 @@ julia> gruntz_limit(:(atan(x)), :x)
 :(1//2 * π)
 ```
 """
-function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = nothing)
-    L = _limit(from_term(f), leafatom(x), x0, dir)
-    L isa Infinity && return L.sign > 0 ? Inf : -Inf
+function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = nothing,
+                      signs = ())
+    L = with_signs(signs) do
+        _limit(from_term(f), leafatom(x), x0, dir)
+    end
+    L isa Infinity && return signof(L) > 0 ? Inf : -Inf
     r = ratconst(L)
     r !== nothing && return num(r)
     to_term(Builder(build === nothing ? auto_build(f, x) : build,
