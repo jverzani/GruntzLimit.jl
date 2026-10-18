@@ -75,11 +75,15 @@ TermInterface's `maketerm` so that it stays exact.
 * The sign of a constant is decided numerically (in `BigFloat`), and a constant that is zero
   to that precision is taken to be zero. Sines and cosines of rational multiples of ``\pi``
   with denominators 1, 2, 3, 4 and 6 are evaluated exactly.
-* A free parameter is taken to be nonzero, of unknown sign. When the algorithm needs the sign
-  of a constant that contains one, a [`GruntzError`](@ref) is thrown, unless the sign follows
-  from those given with the experimental `signs` keyword (see
-  [Parameters and their signs](@ref)). Where only the size of a limit matters, as when
-  deciding that ``x^a`` and ``x`` are comparable, the sign is not needed.
+* A free parameter is a real number of unknown sign. When the algorithm needs the sign of a
+  constant that contains one, and the signs given with `signs` do not decide it,
+  `gruntz_limit` throws a [`GruntzError`](@ref) naming the constant. `gruntz_cases` instead
+  computes the limit for each sign (see [Parameters and cases](@ref)). Where only the size of
+  a limit matters, as when deciding that ``x^a`` and ``x`` are comparable, the sign is not
+  needed.
+* `gruntz_limit` takes a constant with parameters to be nonzero when that cannot be
+  decided, so an answer such as `a/b` holds for `b != 0`. `gruntz_cases` tests such
+  constants and splits off the case where they vanish.
 * Comparable terms whose exponents have an irrational ratio, such as ``3^x`` and ``5^x``, are
   handled with irrational powers of ``\omega``; such powers are ordered by the sign of their
   difference.
