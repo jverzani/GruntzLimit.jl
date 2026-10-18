@@ -22,7 +22,7 @@ open(joinpath(HERE, "results", "commits.tsv"), "w") do io
 end
 
 for (name, env) in (("expr", "env_gruntz"), ("symengine", "env_gruntz"), ("symbolicutils", "env_gruntz"),
-                    ("symboliclimits", "env_sl"), ("symboliclimits_explog", "env_sl"))
+                    ("symboliclimits", "env_sl"), ("symboliclimits_explog", "env_sl"), ("giac", "env_giac"))
     @info "running $name"
     run(`julia $(joinpath(HERE, "supervise.jl")) $name $env $LIMIT`)
 end

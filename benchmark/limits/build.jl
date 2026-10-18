@@ -8,6 +8,7 @@ const METHODS = [
     ("symbolicutils", "GruntzLimit", "Gruntz", "SymbolicUtils"),
     ("symboliclimits", "SymbolicLimits", "limit", "SymbolicUtils"),
     ("symboliclimits_explog", "SymbolicLimits", "limit, powers as exp/log", "SymbolicUtils"),
+    ("giac", "Giac", "limit (for reference)", "Giac"),
 ]
 
 # a small JSON writer, enough for the page's data

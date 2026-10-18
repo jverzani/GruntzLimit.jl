@@ -1,6 +1,6 @@
 # GruntzLimit.jl
 
-[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 19](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2019-2f8a4c)](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html)
+[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 37](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2037-2f8a4c)](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html)
 
 Limits of univariate real expressions using the algorithm of D. Gruntz,
 [*On Computing Limits in a Symbolic Manipulation System*](https://doi.org/10.3929/ethz-a-001631582)
