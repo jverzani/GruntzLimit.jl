@@ -605,10 +605,10 @@ end
 
 # whether the conditions `c rel 0` (rel one of < <= == != >= >) and the context
 # can hold together
-function satisfiable(lits::Vector{Tuple{Sum,Symbol}})
-    i = findfirst(l -> l[2] === :!=, lits)
+function satisfiable(clist::Vector{Tuple{Sum,Symbol}})
+    i = findfirst(l -> l[2] === :!=, clist)
     if i !== nothing
-        c, rest = lits[i][1], deleteat!(copy(lits), i)
+        c, rest = clist[i][1], deleteat!(copy(clist), i)
         return satisfiable(push!(copy(rest), (c, :<))) || satisfiable(push!(rest, (c, :>)))
     end
     vars = Dict{String,Mono}()
@@ -616,7 +616,7 @@ function satisfiable(lits::Vector{Tuple{Sum,Symbol}})
     for cd in CTX[]
         append!(base, ineqs(cd, vars))
     end
-    for (c, rel) in lits
+    for (c, rel) in clist
         a, k = linform(c, vars)
         rel in (:>, :>=, :(==)) && push!(base, Ineq(a, k, rel === :>))
         rel in (:<, :<=, :(==)) && push!(base, Ineq(negate(a), -k, rel === :<))
@@ -809,7 +809,7 @@ function pmin(p::Prec, q::Prec)
 end
 Base.:+(p::Prec, d::Ex) = Prec([b + d for b in p.bs])
 Base.:-(p::Prec, d::Ex) = Prec([b - d for b in p.bs])
-padd(p::Prec, q::Prec) = reduce(pmin, [Prec(b + c) for b in p.bs for c in q.bs])
+addprec(p::Prec, q::Prec) = reduce(pmin, [Prec(b + c) for b in p.bs for c in q.bs])
 const HUGE_P = Prec(HUGE_EX)
 
 struct PS
@@ -837,7 +837,7 @@ end
 scalePS(a::PS, s::Sum) = trunc_ps(Dict{Ex,Sum}(k => mulS(v, s) for (k, v) in a.c), a.prec)
 shiftPS(a::PS, d::Ex) = PS(Dict{Ex,Sum}(k + d => v for (k, v) in a.c), a.prec + d)
 function mulPS(a::PS, b::PS)
-    prec = pmin(padd(a.prec, valp(b)), padd(b.prec, valp(a)))
+    prec = pmin(addprec(a.prec, valp(b)), addprec(b.prec, valp(a)))
     c = Dict{Ex,Sum}()
     for (ka, ca) in a.c, (kb, cb) in b.c
         k = ka + kb
@@ -1904,13 +1904,13 @@ function flatten_cases(t::CaseTree, conds::Vector{Tuple{Sum,Symbol}}, out)
     out
 end
 
-const Lits = Vector{Tuple{Sum,Symbol}}
+const CondList = Vector{Tuple{Sum,Symbol}}
 
 # whether the conditions `a` imply the condition `l`
-implies(a::Lits, l::Tuple{Sum,Symbol}) = !any(r -> satisfiable(push!(copy(a), (l[1], r))), negations(l[2]))
+implies(a::CondList, l::Tuple{Sum,Symbol}) = !any(r -> satisfiable(push!(copy(a), (l[1], r))), negations(l[2]))
 
 # whether `k` implies `a` or `b`
-function covers(k::Lits, a::Lits, b::Lits)
+function covers(k::CondList, a::CondList, b::CondList)
     nots(x) = [(c, r) for (c, rel) in x for r in negations(rel)]
     (isempty(a) || isempty(b)) && return true
     !any(na -> any(nb -> satisfiable([k; na; nb]), nots(b)), nots(a))
@@ -1920,7 +1920,7 @@ end
 # described by some of their conditions (a <= 0 and 0 < a < 2 give a < 2), and
 # conditions implied by the others of a case are dropped.
 function merge_cases(cases)
-    prune(a::Lits) = (a = copy(a); i = 1;
+    prune(a::CondList) = (a = copy(a); i = 1;
         while i <= length(a)
             implies(deleteat!(copy(a), i), a[i]) ? deleteat!(a, i) : (i += 1)
         end; a)
@@ -1955,7 +1955,7 @@ end
 # The limit for the union of two cases when it is the same in both, possibly after
 # substituting the equalities of one case into the other's limit (1 for a == 1, and
 # a otherwise, give a)
-function matching_value(a::Lits, va, b::Lits, vb)
+function matching_value(a::CondList, va, b::CondList, vb)
     same_value(va, vb) && return va
     v = subst_eqs(a, vb)
     v !== nothing && same_value(va, v) && return vb
@@ -1963,7 +1963,7 @@ function matching_value(a::Lits, va, b::Lits, vb)
     v !== nothing && same_value(vb, v) && return va
     nothing
 end
-function subst_eqs(conds::Lits, v)
+function subst_eqs(conds::CondList, v)
     v isa Sum || return nothing
     sub = Dict{String,Sum}()
     for (c, rel) in conds
@@ -2064,7 +2064,7 @@ cs[:a => 2, :b => 3]                  # the case: CaseCondition[...] => :b
 """
 struct LimitCases <: AbstractVector{Pair{Vector{CaseCondition},Any}}
     cases::Vector{Pair{Vector{CaseCondition},Any}}
-    lits::Vector{Vector{Tuple{Sum,Symbol}}}   # each case's conditions, c rel 0
+    clist::Vector{Vector{Tuple{Sum,Symbol}}}   # each case's conditions, c rel 0
     ctx::Vector{Cond}                         # from `signs`
     sub::Dict{String,Sum}
     vals::Vector{Any}                         # each case's limit (Sum, Infinity, GruntzError)
@@ -2119,7 +2119,7 @@ function find_values(cs::LimitCases, vals)
         end
         all(cd -> holds_at(cd.c, cd.rel, d), cs.ctx) ||
             throw(ArgumentError("the values are outside the signs given"))
-        i = findfirst(lits -> all(((c, rel),) -> holds_at(c, rel, d), lits), cs.lits)
+        i = findfirst(clist -> all(((c, rel),) -> holds_at(c, rel, d), clist), cs.clist)
         i === nothing && throw(ArgumentError("no case applies to these values"))
         i, d
     end
