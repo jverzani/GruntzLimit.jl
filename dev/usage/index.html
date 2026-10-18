@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=dec4b882">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=c78591dc">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -53,7 +53,8 @@
 <h1 id="Usage" class="md-heading">Usage<a href="#Usage" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-julia">gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())</code></pre>
+<pre><code class="language-julia">gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
+gruntz_cases(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())</code></pre>
 </div>
 <p>computes <span class="md-math md-math-inline">\(\lim_{x \to x_0} f(x)\)</span>. The limit point <code class="md-code-inline">x0</code> may be <code class="md-code-inline">Inf</code>, <code class="md-code-inline">-Inf</code>, a number, or an expression that does not contain <code class="md-code-inline">x</code>. For a finite <code class="md-code-inline">x0</code>, <code class="md-code-inline">dir</code> chooses the side the limit is taken from: <code class="md-code-inline">:+</code> (from the right, the default), <code class="md-code-inline">:-</code> (from the left), or <code class="md-code-inline">:both</code> (both one-sided limits are computed and must agree).</p>
 <p>Rational limits come back as <code class="md-code-inline">Int</code> or <code class="md-code-inline">Rational</code>, and infinite limits as <code class="md-code-inline">Inf</code> or <code class="md-code-inline">-Inf</code>, whatever the input type. Other answers, such as <span class="md-math md-math-inline">\(e\)</span> or <span class="md-math md-math-inline">\(\pi/2\)</span>, are rebuilt in the input&#39;s term type.</p>
@@ -430,16 +431,16 @@ catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;unsupported function/operator `gamma` with 1 argument(s)&quot;)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;unsupported function/operator `gamma` with 1 argument(s)&quot;, :fail)</code></pre>
 </div>
-<h2 id="Parameters-and-their-signs" class="md-heading">Parameters and their signs<a href="#Parameters-and-their-signs" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<h2 id="Parameters-and-cases" class="md-heading">Parameters and cases<a href="#Parameters-and-cases" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <div class="md-admonition md-admonition-warning">
 <p class="md-admonition-title">Experimental</p>
 <div class="md-admonition-body">
-<p>The <code class="md-code-inline">signs</code> keyword is experimental and may change or be replaced. One possibility being considered is a return type that gives the limit for each case of the parameters (for example, <code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a = 2</code> and <code class="md-code-inline">a &gt; 2</code>).</p>
+<p><a href="../reference/#GruntzLimit.Gruntz.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> and the <code class="md-code-inline">signs</code> keyword are experimental and may change.</p>
 </div>
 </div>
-<p>A parameter is taken to be a nonzero real number of unknown sign. That is enough for many limits, such as</p>
+<p>A parameter is taken to be a real number of unknown sign. <code class="md-code-inline">gruntz_limit</code> answers when the limit does not depend on the sign, as for</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -447,51 +448,161 @@ end</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">0</code></pre>
 </div>
-<p>which is 0 whatever the sign of <code class="md-code-inline">a</code>. When the limit depends on the sign, a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> is thrown:</p>
+<p>which is 0 whatever <code class="md-code-inline">a</code> is. When the limit depends on the sign of a constant, a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> names the constant:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">try
-    gruntz_limit(:(x^a), :x)
+    gruntz_limit(:(x^(a - 2)), :x)
 catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;cannot decide the sign of an expression containing the free symbol `a`&quot;)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;the limit depends on the sign of `a - 2`, which cannot be decided: give it with `signs`, or use `gruntz_cases`&quot;, :fail)</code></pre>
 </div>
-<p>TermInterface has no way to state assumptions, so the signs are given to <code class="md-code-inline">gruntz_limit</code> with the <code class="md-code-inline">signs</code> keyword, as pairs <code class="md-code-inline">parameter =&gt; 1</code> (positive) or <code class="md-code-inline">parameter =&gt; -1</code> (negative):</p>
+<h3 id="A-limit-for-each-case" class="md-heading">A limit for each case<a href="#A-limit-for-each-case" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p><a href="../reference/#GruntzLimit.Gruntz.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> computes the limit for each case of the parameters. When the limit depends on the sign of a constant such as <code class="md-code-inline">a - 2</code>, it is computed for <code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a == 2</code> and <code class="md-code-inline">a &gt; 2</code>. The case <code class="md-code-inline">a == 2</code> is computed by substituting <code class="md-code-inline">a = 2</code>. Cases with the same limit are merged:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-julia">gruntz_limit(:(x^a), :x; signs = Dict(:a =&gt; 1))</code></pre>
+<pre><code class="language-julia">gruntz_cases(:(x^(a - 2)), :x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 3 cases:
+  a &lt; 2  =&gt;  0
+  a == 2  =&gt;  1
+  a &gt; 2  =&gt;  Inf</code></pre>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_cases(:(x^a * log(x)), :x, 0)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 2 cases:
+  a &lt;= 0  =&gt;  -Inf
+  a &gt; 0  =&gt;  0</code></pre>
+</div>
+<p>A limit can be <code class="md-code-inline">:undefined</code> for some parameters (<code class="md-code-inline">a^x</code> needs <code class="md-code-inline">a &gt; 0</code>), or <code class="md-code-inline">:nolimit</code> (the one-sided limits differ):</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_cases(:(a^x), :x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 4 cases:
+  a &lt;= 0  =&gt;  undefined
+  0 &lt; a &lt; 1  =&gt;  0
+  a == 1  =&gt;  1
+  a &gt; 1  =&gt;  Inf</code></pre>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_cases(:(1/(x - a)), :x, 0; dir = :both)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 2 cases:
+  a == 0  =&gt;  nolimit
+  a != 0  =&gt;  -1 * a ^ -1</code></pre>
+</div>
+<p><code class="md-code-inline">gruntz_limit</code> takes a constant that it cannot decide to be nonzero, and so gives the generic answer <code class="md-code-inline">a/b</code> here. <code class="md-code-inline">gruntz_cases</code> also gives the cases <code class="md-code-inline">b == 0</code>:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(:((a*x^2 + x)/(b*x^2 + 1)), :x)</code></pre>
+</div>
+<div class="md-math md-math-display">
+\[a b^{-1}\]
+</div>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_cases(:((a*x^2 + x)/(b*x^2 + 1)), :x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 3 cases:
+  b == 0 &amp;&amp; a &lt; 0  =&gt;  -Inf
+  b == 0 &amp;&amp; a &gt;= 0  =&gt;  Inf
+  b != 0  =&gt;  a * b ^ -1</code></pre>
+</div>
+<p>The result is a <a href="../reference/#GruntzLimit.Gruntz.LimitCases"><code class="md-code-inline">GruntzLimit.LimitCases</code></a>, a vector of <code class="md-code-inline">conditions =&gt; limit</code> pairs. Each condition is a <a href="../reference/#GruntzLimit.Gruntz.CaseCondition"><code class="md-code-inline">GruntzLimit.CaseCondition</code></a>, with terms of the input&#39;s type:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">cs = gruntz_cases(:(sqrt(x^2 + a*x) - b*x), :x)
+[(string.(conds), v) for (conds, v) in cs]</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">3-element Vector{Tuple{Vector{String}, Any}}:
+ ([&quot;b &lt; 1&quot;], Inf)
+ ([&quot;b == 1&quot;], :(1//2 * a))
+ ([&quot;b &gt; 1&quot;], -Inf)</code></pre>
+</div>
+<p>A <code class="md-code-inline">LimitCases</code> is a vector, so <code class="md-code-inline">cs[1]</code>, <code class="md-code-inline">cs[end]</code> and <code class="md-code-inline">filter</code> work. Calling it with values of the parameters gives the limit for those values. The values are given as pairs <code class="md-code-inline">parameter =&gt; value</code> (or a <code class="md-code-inline">Dict</code>), with the parameters written as in <code class="md-code-inline">signs</code> below. Indexing with them gives the case, <code class="md-code-inline">conditions =&gt; limit</code>:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">cs = gruntz_cases(:((a^x + b^x)^(1/x)), :x)
+cs(:a =&gt; 2, :b =&gt; 3), cs(:a =&gt; -1, :b =&gt; 2)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">(3, :undefined)</code></pre>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">cs[:a =&gt; 2, :b =&gt; 3]</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">Pair{Vector{GruntzLimit.Gruntz.CaseCondition}, Any}(GruntzLimit.Gruntz.CaseCondition[a &gt; 1, b &gt; 1, a &lt;= b], :b)</code></pre>
+</div>
+<p>A condition is shown solved for a parameter when it is linear in one. A case whose condition <code class="md-code-inline">c == 0</code> cannot be solved for a parameter (<code class="md-code-inline">a*b == 1</code>, say) is not computed. The case&#39;s limit is then a <code class="md-code-inline">GruntzError</code>. Merging is pairwise, so a union of several cases may be listed in parts.</p>
+<h3 id="Giving-signs" class="md-heading">Giving signs<a href="#Giving-signs" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>TermInterface has no way to state assumptions, so signs are given with the <code class="md-code-inline">signs</code> keyword, to <code class="md-code-inline">gruntz_limit</code> or <code class="md-code-inline">gruntz_cases</code>. They are pairs <code class="md-code-inline">c =&gt; s</code>. Here <code class="md-code-inline">c</code> is a parameter or an expression in the parameters. <code class="md-code-inline">s</code> is one of <code class="md-code-inline">:positive</code>, <code class="md-code-inline">:negative</code>, <code class="md-code-inline">:nonnegative</code>, <code class="md-code-inline">:nonpositive</code>, <code class="md-code-inline">:nonzero</code> or <code class="md-code-inline">:zero</code>. For <code class="md-code-inline">:zero</code>, the equation <code class="md-code-inline">c = 0</code> is solved for a parameter, which is substituted:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(:(x^a), :x; signs = Dict(:a =&gt; :positive))</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">Inf</code></pre>
 </div>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-julia">gruntz_limit(:(x^a * exp(-b*x)), :x; signs = Dict(:a =&gt; 1, :b =&gt; 1))</code></pre>
+<pre><code class="language-julia">gruntz_limit(:(x^(a - 2)), :x; signs = Dict(:(a - 2) =&gt; :negative))</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">0</code></pre>
 </div>
-<p>The keys are the parameters as they appear in the expression: <code class="md-code-inline">Symbol</code>s for an <code class="md-code-inline">Expr</code>, the symbolic variables otherwise:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_cases(:(x^a / (1 + x^b)), :x; signs = Dict(:b =&gt; :positive))</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 3 cases:
+  a &lt; b  =&gt;  0
+  a == b  =&gt;  1
+  a &gt; b  =&gt;  Inf</code></pre>
+</div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_cases(:(x^a), :x; signs = Dict(:a =&gt; :nonnegative))</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">LimitCases with 2 cases:
+  a == 0  =&gt;  1
+  a &gt; 0  =&gt;  Inf</code></pre>
+</div>
+<p>Write the keys the way <code class="md-code-inline">f</code> is written: <code class="md-code-inline">Symbol</code>s and <code class="md-code-inline">Expr</code>s for an <code class="md-code-inline">Expr</code>, and terms of the same package otherwise:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">@vars b
-gruntz_limit(exp(a*b*x), x; signs = Dict(a =&gt; 1, b =&gt; -1))</code></pre>
+gruntz_limit(exp(a*b*x), x; signs = Dict(a =&gt; :positive, b =&gt; :negative))</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">0</code></pre>
 </div>
-<p>The sign of an expression in the parameters is decided from these when every term of it has the same sign: <code class="md-code-inline">2a + b</code>, <code class="md-code-inline">a*b</code> and <code class="md-code-inline">exp(a)*b</code> are decided for <code class="md-code-inline">a, b &gt; 0</code>, but <code class="md-code-inline">a - 2</code> is not, so <span class="md-math md-math-inline">\(\lim_{x\to\infty} x^{a-2}\)</span> still throws. Substituting, say, <code class="md-code-inline">a = 2 + c</code> and giving <code class="md-code-inline">c =&gt; 1</code> handles the case <code class="md-code-inline">a &gt; 2</code>:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-julia">@vars c
-gruntz_limit(x^(2 + c), x; signs = Dict(c =&gt; 1))</code></pre>
+<pre><code class="language-julia">gruntz_limit(x^(a - 2), x; signs = Dict(a - 2 =&gt; :negative))</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">Inf</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">0</code></pre>
 </div>
+<p>Signs that follow from those given are used. Linear consequences (<code class="md-code-inline">a &gt; 2</code> from <code class="md-code-inline">a - 2 &gt; 0</code>) are found by Fourier–Motzkin elimination. Products, quotients, powers and logarithms of parameters take their signs from their factors (<code class="md-code-inline">log(a)</code> has the sign of <code class="md-code-inline">a - 1</code>).</p>
 <h2 id="When-there-is-no-limit" class="md-heading">When there is no limit<a href="#When-there-is-no-limit" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>A <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> is also thrown when the limit does not exist. For example, bounded oscillation:</p>
 <div class="md-multi-output">
@@ -503,7 +614,7 @@ catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;argument of exp/sin/cos diverges (oscillation or essential singularity)&quot;)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;argument of exp/sin/cos diverges (oscillation or essential singularity)&quot;, :fail)</code></pre>
 </div>
 <p>or one-sided limits that disagree, with <code class="md-code-inline">dir = :both</code>:</p>
 <div class="md-multi-output">
@@ -515,7 +626,7 @@ catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;one-sided limits differ&quot;)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;one-sided limits differ&quot;, :nolimit)</code></pre>
 </div>
       </article>
       <footer class="md-footer">
@@ -531,7 +642,9 @@ end</code></pre>
           <a class="md-toc-link md-toc-h2" href="#Julia-Expr">Julia Expr</a>
             <a class="md-toc-link md-toc-h3" href="#Expr-answers">Expr answers</a>
           <a class="md-toc-link md-toc-h2" href="#Supported-functions">Supported functions</a>
-          <a class="md-toc-link md-toc-h2" href="#Parameters-and-their-signs">Parameters and their signs</a>
+          <a class="md-toc-link md-toc-h2" href="#Parameters-and-cases">Parameters and cases</a>
+            <a class="md-toc-link md-toc-h3" href="#A-limit-for-each-case">A limit for each case</a>
+            <a class="md-toc-link md-toc-h3" href="#Giving-signs">Giving signs</a>
           <a class="md-toc-link md-toc-h2" href="#When-there-is-no-limit">When there is no limit</a>
       </div>
     </aside>
@@ -550,6 +663,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=dec4b882"></script>
+  <script src="../assets/materialdocs.js?v=c78591dc"></script>
 </body>
 </html>

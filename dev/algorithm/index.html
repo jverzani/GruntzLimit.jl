@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How it works — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=7b61d53f">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=f59faf33">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="How it works — GruntzLimit.jl">
   <meta property="og:title" content="How it works — GruntzLimit.jl">
@@ -102,7 +102,9 @@
 </li>
 <li><p>The sign of a constant is decided numerically (in <code class="md-code-inline">BigFloat</code>), and a constant that is zero to that precision is taken to be zero. Sines and cosines of rational multiples of <span class="md-math md-math-inline">\(\pi\)</span> with denominators 1, 2, 3, 4 and 6 are evaluated exactly.</p>
 </li>
-<li><p>A free parameter is taken to be nonzero, of unknown sign. When the algorithm needs the sign of a constant that contains one, a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> is thrown, unless the sign follows from those given with the experimental <code class="md-code-inline">signs</code> keyword (see <a href="../usage/#Parameters-and-their-signs">Parameters and their signs</a>). Where only the size of a limit matters, as when deciding that <span class="md-math md-math-inline">\(x^a\)</span> and <span class="md-math md-math-inline">\(x\)</span> are comparable, the sign is not needed.</p>
+<li><p>A free parameter is a real number of unknown sign. When the algorithm needs the sign of a constant that contains one, and the signs given with <code class="md-code-inline">signs</code> do not decide it, <code class="md-code-inline">gruntz_limit</code> throws a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> naming the constant. <code class="md-code-inline">gruntz_cases</code> instead computes the limit for each sign (see <a href="../usage/#Parameters-and-cases">Parameters and cases</a>). Where only the size of a limit matters, as when deciding that <span class="md-math md-math-inline">\(x^a\)</span> and <span class="md-math md-math-inline">\(x\)</span> are comparable, the sign is not needed.</p>
+</li>
+<li><p><code class="md-code-inline">gruntz_limit</code> takes a constant with parameters to be nonzero when that cannot be decided, so an answer such as <code class="md-code-inline">a/b</code> holds for <code class="md-code-inline">b != 0</code>. <code class="md-code-inline">gruntz_cases</code> tests such constants and splits off the case where they vanish.</p>
 </li>
 <li><p>Comparable terms whose exponents have an irrational ratio, such as <span class="md-math md-math-inline">\(3^x\)</span> and <span class="md-math md-math-inline">\(5^x\)</span>, are handled with irrational powers of <span class="md-math md-math-inline">\(\omega\)</span>; such powers are ordered by the sign of their difference.</p>
 </li>
@@ -138,6 +140,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=7b61d53f"></script>
+  <script src="../assets/materialdocs.js?v=f59faf33"></script>
 </body>
 </html>
