@@ -3,6 +3,9 @@
 ```@docs
 gruntz_limit
 GruntzError
+gruntz_cases
+GruntzLimit.LimitCases
+GruntzLimit.CaseCondition
 ```
 
 ## Internals

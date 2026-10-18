@@ -139,10 +139,51 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
     end
 
     @testset "signs of parameters (experimental)" begin
-        @test gruntz_limit(:(x^a * exp(-b*x)), :x; signs = Dict(:a => 1, :b => 1)) == 0
-        @test gruntz_limit(:(exp(a*b*x)), :x; signs = Dict(:a => 1, :b => -1)) == 0
-        @test gruntz_limit(:(x^a), :x, 0; signs = [:a => 1]) == 0
+        @test gruntz_limit(:(x^a * exp(-b*x)), :x; signs = Dict(:a => :positive, :b => :positive)) == 0
+        @test gruntz_limit(:(exp(a*b*x)), :x; signs = Dict(:a => :positive, :b => :negative)) == 0
+        @test gruntz_limit(:(x^a), :x, 0; signs = [:a => :positive]) == 0
         @test_throws GruntzError gruntz_limit(:(x^a), :x, 0)
+        @test gruntz_limit(:(x^a - x^b), :x; signs = Dict(:(a - b) => :positive, :b => :positive)) == Inf
+    end
+
+    @testset "cases of parameters (experimental)" begin
+        shown(cs) = Set((isempty(conds) ? "always" : join(string.(conds), " && ")) =>
+                        (v isa Expr ? string(v) : v) for (conds, v) in cs)
+        @test shown(gruntz_cases(:(x^(a - 2)), :x)) == Set(["a < 2" => 0, "a == 2" => 1, "a > 2" => Inf])
+        @test shown(gruntz_cases(:(x^a * log(x)), :x, 0)) == Set(["a <= 0" => -Inf, "a > 0" => 0])
+        @test shown(gruntz_cases(:(a^x), :x)) ==
+              Set(["a <= 0" => :undefined, "a > 0 && a < 1" => 0, "a == 1" => 1, "a > 1" => Inf])
+        @test shown(gruntz_cases(:(1/(x - a)), :x, 0; dir = :both)) ==
+              Set(["a != 0" => "-1 * a ^ -1", "a == 0" => :nolimit])
+        @test shown(gruntz_cases(:((x^a + 1)^(1/log(x))), :x)) == Set(["a <= 0" => 1, "a > 0" => "exp(a)"])
+        @test shown(gruntz_cases(:(sqrt(x^2 + a*x) - b*x), :x)) ==
+              Set(["b < 1" => Inf, "b == 1" => "1//2 * a", "b > 1" => -Inf])
+        @test shown(gruntz_cases(:(sin(a*x)/sin(b*x)), :x, 0; dir = :both)) ==
+              Set(["b != 0" => "a * b ^ -1", "b == 0" => :undefined])
+        @test shown(gruntz_cases(:(abs(x)/x), :x, :a; dir = :both)) ==
+              Set(["a < 0" => -1, "a == 0" => :nolimit, "a > 0" => 1])
+        # signs restrict the cases; a limit without parameters has one case
+        @test shown(gruntz_cases(:(x^(a - 2)), :x; signs = Dict(:a => :negative))) == Set(["always" => 0])
+        @test shown(gruntz_cases(:(sin(x)/x), :x, 0)) == Set(["always" => 1])
+        @test shown(gruntz_cases(:(x^a), :x; signs = Dict(:a => :nonnegative))) == Set(["a == 0" => 1, "a > 0" => Inf])
+        @test shown(gruntz_cases(:(x^a), :x; signs = Dict(:a => :nonzero))) == Set(["a < 0" => 0, "a > 0" => Inf])
+        @test shown(gruntz_cases(:(x^a), :x; signs = Dict(:a => :nonpositive))) == Set(["a < 0" => 0, "a == 0" => 1])
+        # looking up a case by the values of the parameters
+        cs = gruntz_cases(:((a^x + b^x)^(1/x)), :x)
+        @test cs(:a => 2, :b => 3) == 3 && cs(:a => 3, :b => 2) == 3 && cs(:a => 1//2, :b => 1//4) == 1//2
+        @test cs(Dict(:a => -1, :b => 2)) == :undefined
+        @test cs[:a => 2, :b => 3].second == :b
+        @test cs[:a => 2, :b => 3] in cs
+        @test cs[Dict(:a => 3, :b => 2)].second == :a
+        @test_throws ArgumentError cs(:a => 2)                       # b is needed
+        cs = gruntz_cases(:(x^(a - 2)), :x; signs = Dict(:a => :negative))
+        @test cs(:a => -1) == 0
+        @test_throws ArgumentError cs(:a => 1)                       # outside the signs
+        cs = gruntz_cases(:(x^(a - 2)), :x)
+        @test cs[end].second == Inf
+        @test length(filter(p -> p.second == 0, cs)) == 1
+        # a GruntzError for a case that could not be computed
+        @test only(gruntz_cases(:(x^a * sin(1/x)), :x, 0))[2] isa GruntzError
     end
 
     @testset "constants pi, π and ℯ" begin

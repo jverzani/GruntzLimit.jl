@@ -2,6 +2,7 @@
 
 ```julia
 gruntz_limit(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
+gruntz_cases(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
 ```
 
 computes ``\lim_{x \to x_0} f(x)``. The limit point `x0` may be `Inf`, `-Inf`, a number, or an
@@ -271,59 +272,132 @@ catch err
 end
 ```
 
-## Parameters and their signs
+## Parameters and cases
 
 !!! warning "Experimental"
-    The `signs` keyword is experimental and may change or be replaced. One possibility
-    being considered is a return type that gives the limit for each case of the
-    parameters (for example, `a < 2`, `a = 2` and `a > 2`).
+    [`gruntz_cases`](@ref) and the `signs` keyword are experimental and may change.
 
-A parameter is taken to be a nonzero real number of unknown sign. That is enough for many
-limits, such as
+A parameter is taken to be a real number of unknown sign. `gruntz_limit` answers when the
+limit does not depend on the sign, as for
 
 ```@example expr
 gruntz_limit(:(x^a / exp(x)), :x)
 ```
 
-which is 0 whatever the sign of `a`. When the limit depends on the sign, a
-[`GruntzError`](@ref) is thrown:
+which is 0 whatever `a` is. When the limit depends on the sign of a constant, a
+[`GruntzError`](@ref) names the constant:
 
 ```@example expr
 try
-    gruntz_limit(:(x^a), :x)
+    gruntz_limit(:(x^(a - 2)), :x)
 catch err
     err
 end
 ```
 
-TermInterface has no way to state assumptions, so the signs are given to `gruntz_limit` with
-the `signs` keyword, as pairs `parameter => 1` (positive) or `parameter => -1` (negative):
+### A limit for each case
+
+[`gruntz_cases`](@ref) computes the limit for each case of the parameters. When the limit
+depends on the sign of a constant such as `a - 2`, it is computed for `a < 2`, `a == 2`
+and `a > 2`. The case `a == 2` is computed by substituting `a = 2`. Cases with the same
+limit are merged:
 
 ```@example expr
-gruntz_limit(:(x^a), :x; signs = Dict(:a => 1))
+gruntz_cases(:(x^(a - 2)), :x)
 ```
 
 ```@example expr
-gruntz_limit(:(x^a * exp(-b*x)), :x; signs = Dict(:a => 1, :b => 1))
+gruntz_cases(:(x^a * log(x)), :x, 0)
 ```
 
-The keys are the parameters as they appear in the expression: `Symbol`s for an `Expr`, the
-symbolic variables otherwise:
+A limit can be `:undefined` for some parameters (`a^x` needs `a > 0`), or `:nolimit`
+(the one-sided limits differ):
+
+```@example expr
+gruntz_cases(:(a^x), :x)
+```
+
+```@example expr
+gruntz_cases(:(1/(x - a)), :x, 0; dir = :both)
+```
+
+`gruntz_limit` takes a constant that it cannot decide to be nonzero, and so gives the
+generic answer `a/b` here. `gruntz_cases` also gives the cases `b == 0`:
+
+```@example expr
+gruntz_limit(:((a*x^2 + x)/(b*x^2 + 1)), :x)
+```
+
+```@example expr
+gruntz_cases(:((a*x^2 + x)/(b*x^2 + 1)), :x)
+```
+
+The result is a [`GruntzLimit.LimitCases`](@ref), a vector of `conditions => limit` pairs.
+Each condition is a [`GruntzLimit.CaseCondition`](@ref), with terms of the input's type:
+
+```@example expr
+cs = gruntz_cases(:(sqrt(x^2 + a*x) - b*x), :x)
+[(string.(conds), v) for (conds, v) in cs]
+```
+
+A `LimitCases` is a vector, so `cs[1]`, `cs[end]` and `filter` work. Calling it with
+values of the parameters gives the limit for those values. The values are given as pairs
+`parameter => value` (or a `Dict`), with the parameters written as in `signs` below.
+Indexing with them gives the case, `conditions => limit`:
+
+```@example expr
+cs = gruntz_cases(:((a^x + b^x)^(1/x)), :x)
+cs(:a => 2, :b => 3), cs(:a => -1, :b => 2)
+```
+
+```@example expr
+cs[:a => 2, :b => 3]
+```
+
+A condition is shown solved for a parameter when it is linear in one. A case whose
+condition `c == 0` cannot be solved for a parameter (`a*b == 1`, say) is not computed. The
+case's limit is then a `GruntzError`. Merging is pairwise, so a union of several cases may
+be listed in parts.
+
+### Giving signs
+
+TermInterface has no way to state assumptions, so signs are given with the `signs` keyword,
+to `gruntz_limit` or `gruntz_cases`. They are pairs `c => s`. Here `c` is a parameter or an
+expression in the parameters. `s` is one of `:positive`, `:negative`, `:nonnegative`,
+`:nonpositive`, `:nonzero` or `:zero`. For `:zero`, the equation `c = 0` is solved for a
+parameter, which is substituted:
+
+```@example expr
+gruntz_limit(:(x^a), :x; signs = Dict(:a => :positive))
+```
+
+```@example expr
+gruntz_limit(:(x^(a - 2)), :x; signs = Dict(:(a - 2) => :negative))
+```
+
+```@example expr
+gruntz_cases(:(x^a / (1 + x^b)), :x; signs = Dict(:b => :positive))
+```
+
+```@example expr
+gruntz_cases(:(x^a), :x; signs = Dict(:a => :nonnegative))
+```
+
+Write the keys the way `f` is written: `Symbol`s and `Expr`s for an `Expr`, and terms of
+the same package otherwise:
 
 ```@example sym
 @vars b
-gruntz_limit(exp(a*b*x), x; signs = Dict(a => 1, b => -1))
+gruntz_limit(exp(a*b*x), x; signs = Dict(a => :positive, b => :negative))
 ```
-
-The sign of an expression in the parameters is decided from these when every term of it has
-the same sign: `2a + b`, `a*b` and `exp(a)*b` are decided for `a, b > 0`, but `a - 2` is not,
-so ``\lim_{x\to\infty} x^{a-2}`` still throws. Substituting, say, `a = 2 + c` and giving
-`c => 1` handles the case `a > 2`:
 
 ```@example sym
-@vars c
-gruntz_limit(x^(2 + c), x; signs = Dict(c => 1))
+gruntz_limit(x^(a - 2), x; signs = Dict(a - 2 => :negative))
 ```
+
+Signs that follow from those given are used. Linear consequences (`a > 2` from `a - 2 > 0`)
+are found by Fourier–Motzkin elimination. Products, quotients, powers and logarithms of
+parameters take their signs from their factors (`log(a)` has the sign of `a - 1`).
 
 ## When there is no limit
 

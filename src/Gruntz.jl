@@ -23,6 +23,7 @@ Julia's `Expr`:
 * `f` is the expression, `x` the symbolic variable (the same object used in `f`).
 * `x0` may be `Inf`, `-Inf`, or a finite number / term not containing `x`.
 * `dir` is `:+`, `:-` or `:both` (only relevant for finite `x0`).
+* `gruntz_cases` (same arguments) gives the limit for each case of the parameters.
 * Returns `Inf`, `-Inf`, an `Int`/`Rational`, or a term. Non-rational results are
   rebuilt by *calling the operations as functions* (`+`, `*`, `^`, `exp`, `log`,
   `sin`, `cos`) on the pieces; with a symbolic variable inside that gives a
@@ -50,7 +51,7 @@ module Gruntz
 
 using TermInterface: iscall, operation, arguments, maketerm
 
-export gruntz_limit, GruntzError
+export gruntz_limit, gruntz_cases, GruntzError
 
 const Q = Rational{BigInt}
 const HUGE = Q(10)^12   # "exact" precision marker for power series
@@ -63,22 +64,28 @@ exist (bounded oscillation such as `sin(x)` at `Inf`, or one-sided limits that d
 with `dir = :both`), the expression uses an unsupported function, or the
 algorithm as implemented cannot finish (e.g. the sign of a constant involving a free
 parameter cannot be decided).
+
+`kind` is `:nolimit` when the limit is known not to exist, `:undefined` when the
+expression is not defined (e.g. `log` of a negative number), and `:fail` otherwise.
 """
 struct GruntzError <: Exception
     msg::String
+    kind::Symbol
 end
+GruntzError(msg) = GruntzError(msg, :fail)
 Base.showerror(io::IO, e::GruntzError) = print(io, "GruntzError: ", e.msg)
 
 struct NeedMorePrecision <: Exception end
 # An infinite limit. The sign is 0 when it depends on a free parameter (e.g.
 # a*log(x) as x -> oo): enough to classify exp(a*log(x)) in the mrv set, where only
-# finiteness matters. Where the sign itself is needed, `signof` throws `why`.
+# finiteness matters. Where the sign itself is needed, `signof` throws `need`, the
+# `NeedSign` that left it undecided.
 struct Infinity
     sign::Int
-    why::String
+    need::Any
 end
-Infinity(s::Int) = Infinity(s, "")
-signof(L::Infinity) = L.sign == 0 ? throw(GruntzError(L.why)) : L.sign
+Infinity(s::Int) = Infinity(s, nothing)
+signof(L::Infinity) = L.sign == 0 ? throw(L.need) : L.sign
 
 # ---------------------------------------------------------------------------
 # Canonical form
@@ -164,6 +171,8 @@ end
 hasleaf(a::Atom, k::String) =
     a.kind === :leaf ? a.key == k : any(u -> hasleaf(u::Sum, k), a.args)
 hasleaf(s::Sum, k::String) = any(m -> any(p -> hasleaf(p.first, k), m.fs), keys(s.t))
+hasatom(a::Atom, k::String) = a.key == k || any(u -> hasatom(u::Sum, k), a.args)
+hasatom(s::Sum, k::String) = any(m -> any(p -> hasatom(p.first, k), m.fs), keys(s.t))
 
 # --- rational powers --------------------------------------------------------
 function iroot(n::BigInt, k::Int)
@@ -178,7 +187,7 @@ function ratpow(c::Q, e::Q)
         abs(n) > 100_000 && throw(GruntzError("exponent too large"))
         return c^Int(n)
     end
-    c < 0 && throw(GruntzError("complex power of a negative number"))
+    c < 0 && throw(GruntzError("complex power of a negative number", :undefined))
     p, d = Int(numerator(e)), Int(denominator(e))
     rn = iroot(numerator(c), d)
     rd = iroot(denominator(c), d)
@@ -190,7 +199,7 @@ function powS(s::Sum, q::Q)
     iszero(q) && return oneS()
     if isempty(s.t)
         q > 0 && return zeroS()
-        throw(GruntzError("division by zero"))
+        throw(GruntzError("division by zero", :undefined))
     end
     if length(s.t) == 1
         m, c = first(s.t)
@@ -280,10 +289,11 @@ function logatom(a::Atom)
 end
 
 function mklog(s::Sum)
-    isempty(s.t) && throw(GruntzError("log(0)"))
+    isempty(s.t) && throw(GruntzError("log(0)", :undefined))
+    CASES[] && require_positive(s)
     if length(s.t) == 1
         m, c = first(s.t)
-        c < 0 && throw(GruntzError("log of a negative number"))
+        c < 0 && throw(GruntzError("log of a negative number", :undefined))
         res = lograt(c)
         for (a, e) in m.fs
             res = addS(res, scaleS(logatom(a), e))
@@ -390,8 +400,10 @@ end
 # --- numeric evaluation (for signs of constants) -----------------------------
 # Real numbers convert directly. Other `Number` leaves (e.g. SymEngine's `Basic`
 # constants) are tried through Float64; anything that is not a finite number is a
-# free symbol, whose sign cannot be decided.
-const FREE_SYMBOL_SIGN = "cannot decide the sign of an expression containing the free symbol"
+# free symbol (a parameter), and `FreeSymbol` is thrown.
+struct FreeSymbol <: Exception
+    h::Any
+end
 
 function leaf_big(h)
     h isa Real && return BigFloat(h)
@@ -402,7 +414,7 @@ function leaf_big(h)
         catch
         end
     end
-    throw(GruntzError(FREE_SYMBOL_SIGN * " `$h`"))
+    throw(FreeSymbol(h))
 end
 
 function numval(a::Atom)
@@ -426,42 +438,253 @@ function numval(s::Sum)
     end
     acc
 end
-# Signs of free parameters given with `gruntz_limit(...; signs)`, by leaf key.
-# Experimental.
-const SIGNS = Ref(Dict{String,Int}())
+bigq(q::Q) = BigFloat(numerator(q)) / BigFloat(denominator(q))
 
-# The sign of a constant with free parameters, from the signs given for them: each
-# term's sign is that of its coefficient times its factors' (exp(u) > 0, numbers by
-# value); the constant's sign is decided only when every term has the same sign.
-# Returns ±1 or `nothing`.
-function infer_sign(s::Sum)
-    isempty(SIGNS[]) && return nothing
-    sg = 0
-    for (m, c) in s.t
-        t = Int(sign(c))
-        for (a, e) in m.fs
-            sa = atom_sign(a)
-            sa === nothing && return nothing
-            if sa < 0
-                isone(denominator(e)) || return nothing
-                isodd(numerator(e)) && (t = -t)
-            end
-        end
-        sg == 0 ? (sg = t) : (sg == t || return nothing)
-    end
-    sg == 0 ? nothing : sg
-end
-function atom_sign(a::Atom)
-    a.kind === :leaf && haskey(SIGNS[], a.key) && return SIGNS[][a.key]
-    a.kind === :fun && a.head === :exp && return 1
-    a.kind === :fun && a.head === :abs && return 1      # parameters are taken to be nonzero
-    a.kind === :base && return infer_sign(a.args[1]::Sum)
-    v = try
+# the value of an atom, or nothing for an atom with parameters
+function numval_or_nothing(a::Atom)
+    try
         numval(a)
-    catch
-        return nothing
+    catch err
+        err isa Union{FreeSymbol,DomainError} || rethrow()
+        nothing
     end
-    abs(v) < big"1e-60" ? nothing : (v > 0 ? 1 : -1)
+end
+
+# ---------------------------------------------------------------------------
+# Conditions on parameters
+# ---------------------------------------------------------------------------
+# A parameter is a leaf, other than x, that is not a number. The *context* of a
+# limit is a list of conditions on constants with parameters (`a - 2 > 0`), from
+# `signs` and, in `gruntz_cases`, from splitting into cases. A sign the context does
+# not decide raises `NeedSign`: `gruntz_cases` splits on it, `gruntz_limit` reports
+# it. A parameter given a value (the case `a - 2 = 0`) is substituted when terms are
+# converted (`SUBST`).
+
+# c > 0, c < 0, c >= 0, c <= 0, c == 0 or c != 0, c normalised by `normcond`
+struct Cond
+    c::Sum
+    rel::Symbol
+end
+
+const CTX = Ref(Cond[])
+const SUBST = Ref(Dict{String,Sum}())     # parameter key => value
+const CASES = Ref(false)                  # splitting into cases (`gruntz_cases`)
+const XATOM = Ref(WLEAF)                  # the limit variable
+const SIGN_CACHE = Ref(Dict{Tuple{String,Bool},Vector{Int}}())   # for CTX: possible signs
+
+# The sign of the constant `c` is needed; `possible` are the signs the context
+# allows. For a zero test (`zerotest`) only whether c is zero matters.
+struct NeedSign <: Exception
+    c::Sum
+    possible::Vector{Int}
+    zerotest::Bool
+end
+
+flip(rel::Symbol) = rel === :> ? :< : rel === :< ? :> : rel === :>= ? :<= : rel === :<= ? :>= : rel
+
+# c scaled so that its first non-constant monomial has coefficient 1
+function normcond(c::Sum, rel::Symbol)
+    ms = sort!([m for m in keys(c.t) if !isempty(m.fs)]; by = m -> m.key)
+    isempty(ms) && return Cond(c, rel)
+    k = c.t[ms[1]]
+    Cond(scaleS(c, inv(k)), k < 0 ? flip(rel) : rel)
+end
+
+isparam(a::Atom, x::Atom = XATOM[]) =
+    a.kind === :leaf && a != x && !iswleaf(a) && numval_or_nothing(a) === nothing
+
+# c as a linear form in its parameter monomials, their numeric factors evaluated:
+# (monomial key => coefficient, constant). `vars` collects the monomials.
+function linform(c::Sum, vars::Dict{String,Mono})
+    d = Dict{String,BigFloat}()
+    k0 = BigFloat(0)
+    for (m, q) in c.t
+        v = bigq(q)
+        fs = Pair{Atom,Q}[]
+        for (a, e) in m.fs
+            nv = numval_or_nothing(a)
+            nv === nothing ? push!(fs, a => e) : (v *= nv^bigq(e))
+        end
+        if isempty(fs)
+            k0 += v
+        else
+            pm = Mono(fs)
+            vars[pm.key] = pm
+            d[pm.key] = get(d, pm.key, BigFloat(0)) + v
+        end
+    end
+    d, k0
+end
+
+# sum(a[v] * v) + k > 0 (strict) or >= 0
+struct Ineq
+    a::Dict{String,BigFloat}
+    k::BigFloat
+    strict::Bool
+end
+negate(a::Dict{String,BigFloat}) = Dict{String,BigFloat}(v => -t for (v, t) in a)
+
+const FM_TOL = big"1e-40"
+
+# Fourier–Motzkin elimination: whether the inequalities have a real solution, the
+# monomials taken as independent variables. A system that grows too large is taken
+# to be feasible (nothing is pruned).
+function feasible(cs::Vector{Ineq})
+    while true
+        i = findfirst(c -> any(t -> abs(t) > FM_TOL, values(c.a)), cs)
+        i === nothing && break
+        v = first(u for (u, t) in cs[i].a if abs(t) > FM_TOL)
+        pos, neg, rest = Ineq[], Ineq[], Ineq[]
+        for c in cs
+            t = get(c.a, v, BigFloat(0))
+            abs(t) <= FM_TOL ? push!(rest, c) : t > 0 ? push!(pos, c) : push!(neg, c)
+        end
+        for p in pos, n in neg
+            tp, tn = p.a[v], -n.a[v]
+            a = Dict{String,BigFloat}()
+            for (u, t) in p.a
+                u == v || (a[u] = get(a, u, BigFloat(0)) + t / tp)
+            end
+            for (u, t) in n.a
+                u == v || (a[u] = get(a, u, BigFloat(0)) + t / tn)
+            end
+            push!(rest, Ineq(a, p.k / tp + n.k / tn, p.strict || n.strict))
+        end
+        cs = rest
+        length(cs) > 500 && return true
+    end
+    all(c -> c.strict ? c.k > FM_TOL : c.k >= -FM_TOL, cs)
+end
+
+function ineqs(cd::Cond, vars::Dict{String,Mono})
+    a, k = linform(cd.c, vars)
+    cd.rel === :> ? [Ineq(a, k, true)] :
+    cd.rel === :< ? [Ineq(negate(a), -k, true)] :
+    cd.rel === :>= ? [Ineq(a, k, false)] :
+    cd.rel === :<= ? [Ineq(negate(a), -k, false)] :
+    cd.rel === :(==) ? [Ineq(a, k, false), Ineq(negate(a), -k, false)] : Ineq[]
+end
+
+# The sign of an atom with parameters, from the context (linear reasoning only):
+# ±1 or nothing. log(s) has the sign of s - 1; abs is taken to be positive (a zero
+# argument is split off as a case of its own).
+function atom_sign(a::Atom)
+    a.kind === :fun && a.head in (:exp, :abs) && return 1
+    s = a.kind === :leaf ? atomS(a) :
+        a.kind === :base ? a.args[1]::Sum :
+        a.kind === :fun && a.head === :log ? subS(a.args[1]::Sum, oneS()) :
+        a.kind === :fun && a.head === :atan ? a.args[1]::Sum : nothing
+    s === nothing && return nothing
+    ps = possible_signs(s; facts = false)
+    length(ps) == 1 && ps[1] != 0 ? ps[1] : nothing
+end
+
+function mono_sign(m::Mono)
+    sg = 1
+    for (a, e) in m.fs
+        sa = atom_sign(a)
+        sa === nothing && return nothing
+        if sa < 0
+            isone(denominator(e)) || return nothing
+            isodd(numerator(e)) && (sg = -sg)
+        end
+    end
+    sg
+end
+
+# the signs of the monomials that are not a single parameter, from their factors
+function fact_ineqs(vars::Dict{String,Mono})
+    out = Ineq[]
+    for (key, m) in vars
+        (length(m.fs) == 1 && isone(m.fs[1].second) && m.fs[1].first.kind === :leaf) && continue
+        sg = mono_sign(m)
+        sg === nothing || push!(out, Ineq(Dict{String,BigFloat}(key => BigFloat(sg)), BigFloat(0), true))
+    end
+    out
+end
+
+# whether the conditions `c rel 0` (rel one of < <= == != >= >) and the context
+# can hold together
+function satisfiable(clist::Vector{Tuple{Sum,Symbol}})
+    i = findfirst(l -> l[2] === :!=, clist)
+    if i !== nothing
+        c, rest = clist[i][1], deleteat!(copy(clist), i)
+        return satisfiable(push!(copy(rest), (c, :<))) || satisfiable(push!(rest, (c, :>)))
+    end
+    vars = Dict{String,Mono}()
+    base = Ineq[]
+    for cd in CTX[]
+        append!(base, ineqs(cd, vars))
+    end
+    for (c, rel) in clist
+        a, k = linform(c, vars)
+        rel in (:>, :>=, :(==)) && push!(base, Ineq(a, k, rel === :>))
+        rel in (:<, :<=, :(==)) && push!(base, Ineq(negate(a), -k, rel === :<))
+    end
+    feasible(append!(base, fact_ineqs(vars)))
+end
+negations(rel::Symbol) = rel === :< ? [:>=] : rel === :<= ? [:>] : rel === :> ? [:<=] :
+                         rel === :>= ? [:<] : rel === :(==) ? [:<, :>] : [:(==)]
+
+# s with the powers of parameters (or of their functions) that divide every term, or
+# are in a denominator, taken out when their signs are known: a/b - 1 becomes a - b.
+# Returns (s', σ) with sign(s) = σ sign(s').
+function clear_factors(s::Sum)
+    length(s.t) < 2 && return s, 1
+    lows = Dict{String,Tuple{Atom,Q}}()
+    for m in keys(s.t), (a, e) in m.fs
+        numval_or_nothing(a) === nothing || continue
+        lows[a.key] = (a, min(e, get(lows, a.key, (a, e))[2]))
+    end
+    for (k, (a, e)) in lows
+        all(m -> any(p -> p.first.key == k, m.fs), keys(s.t)) || (lows[k] = (a, min(e, zero(Q))))
+    end
+    σ = 1
+    fs = Pair{Atom,Q}[]
+    for (a, e) in values(lows)
+        iszero(e) && continue
+        sa = atom_sign(a)
+        sa === nothing && continue
+        if sa < 0
+            isone(denominator(e)) || continue
+            isodd(numerator(e)) && (σ = -σ)
+        end
+        push!(fs, a => -e)
+    end
+    isempty(fs) && return s, 1
+    mulS(s, monoS(mono(Dict{Atom,Q}(fs)), Q(1))), σ
+end
+
+known_nonzero(s::Sum) =
+    (k = skey(normcond(s, :!=).c); any(cd -> cd.rel === :!= && skey(cd.c) == k, CTX[]))
+
+# The signs of the constant `s` that the context allows. With `facts`, the signs of
+# products and functions of parameters (a*b, 1/a, log(a)) are derived from their
+# factors' signs.
+possible_signs(s::Sum; facts::Bool = true) =
+    copy(get!(() -> _possible_signs(s, facts), SIGN_CACHE[], (skey(s), facts)))
+function _possible_signs(s::Sum, facts::Bool)
+    if facts
+        s2, σ = clear_factors(s)
+        σ == 1 || return sort!([-p for p in possible_signs(s2)])
+        s = s2
+    end
+    vars = Dict{String,Mono}()
+    base = Ineq[]
+    for cd in CTX[]
+        append!(base, ineqs(cd, vars))
+    end
+    a, k = linform(s, vars)
+    if all(t -> abs(t) <= FM_TOL, values(a))
+        return abs(k) <= FM_TOL ? [0] : [k > 0 ? 1 : -1]
+    end
+    facts && append!(base, fact_ineqs(vars))
+    out = Int[]
+    feasible(push!(copy(base), Ineq(negate(a), -k, true))) && push!(out, -1)
+    !known_nonzero(s) && feasible(append!(copy(base), [Ineq(a, k, false), Ineq(negate(a), -k, false)])) &&
+        push!(out, 0)
+    feasible(push!(copy(base), Ineq(a, k, true))) && push!(out, 1)
+    out
 end
 
 function csign(s::Sum)::Int
@@ -471,11 +694,53 @@ function csign(s::Sum)::Int
     v = try
         numval(s)
     catch err
-        err isa GruntzError || throw(GruntzError("cannot evaluate constant $(skey(s))"))
-        sg = infer_sign(s)
-        sg === nothing ? rethrow() : return sg
+        err isa FreeSymbol || throw(GruntzError("cannot evaluate constant $(skey(s))"))
+        nothing
     end
-    abs(v) < big"1e-60" ? 0 : (v > 0 ? 1 : -1)
+    v === nothing || return abs(v) < big"1e-60" ? 0 : (v > 0 ? 1 : -1)
+    ps = possible_signs(s)
+    isempty(ps) && throw(GruntzError("the conditions on the parameters are contradictory"))
+    CASES[] || length(ps) == 1 || filter!(!=(0), ps)   # generic values: nonzero
+    length(ps) == 1 ? ps[1] : throw(NeedSign(s, ps, false))
+end
+
+# Whether the constant `s` is zero: true, false, or the `NeedSign` to throw when the
+# context does not decide it. A numerically zero constant is a zero the simplifier
+# did not recognise. A constant with parameters is taken to be nonzero, except when
+# splitting into cases.
+function zerostate(s::Sum)
+    isempty(s.t) && return true
+    v = try
+        numval(s)
+    catch err
+        err isa FreeSymbol || return false
+        nothing
+    end
+    v === nothing || return abs(v) < big"1e-60"
+    CASES[] || return false
+    ps = possible_signs(s)
+    ps == [0] && return true
+    0 in ps ? NeedSign(s, ps, true) : false
+end
+
+# log needs a positive argument: when splitting into cases, a constant (factor)
+# with parameters is checked
+function require_positive(s::Sum)
+    hasvar(a::Atom) = hasleaf(a, XATOM[].key) || hasw(a)
+    k = if length(s.t) == 1
+        m, c = first(s.t)
+        monoS(Mono(filter(p -> !hasvar(p.first), m.fs)), c)
+    elseif any(m -> any(p -> hasvar(p.first), m.fs), keys(s.t))
+        return
+    else
+        s
+    end
+    ratconst(k) === nothing || return
+    any(m -> any(p -> numval_or_nothing(p.first) === nothing, m.fs), keys(k.t)) || return
+    ps = possible_signs(k)
+    ps == [1] && return
+    1 in ps || throw(GruntzError("log of a number that is not positive", :undefined))
+    throw(NeedSign(k, ps, false))
 end
 
 # ---------------------------------------------------------------------------
@@ -520,17 +785,45 @@ wpowatom(r::Sum) = Atom(:leaf, r, Any[], WLEAF.key * "^(" * skey(r) * ")")
 iswleaf(a::Atom) = a.kind === :leaf && startswith(a.key, WLEAF.key)
 hasw(a::Atom) = iswleaf(a) || (a.kind !== :leaf && any(u -> any(m -> any(p -> hasw(p.first), m.fs), keys((u::Sum).t)), a.args))
 
+# The precision of a series: exact for exponents below every bound. Bounds whose
+# order the context does not decide (4 and 3a) are kept side by side, and a term is
+# kept only when it is decidably below all of them. Dropping a term is always safe,
+# so no case split is asked for.
+struct Prec
+    bs::Vector{Ex}
+end
+Prec(e::Ex) = Prec([e])
+function safe_lt(a::Ex, b::Ex)
+    try
+        isless(a, b)
+    catch err
+        err isa NeedSign || rethrow()
+        nothing
+    end
+end
+below(k::Ex, p::Prec) = all(b -> safe_lt(k, b) === true, p.bs)
+function pmin(p::Prec, q::Prec)
+    bs = unique!([p.bs; q.bs])
+    length(bs) == 1 && return Prec(bs)
+    Prec([b for b in bs if !any(c -> safe_lt(c, b) === true, bs)])
+end
+Base.:+(p::Prec, d::Ex) = Prec([b + d for b in p.bs])
+Base.:-(p::Prec, d::Ex) = Prec([b - d for b in p.bs])
+addprec(p::Prec, q::Prec) = reduce(pmin, [Prec(b + c) for b in p.bs for c in q.bs])
+const HUGE_P = Prec(HUGE_EX)
+
 struct PS
     c::Dict{Ex,Sum}   # exponent -> nonzero coefficient (an x-expression)
-    prec::Ex         # exact for exponents < prec
+    prec::Prec       # exact for exponents below it
 end
-val(a::PS) = isempty(a.c) ? a.prec : minimum(keys(a.c))
-onePS() = PS(Dict{Ex,Sum}(EX0 => oneS()), HUGE_EX)
+val(a::PS) = minimum(keys(a.c))
+valp(a::PS) = isempty(a.c) ? a.prec : Prec(val(a))
+onePS() = PS(Dict{Ex,Sum}(EX0 => oneS()), HUGE_P)
 
-function trunc_ps(c::Dict{Ex,Sum}, prec::Ex)
+function trunc_ps(c::Dict{Ex,Sum}, prec::Prec)
     d = Dict{Ex,Sum}()
     for (k, v) in c
-        (k < prec && !isempty(v.t)) && (d[k] = v)
+        (!isempty(v.t) && below(k, prec)) && (d[k] = v)
     end
     PS(d, prec)
 end
@@ -539,16 +832,16 @@ function addPS(a::PS, b::PS)
     for (k, v) in b.c
         c[k] = haskey(c, k) ? addS(c[k], v) : v
     end
-    trunc_ps(c, min(a.prec, b.prec))
+    trunc_ps(c, pmin(a.prec, b.prec))
 end
 scalePS(a::PS, s::Sum) = trunc_ps(Dict{Ex,Sum}(k => mulS(v, s) for (k, v) in a.c), a.prec)
 shiftPS(a::PS, d::Ex) = PS(Dict{Ex,Sum}(k + d => v for (k, v) in a.c), a.prec + d)
 function mulPS(a::PS, b::PS)
-    prec = min(a.prec + val(b), b.prec + val(a))
+    prec = pmin(addprec(a.prec, valp(b)), addprec(b.prec, valp(a)))
     c = Dict{Ex,Sum}()
     for (ka, ca) in a.c, (kb, cb) in b.c
         k = ka + kb
-        k >= prec && continue
+        below(k, prec) || continue
         v = mulS(ca, cb)
         c[k] = haskey(c, k) ? addS(c[k], v) : v
     end
@@ -558,10 +851,20 @@ end
 binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end; r)
 
 # sum_{k>=kmin} coef(k) u^k, u having positive valuation; relative target `Trel`
+# A valuation with a parameter (w^a) has no numerical value: a few terms are taken
+# and the precision is that of the first one left out.
 function polyPS(u::PS, coef, kmin::Int, Trel::Q)
-    acc = PS(Dict{Ex,Sum}(), min(Ex(Trel), u.prec))
-    v = val(u)
-    K = isempty(u.c) ? kmin : max(kmin, Int(israt(v) ? ceil(BigInt, Trel / v.q) : ceil(BigInt, BigFloat(Trel) / value(v))))
+    acc = PS(Dict{Ex,Sum}(), pmin(Prec(Ex(Trel)), u.prec))
+    v = isempty(u.c) ? EX0 : val(u)
+    K = if isempty(u.c)
+        kmin
+    elseif israt(v)
+        max(kmin, Int(ceil(BigInt, Trel / v.q)))
+    else
+        vv = try value(v) catch err; err isa FreeSymbol || rethrow(); nothing end
+        vv === nothing ? (acc = PS(acc.c, pmin(acc.prec, Prec(v * Q(kmin + 3)))); kmin + 2) :
+                         max(kmin, Int(ceil(BigInt, BigFloat(Trel) / vv)))
+    end
     pw = onePS()
     for k in 0:K
         if k >= kmin
@@ -575,6 +878,7 @@ end
 
 # a = c0 * w^v * (1 + r); returns (v, c0, r)
 function split_lead(a::PS)
+    a = dropzeros(a)
     isempty(a.c) && throw(NeedMorePrecision())
     v = val(a)
     c0 = a.c[v]
@@ -592,7 +896,7 @@ function powPS(a::PS, q::Q, P::Q)
 end
 
 function const_and_rest(a::PS)
-    a.prec <= EX0 && throw(NeedMorePrecision())
+    all(b -> EX0 < b, a.prec.bs) || throw(NeedMorePrecision())
     any(k -> k < EX0, keys(a.c)) &&
         throw(GruntzError("argument of exp/sin/cos diverges (oscillation or essential singularity)"))
     c0 = get(a.c, EX0, zeroS())
@@ -612,7 +916,7 @@ function trigPS(a::PS, P::Q)
     addPS(scalePS(cu, s0), scalePS(su, k0)), addPS(scalePS(cu, k0), scalePS(su, negS(s0)))
 end
 
-constPS(s::Sum) = PS(isempty(s.t) ? Dict{Ex,Sum}() : Dict{Ex,Sum}(EX0 => s), HUGE_EX)
+constPS(s::Sum) = PS(isempty(s.t) ? Dict{Ex,Sum}() : Dict{Ex,Sum}(EX0 => s), HUGE_P)
 
 # atan(v) for v with positive valuation
 atanSeries(v::PS, P::Q) =
@@ -643,7 +947,7 @@ function logPS(a::PS, logw::Sum, P::Q)
 end
 
 function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
-    a.kind === :leaf && return PS(Dict{Ex,Sum}((a == w ? EX1 : Ex(Q(0), a.head::Sum)) => oneS()), HUGE_EX)
+    a.kind === :leaf && return PS(Dict{Ex,Sum}((a == w ? EX1 : Ex(Q(0), a.head::Sum)) => oneS()), HUGE_P)
     a.kind === :base && return series(a.args[1]::Sum, w, logw, P, x)
     arg = series(a.args[1]::Sum, w, logw, P, x)
     h = a.head
@@ -654,7 +958,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
 end
 
 function series(s::Sum, w::Atom, logw::Sum, P::Q, x::Atom)::PS
-    acc = PS(Dict{Ex,Sum}(), HUGE_EX)     # inexact terms carry their own precision
+    acc = PS(Dict{Ex,Sum}(), HUGE_P)     # inexact terms carry their own precision
     for (m, c) in s.t
         cst = constS(c)
         ps = nothing
@@ -676,15 +980,36 @@ end
 
 # A coefficient free of x whose value is zero (to the precision `csign` uses) is
 # a zero the simplifier did not recognise; taking it as the leading coefficient
-# would give a wrong limit.
+# would give a wrong limit. When splitting into cases, coefficients with parameters
+# are tested too (see `zerostate`); one with x is zero when the constant
+# coefficient of each of its x-parts is.
 function numzero(s::Sum, x::Atom)
-    hasleaf(s, x.key) && return false
-    v = try
-        numval(s)
-    catch
-        return false
+    if !hasleaf(s, x.key)
+        z = zerostate(s)
+        z isa NeedSign && throw(z)
+        return z
     end
-    abs(v) < big"1e-60"
+    CASES[] || return false
+    groups = Dict{String,Sum}()
+    for (m, c) in s.t
+        k = Mono(filter(p -> hasleaf(p.first, x.key), m.fs)).key
+        groups[k] = addS(get(groups, k, zeroS()), monoS(Mono(filter(p -> !hasleaf(p.first, x.key), m.fs)), c))
+    end
+    zs = [zerostate(g) for g in values(groups)]
+    any(z -> z === false, zs) && return false
+    i = findfirst(z -> z isa NeedSign, zs)
+    i === nothing || throw(zs[i])
+    true
+end
+
+# When splitting into cases, leading coefficients that may vanish (b in b/w^2 + 1)
+# are tested, and dropped when zero
+function dropzeros(a::PS)
+    CASES[] || return a
+    ks = sort!(collect(keys(a.c)))
+    i = findfirst(k -> !numzero(a.c[k], XATOM[]), ks)
+    i === nothing && return PS(Dict{Ex,Sum}(), a.prec)
+    i == 1 ? a : PS(Dict{Ex,Sum}(k => a.c[k] for k in ks[i:end]), a.prec)
 end
 
 function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom)
@@ -722,8 +1047,8 @@ function limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
             s = try
                 sgn(c0, x)
             catch err
-                (err isa GruntzError && startswith(err.msg, FREE_SYMBOL_SIGN)) || rethrow()
-                return Infinity(0, err.msg)
+                err isa NeedSign || rethrow()
+                return Infinity(0, err)
             end
             s == 0 && throw(GruntzError("could not determine the sign of the leading coefficient"))
             Infinity(s)
@@ -754,7 +1079,7 @@ function sgn(c::Sum, x::Atom)::Int
                 s2 = csign(atomS(a))
                 s2 == 0 && throw(GruntzError("zero constant factor"))
                 if s2 < 0
-                    isone(denominator(e)) || throw(GruntzError("complex power"))
+                    isone(denominator(e)) || throw(GruntzError("complex power", :undefined))
                     isodd(numerator(e)) && (sg = -sg)
                 end
             end
@@ -773,7 +1098,7 @@ logof(a::Atom) = (a.kind === :fun && a.head === :exp) ? a.args[1]::Sum : mklog(a
 
 function compare(a::Atom, b::Atom, x::Atom)
     c = limitinf(mulS(logof(a), powS(logof(b), Q(-1))), x)
-    c isa Infinity ? :gt : (iszero(c) ? :lt : :eq)
+    c isa Infinity ? :gt : (numzero(c, x) ? :lt : :eq)
 end
 
 function mrv_max(f::Vector{Atom}, g::Vector{Atom}, x::Atom)
@@ -830,6 +1155,11 @@ function mrv_leadterm(e::Sum, x::Atom)
             (at === nothing || at.kind !== :fun || at.head !== :exp) ? (ok = false) : push!(newΩ, at)
         end
         e = subs_atoms(e, up)
+        # members that no longer occur (x of log(x), now x) are dropped, unless none
+        # is left: a w made from one would give every term a power of w with a
+        # parameter (x^a, a free)
+        occurring = filter(a -> hasatom(e, a.key), newΩ)
+        isempty(occurring) || (newΩ = occurring)
         Ω = ok ? newΩ : mrv(e, x)
         any(==(x), Ω) && throw(GruntzError("internal error while moving up"))
     end
@@ -881,7 +1211,7 @@ function from_number(t)
         return constS(rationalize(BigInt, t))
     end
     t isa Complex && throw(GruntzError("complex numbers are not supported"))
-    atomS(leafatom(t))          # symbolic wrapper types (e.g. Num) that are leaves
+    leafS(t)                    # symbolic wrapper types (e.g. Num) that are leaves
 end
 
 safe_iscall(t) = try iscall(t) === true catch; false end
@@ -944,7 +1274,14 @@ function from_term(t)::Sum
     t isa Union{Integer,Rational,AbstractFloat,AbstractIrrational,Complex} && return from_number(t)
     t isa Symbol && haskey(EXPR_CONSTANTS, t) && return from_number(EXPR_CONSTANTS[t])
     v = leaf_number(t)
-    v === nothing ? atomS(leafatom(t)) : v
+    v === nothing ? leafS(t) : v
+end
+
+# a leaf: a variable, or a parameter, replaced by its value when one is given
+function leafS(t)
+    a = leafatom(t)
+    v = get(SUBST[], a.key, nothing)
+    v === nothing ? atomS(a) : v
 end
 
 # Functions rewritten in terms of others: f(u) = 1/RECIPROCALS[f](u) and
@@ -1166,22 +1503,95 @@ function lim_equal(a, b)
     false
 end
 
-# +1 / -1 for +/-infinity (Julia floats or a symbolic package's infinity), else 0
-function with_signs(g, signs)
-    d = Dict{String,Int}()
-    for (p, sg) in signs
-        sg in (1, -1) || throw(ArgumentError("the sign of `$p` must be 1 or -1, got $sg"))
-        d[leafatom(p).key] = sg
-    end
-    old = SIGNS[]
-    SIGNS[] = d
+function with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom)
+    old = (CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[])
+    CTX[], SUBST[], CASES[], XATOM[] = ctx, sub, cases, x
+    SIGN_CACHE[] = Dict{Tuple{String,Bool},Vector{Int}}()
     try
         g()
     finally
-        SIGNS[] = old
+        CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[] = old
     end
 end
 
+substS(s::Sum, sub::Dict{String,Sum}) =
+    isempty(sub) ? s : subs_atoms(s, a -> a.kind === :leaf ? get(sub, a.key, nothing) : nothing)
+
+# Solves c = 0 for a parameter p, when c = k p + r or k log(p) + r with r free of p,
+# or c = k p^n with n > 0. Returns p's key => its value, or nothing.
+function solve_zero(c::Sum)
+    for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
+        length(m.fs) == 1 || continue
+        a, e = m.fs[1]
+        p = a.kind === :leaf ? a : a.kind === :fun && a.head === :log ? single_atom(a.args[1]::Sum) : nothing
+        (p === nothing || !isparam(p)) && continue
+        r = subS(c, monoS(m, k))
+        hasleaf(r, p.key) && continue
+        a == p && isempty(r.t) && e > 0 && return p.key => zeroS()
+        isone(e) || continue
+        v = scaleS(r, -inv(k))
+        return p.key => (a == p ? v : mkexp(v))
+    end
+    nothing
+end
+
+# adds the substitution p => v, applying it to the values already there
+function add_subst!(sub::Dict{String,Sum}, pv::Pair{String,Sum})
+    one = Dict(pv)
+    for (k, v) in sub
+        sub[k] = substS(v, one)
+    end
+    sub[pv.first] = pv.second
+    sub
+end
+
+# The context with the substitutions applied; nothing if it became false
+function subst_ctx(ctx::Vector{Cond}, sub::Dict{String,Sum})
+    out = Cond[]
+    for cd in ctx
+        c = substS(cd.c, sub)
+        r = ratconst(c)
+        if r === nothing
+            push!(out, normcond(c, cd.rel))
+        else
+            ok = cd.rel === :> ? r > 0 : cd.rel === :< ? r < 0 : cd.rel === :>= ? r >= 0 :
+                 cd.rel === :<= ? r <= 0 : cd.rel === :(==) ? iszero(r) : !iszero(r)
+            ok || return nothing
+        end
+    end
+    out
+end
+
+# the values of `signs`, as relations to 0
+const SIGN_RELS = Dict(:positive => :>, :negative => :<, :nonnegative => :>=,
+                       :nonpositive => :<=, :zero => :(==), :nonzero => :!=)
+
+# The context and substitutions given by `signs`: pairs `c => s`, `c` a parameter or
+# an expression in parameters and `s` a key of `SIGN_RELS`. A zero is solved for a
+# parameter and substituted.
+function signs_context(signs, x::Atom)
+    ctx, sub = Cond[], Dict{String,Sum}()
+    zs = Sum[]
+    for (p, sg) in signs
+        haskey(SIGN_RELS, sg) || throw(ArgumentError("the sign of `$p` must be one of " *
+            join(repr.(sort!(collect(keys(SIGN_RELS)))), ", ") * "; got $(repr(sg))"))
+        c = from_term(p)
+        ratconst(c) === nothing || throw(ArgumentError("`$p` has no parameter"))
+        sg === :zero ? push!(zs, c) : push!(ctx, normcond(c, SIGN_RELS[sg]))
+    end
+    with_context(Cond[], sub, false, x) do
+        for c in zs
+            sol = solve_zero(substS(c, sub))
+            sol === nothing && throw(ArgumentError("cannot solve `$(skey(c)) = 0` for a parameter"))
+            add_subst!(sub, sol)
+        end
+        ctx = subst_ctx(ctx, sub)
+    end
+    ctx === nothing && throw(ArgumentError("the signs given are contradictory"))
+    ctx, sub
+end
+
+# +1 / -1 for +/-infinity (Julia floats or a symbolic package's infinity), else 0
 function infdir(x0)
     x0 isa AbstractFloat && return isinf(x0) ? (x0 > 0 ? 1 : -1) : 0
     x0 isa Number || return 0
@@ -1201,7 +1611,7 @@ function resolve_abs(e::Sum, x::Atom)
         sg = try
             csign(u)
         catch err
-            err isa GruntzError ? nothing : rethrow()
+            err isa NeedSign ? nothing : rethrow()
         end
         sg === nothing ? mkabs(u) : scaleS(u, Q(sg))
     end
@@ -1227,7 +1637,7 @@ function _limit(e::Sum, xa::Atom, x0, dir::Symbol)
         side(-1)
     elseif dir === :both
         l, r = side(1), side(-1)
-        lim_equal(l, r) || throw(GruntzError("one-sided limits differ"))
+        lim_equal(l, r) || throw(GruntzError("one-sided limits differ", :nolimit))
         l
     else
         throw(GruntzError("dir must be :+, :- or :both"))
@@ -1275,11 +1685,15 @@ Compute ``\\lim_{x \\to x_0} f(x)`` with Gruntz's algorithm.
 * `lift`: converts plain Julia numbers (and `π`) in the result to the symbolic number
   type. The default uses the constructor of `typeof(f)` when that is a non-`Real`
   `Number` (as with `Basic`); otherwise numbers are left as they are.
-* `signs` (**experimental**, may change): the signs of free parameters, as pairs
-  `parameter => 1` or `parameter => -1` (e.g. `Dict(a => 1)`), for limits that depend on
-  them, such as `x^a`. A parameter is otherwise taken to be nonzero, of unknown sign.
-  The sign of an expression in the parameters is decided only when every term of it has
-  the same sign (so `2a + b` with `a, b > 0`, but not `a - 2`).
+* `signs` (**experimental**, may change): signs of parameters, or of expressions in them,
+  as pairs `c => s` with `s` one of `:positive`, `:negative`, `:nonnegative`,
+  `:nonpositive`, `:zero` or `:nonzero` (e.g. `Dict(a => :positive)` or
+  `Dict(a - 2 => :negative)`). `c` is written like `f`: a `Symbol` or `Expr` for an `Expr`,
+  a term of the same package otherwise. Consequences are used (`a > 2` from `a - 2 > 0`).
+  A zero is solved for a parameter, which is substituted. Without them, a parameter is a real number
+  of unknown sign. When the limit depends on a sign that is not decided, a `GruntzError`
+  names the constant (see [`gruntz_cases`](@ref)). A constant that may or may not be zero is
+  taken to be nonzero, so answers are generic (`a/b` for `b != 0`).
 
 Returns `Inf`, `-Inf`, an `Int`/`Rational` for rational limits, or otherwise a term
 assembled with `build`. Throws [`GruntzError`](@ref) when the limit does not exist or
@@ -1305,14 +1719,473 @@ julia> gruntz_limit(:(atan(x)), :x)
 """
 function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = nothing,
                       signs = ())
-    L = with_signs(signs) do
-        _limit(from_term(f), leafatom(x), x0, dir)
+    xa = leafatom(x)
+    ctx, sub = signs_context(signs, xa)
+    bd = Builder(build === nothing ? auto_build(f, x) : build,
+                 lift === nothing ? auto_lift(f, x) : lift)
+    L = with_context(ctx, sub, false, xa) do
+        try
+            limit_value(f, xa, x0, dir)
+        catch err
+            err isa NeedSign || rethrow()
+            c = show_condition(bd, split_target(err.c), :>)
+            throw(GruntzError("the limit depends on the sign of `$(difference(c))`, which " *
+                              "cannot be decided: give it with `signs`, or use `gruntz_cases`"))
+        end
     end
+    user_value(bd, L)
+end
+
+# lhs - rhs of a condition, as a string
+function difference(c)
+    c.rhs isa Number && iszero(c.rhs) && return string(c.lhs)
+    c.rhs isa Real && c.rhs < 0 && return string(c.lhs, " + ", -c.rhs)
+    string(c.lhs, " - ", c.rhs)
+end
+
+# the limit, an infinite one with its sign decided
+function limit_value(f, xa::Atom, x0, dir::Symbol)
+    L = _limit(from_term(f), xa, x0, dir)
+    L isa Infinity && signof(L)
+    L
+end
+
+function user_value(bd::Builder, L)
     L isa Infinity && return signof(L) > 0 ? Inf : -Inf
+    if L isa GruntzError
+        return L.kind === :fail ? L : L.kind
+    end
     r = ratconst(L)
     r !== nothing && return num(r)
-    to_term(Builder(build === nothing ? auto_build(f, x) : build,
-                    lift === nothing ? auto_lift(f, x) : lift), L)
+    to_term(bd, L)
+end
+
+# ---------------------------------------------------------------------------
+# Splitting into cases
+# ---------------------------------------------------------------------------
+# The limit is computed under a context; when a sign is needed that the context does
+# not decide (`NeedSign`), it is computed again for each sign the context allows,
+# the case c = 0 by substituting for a parameter. The result is a tree of cases;
+# branches with the same limit are merged.
+abstract type CaseTree end
+struct Leaf <: CaseTree
+    v::Any                       # a Sum, an Infinity or a GruntzError
+end
+struct Split <: CaseTree
+    c::Sum                       # the constant split on
+    rels::Vector{Symbol}         # of each branch: :<, :(==), :>, :!=; merged :<=, :>=
+    zsub::Any                    # the == branch's substitution key => value, or nothing
+    kids::Vector{CaseTree}
+end
+
+const MAX_CASES = 64
+const MAX_DEPTH = 12
+
+# The constant to split on for a needed sign: a product of parameters is split on
+# one factor at a time, log(s) on s - 1.
+function split_target(c::Sum)
+    c = clear_factors(c)[1]
+    vars = Dict{String,Mono}()
+    a, k0 = linform(c, vars)
+    (length(a) == 1 && abs(k0) <= FM_TOL) || return c
+    for (at, _) in only(values(vars)).fs
+        atom_sign(at) === nothing || continue
+        return at.kind === :leaf ? atomS(at) :
+               at.kind === :base ? at.args[1]::Sum :
+               at.kind === :fun && at.head === :log ? subS(at.args[1]::Sum, oneS()) :
+               at.kind === :fun && at.head in (:abs, :atan) ? at.args[1]::Sum : c
+    end
+    c
+end
+
+function solve_cases(run, ctx::Vector{Cond}, sub::Dict{String,Sum}, x::Atom, depth::Int, count::Ref{Int})
+    need = try
+        return Leaf(with_context(run, ctx, sub, true, x))
+    catch err
+        err isa GruntzError && return Leaf(err)
+        err isa NeedSign || rethrow()
+        err
+    end
+    (depth >= MAX_DEPTH || count[] >= MAX_CASES) &&
+        return Leaf(GruntzError("too many cases"))
+    c, rels, zsub = with_context(ctx, sub, true, x) do
+        c = split_target(need.c)
+        ps = possible_signs(c)
+        rels = need.zerotest && c === need.c ?
+               [r for (r, ok) in ((:(==), 0 in ps), (:!=, any(!=(0), ps))) if ok] :
+               [p < 0 ? :< : p == 0 ? :(==) : :> for p in ps]
+        c, rels, (:(==) in rels ? solve_zero(c) : nothing)
+    end
+    length(rels) < 2 && return Leaf(GruntzError("could not split on the sign of $(skey(c))"))
+    rs, kids = Symbol[], CaseTree[]
+    for rel in rels
+        count[] += 1
+        if rel === :(==)
+            if zsub === nothing
+                push!(rs, rel)
+                push!(kids, Leaf(GruntzError("the condition could not be solved for a parameter")))
+                continue
+            end
+            sub2 = with_context(() -> add_subst!(copy(sub), zsub), ctx, sub, false, x)
+            ctx2 = with_context(() -> subst_ctx(ctx, sub2), ctx, sub, false, x)
+        else
+            sub2, ctx2 = sub, [ctx; normcond(c, rel)]
+        end
+        ctx2 === nothing && continue
+        push!(rs, rel)
+        push!(kids, solve_cases(run, ctx2, sub2, x, depth + 1, count))
+    end
+    simplify(Split(c, rs, zsub, kids))
+end
+
+function same_value(a, b)
+    a isa Sum && b isa Sum && return skey(a) == skey(b)
+    a isa Infinity && b isa Infinity && return a.sign == b.sign
+    a isa GruntzError && b isa GruntzError && return a.kind == b.kind && (a.kind !== :fail || a.msg == b.msg)
+    false
+end
+
+# Merges branches with the same limit: c < 0 and c > 0 into c != 0; the case c = 0
+# into a neighbour whose limit is the same, or becomes the same with the
+# substitution of the case (exp(a) at a = 0 is 1). A split left with one branch is
+# that branch.
+function simplify(t::Split)
+    rels, kids = copy(t.rels), copy(t.kids)
+    i = findfirst(==(:!=), rels)
+    if i !== nothing && kids[i] isa Split && skey(kids[i].c) == skey(t.c) && all(in((:<, :>)), kids[i].rels)
+        k = kids[i]
+        deleteat!(rels, i); deleteat!(kids, i)
+        append!(rels, k.rels); append!(kids, k.kids)
+    end
+    at(r) = findfirst(==(r), rels)
+    leafv(j) = j !== nothing && kids[j] isa Leaf ? kids[j].v : nothing
+    lt, gt = at(:<), at(:>)
+    if leafv(lt) !== nothing && leafv(gt) !== nothing && same_value(leafv(lt), leafv(gt))
+        rels[lt] = :!=
+        deleteat!(rels, gt); deleteat!(kids, gt)
+    end
+    eq = at(:(==))
+    z = leafv(eq)
+    if z !== nothing
+        function subd(v)
+            (v isa Sum && t.zsub !== nothing) || return v
+            try
+                with_context(() -> substS(v, Dict(t.zsub)), Cond[], Dict{String,Sum}(), false, XATOM[])
+            catch err
+                err isa GruntzError || rethrow()
+                nothing
+            end
+        end
+        for literal in (true, false), r in (:!=, :<, :>)
+            j = at(r)
+            v = leafv(j)
+            v === nothing && continue
+            literal || (v = subd(v))
+            (v === nothing || !same_value(z, v)) && continue
+            rels[j] = r === :< ? :<= : r === :> ? :>= : r
+            deleteat!(rels, eq); deleteat!(kids, eq)
+            break
+        end
+    end
+    length(kids) == 1 && return kids[1]
+    Split(t.c, rels, t.zsub, kids)
+end
+
+function flatten_cases(t::CaseTree, conds::Vector{Tuple{Sum,Symbol}}, out)
+    if t isa Leaf
+        push!(out, copy(conds) => t.v)
+    else
+        for (rel, k) in zip(t.rels, t.kids)
+            push!(conds, (t.c, rel))
+            flatten_cases(k, conds, out)
+            pop!(conds)
+        end
+    end
+    out
+end
+
+const CondList = Vector{Tuple{Sum,Symbol}}
+
+# whether the conditions `a` imply the condition `l`
+implies(a::CondList, l::Tuple{Sum,Symbol}) = !any(r -> satisfiable(push!(copy(a), (l[1], r))), negations(l[2]))
+
+# whether `k` implies `a` or `b`
+function covers(k::CondList, a::CondList, b::CondList)
+    nots(x) = [(c, r) for (c, rel) in x for r in negations(rel)]
+    (isempty(a) || isempty(b)) && return true
+    !any(na -> any(nb -> satisfiable([k; na; nb]), nots(b)), nots(a))
+end
+
+# Cases of the flattened tree with the same limit are merged when their union is
+# described by some of their conditions (a <= 0 and 0 < a < 2 give a < 2), and
+# conditions implied by the others of a case are dropped.
+function merge_cases(cases)
+    prune(a::CondList) = (a = copy(a); i = 1;
+        while i <= length(a)
+            implies(deleteat!(copy(a), i), a[i]) ? deleteat!(a, i) : (i += 1)
+        end; a)
+    cases = Any[prune(cs) => v for (cs, v) in cases]
+    merged = true
+    while merged
+        merged = false
+        for i in eachindex(cases), j in i+1:length(cases)
+            (a, va), (b, vb) = cases[i], cases[j]
+            v = matching_value(a, va, b, vb)
+            v === nothing && continue
+            cands = unique(l -> (skey(l[1]), l[2]),
+                           [(c, r) for (c, rel) in [a; b] for r in (rel, rel === :< ? :<= : rel === :> ? :>= : rel)])
+            filter!(l -> implies(a, l) && implies(b, l), cands)
+            k = nothing
+            for n in 0:min(3, length(cands)), sub in subsets_of(cands, n)
+                if covers(sub, a, b)
+                    k = sub
+                    break
+                end
+            end
+            k === nothing && continue
+            cases[i] = prune(k) => v
+            deleteat!(cases, j)
+            merged = true
+            break
+        end
+    end
+    cases
+end
+
+# The limit for the union of two cases when it is the same in both, possibly after
+# substituting the equalities of one case into the other's limit (1 for a == 1, and
+# a otherwise, give a)
+function matching_value(a::CondList, va, b::CondList, vb)
+    same_value(va, vb) && return va
+    v = subst_eqs(a, vb)
+    v !== nothing && same_value(va, v) && return vb
+    v = subst_eqs(b, va)
+    v !== nothing && same_value(vb, v) && return va
+    nothing
+end
+function subst_eqs(conds::CondList, v)
+    v isa Sum || return nothing
+    sub = Dict{String,Sum}()
+    for (c, rel) in conds
+        rel === :(==) || continue
+        sol = solve_zero(substS(c, sub))
+        sol === nothing || add_subst!(sub, sol)
+    end
+    isempty(sub) && return nothing
+    try
+        substS(v, sub)
+    catch err
+        err isa GruntzError || rethrow()
+        nothing
+    end
+end
+
+subsets_of(v, n) = n == 0 ? [eltype(v)[]] :
+    [[v[i]; s] for i in eachindex(v) for s in subsets_of(v[i+1:end], n - 1)]
+
+"""
+    CaseCondition(lhs, rel, rhs)
+
+A condition `lhs rel rhs` on parameters, in a case of [`gruntz_cases`](@ref). `rel` is
+one of `:<`, `:<=`, `:(==)`, `:!=`, `:>=`, `:>`; `lhs` and `rhs` are terms of the input's
+type (made with `build`), or numbers.
+"""
+struct CaseCondition
+    lhs::Any
+    rel::Symbol
+    rhs::Any
+end
+Base.show(io::IO, c::CaseCondition) = print(io, c.lhs, " ", c.rel, " ", c.rhs)
+
+const REL_RANK = Dict(:< => 1, :<= => 2, :(==) => 3, :!= => 4, :>= => 5, :> => 6)
+
+# the conditions of a case as text, a lower and an upper bound of the same term
+# chained (0 < a < 1)
+function show_conditions(conds::Vector{CaseCondition})
+    isempty(conds) && return "always"
+    parts = String[]
+    used = falses(length(conds))
+    for (i, c) in enumerate(conds)
+        used[i] && continue
+        j = c.rel in (:>, :>=) ? findfirst(k -> !used[k] && k != i && conds[k].rel in (:<, :<=) &&
+                                                 isequal(conds[k].lhs, c.lhs), eachindex(conds)) : nothing
+        if j === nothing
+            push!(parts, string(c))
+        else
+            used[j] = true
+            push!(parts, string(c.rhs, " ", flip(c.rel), " ", c.lhs, " ", conds[j].rel, " ", conds[j].rhs))
+        end
+        used[i] = true
+    end
+    join(parts, " && ")
+end
+
+# c rel 0, solved for a parameter it is linear in when there is one (a - b > 0 is
+# shown as a > b, log(a) - 1 < 0 as a < exp(1))
+function show_condition(bd::Builder, c::Sum, rel::Symbol)
+    for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
+        (length(m.fs) == 1 && isone(m.fs[1].second)) || continue
+        a = m.fs[1].first
+        p = a.kind === :leaf ? a : a.kind === :fun && a.head === :log ? single_atom(a.args[1]::Sum) : nothing
+        (p === nothing || !isparam(p)) && continue
+        r = subS(c, monoS(m, k))
+        hasleaf(r, p.key) && continue
+        v = scaleS(r, -inv(k))
+        return CaseCondition(user_value(bd, atomS(p)), k < 0 ? flip(rel) : rel,
+                         user_value(bd, a == p ? v : mkexp(v)))
+    end
+    CaseCondition(user_value(bd, c), rel, 0)
+end
+
+"""
+    LimitCases
+
+The result of [`gruntz_cases`](@ref) (a public type, not exported): a vector of `conditions => limit` pairs, the
+conditions a `Vector` of [`CaseCondition`](@ref)s that all hold in the case (empty when
+the limit does not depend on the parameters). A limit is a value as returned by
+[`gruntz_limit`](@ref), `:nolimit` when the limit does not exist, `:undefined` when the
+expression is not defined for those parameters, or a [`GruntzError`](@ref) when the case
+could not be computed.
+
+A `LimitCases` is an `AbstractVector` of the pairs (`cs[2]`, `cs[end]`, `filter`, ...).
+With values of the parameters, as pairs `parameter => value` or a `Dict`, calling it gives
+the limit for those values (the case's limit with the values substituted), indexing gives
+their case.
+
+```julia
+cs = gruntz_cases(:(x^(a - 2)), :x)
+cs[end]          # CaseCondition[a > 2] => Inf
+cs(:a => 3)      # Inf
+
+cs = gruntz_cases(:((a^x + b^x)^(1/x)), :x)
+cs(:a => 2, :b => 3)                  # 3
+cs[:a => 2, :b => 3]                  # the case: CaseCondition[...] => :b
+```
+"""
+struct LimitCases <: AbstractVector{Pair{Vector{CaseCondition},Any}}
+    cases::Vector{Pair{Vector{CaseCondition},Any}}
+    clist::Vector{Vector{Tuple{Sum,Symbol}}}   # each case's conditions, c rel 0
+    ctx::Vector{Cond}                         # from `signs`
+    sub::Dict{String,Sum}
+    vals::Vector{Any}                         # each case's limit (Sum, Infinity, GruntzError)
+    bd::Builder
+end
+Base.size(c::LimitCases) = size(c.cases)
+Base.getindex(c::LimitCases, i::Int) = c.cases[i]
+Base.IndexStyle(::Type{LimitCases}) = IndexLinear()
+
+# whether c rel 0 holds for the parameter values `vals` (leaf key => Sum)
+function holds_at(c::Sum, rel::Symbol, vals::Dict{String,Sum})
+    v = try
+        substS(c, vals)
+    catch err
+        err isa GruntzError || rethrow()
+        return false                  # e.g. log of a negative value
+    end
+    sg = try
+        csign(v)
+    catch err
+        err isa NeedSign || rethrow()
+        free = [string(a.head) for m in keys(v.t) for (a, _) in m.fs if isparam(a)]
+        throw(ArgumentError("give a value for `$(isempty(free) ? skey(v) : first(free))`"))
+    end
+    rel === :< ? sg < 0 : rel === :<= ? sg <= 0 : rel === :(==) ? sg == 0 :
+    rel === :!= ? sg != 0 : rel === :>= ? sg >= 0 : sg > 0
+end
+
+# The index of the case whose conditions hold for the given values of the parameters
+# (pairs `parameter => value`, parameters written as in `signs`, or a Dict). Throws an
+# ArgumentError when a needed value is missing, or the values are outside the signs given.
+findcase(cs::LimitCases, vals::AbstractDict) = findcase(cs, pairs(vals)...)
+findcase(cs::LimitCases, vals::Pair...) = find_values(cs, vals)[1]
+Base.getindex(cs::LimitCases, val::Pair, vals::Pair...) = cs.cases[findcase(cs, val, vals...)]
+Base.getindex(cs::LimitCases, vals::AbstractDict) = cs.cases[findcase(cs, vals)]
+
+# the index of the case for the values, and the values by leaf key
+function find_values(cs::LimitCases, vals)
+    d = Dict{String,Sum}()
+    for (p, v) in vals
+        a = single_atom(from_term(p))
+        (a === nothing || a.kind !== :leaf) && throw(ArgumentError("`$p` is not a parameter"))
+        c = from_term(v)
+        ratconst(c) === nothing && numval_or_nothing(baseatom(c)) === nothing &&
+            throw(ArgumentError("the value of `$p` must be a number, got $v"))
+        d[a.key] = c
+    end
+    with_context(Cond[], Dict{String,Sum}(), false, WLEAF) do
+        for (k, v) in cs.sub          # a parameter given as :zero in `signs` is substituted
+            haskey(d, k) && !holds_at(subS(d[k], substS(v, d)), :(==), Dict{String,Sum}()) &&
+                throw(ArgumentError("the values are outside the signs given"))
+        end
+        all(cd -> holds_at(cd.c, cd.rel, d), cs.ctx) ||
+            throw(ArgumentError("the values are outside the signs given"))
+        i = findfirst(clist -> all(((c, rel),) -> holds_at(c, rel, d), clist), cs.clist)
+        i === nothing && throw(ArgumentError("no case applies to these values"))
+        i, d
+    end
+end
+function (cs::LimitCases)(vals::Pair...)
+    i, d = find_values(cs, vals)
+    v = cs.vals[i]
+    v isa Sum || return cs.cases[i].second
+    user_value(cs.bd, with_context(() -> substS(substS(v, cs.sub), d), Cond[], Dict{String,Sum}(), false, WLEAF))
+end
+(cs::LimitCases)(vals::AbstractDict) = cs(pairs(vals)...)
+
+function Base.show(io::IO, ::MIME"text/plain", c::LimitCases)
+    n = length(c.cases)
+    print(io, "LimitCases with ", n, n == 1 ? " case:" : " cases:")
+    for (conds, v) in c.cases
+        print(io, "\n  ", show_conditions(conds), "  =>  ")
+        v isa GruntzError ? print(io, "not computed (", v.msg, ")") : print(io, v)
+    end
+end
+
+"""
+    gruntz_cases(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
+
+The limit of `f` as in [`gruntz_limit`](@ref), for each case of the free parameters
+in it (**experimental**). Where the limit depends on the sign of a constant with
+parameters, such as `a - 2`, or on whether it is zero, the limit is computed for each
+possibility (`a < 2`, `a == 2`, `a > 2`), a zero by solving for a parameter and
+substituting. Cases with the same limit are merged. Returns a [`LimitCases`](@ref).
+
+`signs` is as for `gruntz_limit`, and restricts the cases. Parameters are not taken
+to be nonzero, so `a == 0` is a case where it matters.
+
+```jldoctest
+julia> using GruntzLimit
+
+julia> gruntz_cases(:(x^(a - 2)), :x)
+LimitCases with 3 cases:
+  a < 2  =>  0
+  a == 2  =>  1
+  a > 2  =>  Inf
+
+julia> gruntz_cases(:(a^x), :x)
+LimitCases with 4 cases:
+  a <= 0  =>  undefined
+  0 < a < 1  =>  0
+  a == 1  =>  1
+  a > 1  =>  Inf
+```
+"""
+function gruntz_cases(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = nothing,
+                      signs = ())
+    xa = leafatom(x)
+    ctx, sub = signs_context(signs, xa)
+    bd = Builder(build === nothing ? auto_build(f, x) : build,
+                 lift === nothing ? auto_lift(f, x) : lift)
+    tree = solve_cases(() -> limit_value(f, xa, x0, dir), ctx, sub, xa, 0, Ref(0))
+    merged = with_context(() -> merge_cases(flatten_cases(tree, Tuple{Sum,Symbol}[], [])), ctx, sub, false, xa)
+    cases = with_context(ctx, sub, false, xa) do
+        [CaseCondition[show_condition(bd, c, r) for (c, r) in conds] => user_value(bd, v)
+         for (conds, v) in merged]
+    end
+    # in order of the conditions: a < 2, a == 2, a > 2
+    order = sortperm(cases; by = p -> [(string(c.lhs), string(c.rhs), REL_RANK[c.rel]) for c in p.first])
+    LimitCases(cases[order], [Tuple{Sum,Symbol}[l for l in merged[i].first] for i in order], ctx, sub,
+               Any[merged[i].second for i in order], bd)
 end
 
 end # module

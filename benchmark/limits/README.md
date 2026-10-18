@@ -1,8 +1,10 @@
 # Limits comparison
 
-GruntzLimit on three term types, and SciML's
+GruntzLimit on three term types, SciML's
 [SymbolicLimits.jl](https://github.com/SciML/SymbolicLimits.jl) on
-SymbolicUtils terms, on the limit problems of `problems.jl`:
+SymbolicUtils terms, and Giac's own `limit` (through
+[Giac.jl](https://github.com/s-celles/Giac.jl)) as a reference from a
+long-established computer algebra system, on the limit problems of `problems.jl`:
 
 | Method | Package | Terms |
 |---|---|---|
@@ -11,6 +13,7 @@ SymbolicUtils terms, on the limit problems of `problems.jl`:
 | `symbolicutils` | GruntzLimit | SymbolicUtils |
 | `symboliclimits` | SymbolicLimits, `limit` | SymbolicUtils |
 | `symboliclimits_explog` | SymbolicLimits, `limit`, after rewriting powers and radicals as `exp`/`log` | SymbolicUtils |
+| `giac` | Giac.jl, Giac's `limit` (for reference) | Giac |
 
 The result is a page, `results/limits_comparison.html`, with a summary
 (counts and times) and a grid with one row per method, one column per
@@ -42,6 +45,7 @@ GruntzLimit comes from this checkout; everything else from the registry.
 cd benchmark/limits
 julia --project=env_gruntz -e 'using Pkg; Pkg.instantiate()'   # once, or after changing a package
 julia --project=env_sl -e 'using Pkg; Pkg.instantiate()'
+julia --project=env_giac -e 'using Pkg; Pkg.instantiate()'
 julia run_all.jl            # or `julia run_all.jl 120` for a 120 s limit per problem
 ```
 
@@ -70,7 +74,7 @@ To pick up a newer registered SymbolicLimits, run
 | `core.jl` | shared by the workers: builds each problem with the worker's variables, takes the limit, checks it, writes a line per problem |
 | `supervise.jl` | runs a worker; if one problem takes longer than the limit, kills the process, records a timeout and restarts at the next problem |
 | `build.jl`, `template.html` | turn the results into the page |
-| `env_gruntz`, `env_sl` | the environments: GruntzLimit with SymEngine and SymbolicUtils; SymbolicLimits with SymbolicUtils |
+| `env_gruntz`, `env_sl`, `env_giac` | the environments: GruntzLimit with SymEngine and SymbolicUtils; SymbolicLimits with SymbolicUtils; Giac.jl |
 
 Each problem is built from its expression with the worker's own values for
 `x`, `a`, `b`, `π` and `ℯ`: `SymEngine.@vars` with `PI` and `E`; SymbolicUtils
@@ -138,8 +142,9 @@ results and edit it before publishing.
 
 The package README and the docs' home page (`docs/src/index.md`) have a
 badge comparing the number of problems solved
-correctly by `symbolicutils` (GruntzLimit, SymbolicUtils) and `symboliclimits`
-(SymbolicLimits, the same terms). It links to the page through
+correctly by `symbolicutils` (GruntzLimit, SymbolicUtils) and
+`symboliclimits_explog` (SymbolicLimits on the same problems, powers rewritten as
+`exp`/`log`, as a user could). It links to the page through
 htmlpreview.github.io, from `main`, so the page must be committed and pushed
 there. It is a static badge: after a run that changes these numbers, update
 them in the badge URL and its alt text, in both places.
@@ -148,11 +153,12 @@ them in the badge URL and its alt text, in both places.
 
 Correct out of 66. Times are on one machine and only comparable within a run.
 
-| Date | Julia | GruntzLimit | expr | symengine | symbolicutils | symboliclimits | symboliclimits_explog |
-|---|---|---|---|---|---|---|---|
-| 2026-10-17 | 1.13.0 | `d64dfcd` | 60 | 61 | 61 | 19 | 37 |
-| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes | 65 | 65 | 65 | 19 | 37 |
-| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes, parameter signs | 66 | 66 | 66 | 19 | 37 |
+| Date | Julia | GruntzLimit | expr | symengine | symbolicutils | symboliclimits | symboliclimits_explog | giac |
+|---|---|---|---|---|---|---|---|---|
+| 2026-10-17 | 1.13.0 | `d64dfcd` | 60 | 61 | 61 | 19 | 37 | |
+| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes | 65 | 65 | 65 | 19 | 37 | |
+| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes, parameter signs | 66 | 66 | 66 | 19 | 37 | |
+| 2026-10-18 | 1.13.0 | `5dfb3a7` | 66 | 66 | 66 | 19 | 37 | 65 |
 
 Notes:
 
@@ -164,3 +170,7 @@ Notes:
   parameter where only finiteness matters, which solves xᵃ/eˣ (38).
 - SymbolicLimits 1.2.2 returns ∞ for Gruntz 8.18 (limit 2), and returns the
   assumption `false` with several correct answers.
+- The fourth run adds Giac.jl 0.14.3's `limit`; the other rows are from the
+  third run. Giac misses only xᵃ/eˣ (38), where it cannot make the series
+  expansion with the sign of `a` unknown. Giac's answers `undef`, unsigned
+  `infinity` and `bounded_function(…)` (no limit) are not counted as answers.

@@ -123,15 +123,27 @@
     @test_throws GruntzError gruntz_limit(exp(a*x), x)
 
     # signs of parameters, given with `signs` (experimental)
-    @test gruntz_limit(x^a, x; signs = Dict(a => 1)) == Inf
-    @test gruntz_limit(x^a, x; signs = Dict(a => -1)) == 0
-    @test gruntz_limit(x^a, x, 0; signs = Dict(a => 1)) == 0
-    @test gruntz_limit(exp(a*x), x; signs = [a => -1]) == 0
-    @test gruntz_limit(x^100 * exp(-a*x), x; signs = Dict(a => 1)) == 0
-    @test gruntz_limit((2a + 1)*x, x; signs = Dict(a => 1)) == Inf
-    @test gruntz_limit(x^(2 + a), x; signs = Dict(a => 1)) == Inf
-    @test_throws GruntzError gruntz_limit(x^(a - 2), x; signs = Dict(a => 1))   # a > 0 is not enough
-    @test_throws ArgumentError gruntz_limit(a*x, x; signs = Dict(a => 0))
+    @test gruntz_limit(x^a, x; signs = Dict(a => :positive)) == Inf
+    @test gruntz_limit(x^a, x; signs = Dict(a => :negative)) == 0
+    @test gruntz_limit(x^a, x, 0; signs = Dict(a => :positive)) == 0
+    @test gruntz_limit(exp(a*x), x; signs = [a => :negative]) == 0
+    @test gruntz_limit(x^100 * exp(-a*x), x; signs = Dict(a => :positive)) == 0
+    @test gruntz_limit((2a + 1)*x, x; signs = Dict(a => :positive)) == Inf
+    @test gruntz_limit(x^(2 + a), x; signs = Dict(a => :positive)) == Inf
+    @test_throws GruntzError gruntz_limit(x^(a - 2), x; signs = Dict(a => :positive))   # a > 0 is not enough
+    @test gruntz_limit(x^(a - 2), x; signs = Dict(a - 2 => :positive)) == Inf       # a constant as key
+    @test gruntz_limit(x^(a - 2), x; signs = Dict(a - 2 => :negative)) == 0
+    @test gruntz_limit(a*x + 1, x; signs = Dict(a => :zero)) == 1                 # 0 substitutes
+    @test_throws ArgumentError gruntz_limit(a*x, x; signs = Dict(a => 1))      # a Symbol is wanted
+    @test_throws ArgumentError gruntz_limit(a*x, x; signs = Dict(a => :big))
+
+    # a limit for each case of a parameter (experimental)
+    cs = gruntz_cases(x^(a - 2), x)
+    @test length(cs) == 3
+    @test sort([v for (_, v) in cs]) == [0, 1, Inf]
+    @test all(conds -> length(conds) == 1 && conds[1].rel in (:<, :(==), :>), first.(cs))
+    @test cs(a => 3) == Inf && cs(a => 2) == 1 && cs(Dict(a => 1)) == 0
+    @test cs[a => 3] === cs[end]
 
     # bounded oscillation has no limit
     @test_throws GruntzError gruntz_limit(sin(x), x)

@@ -75,7 +75,7 @@ let start = parse(Int, ARGS[1]), outfile = ARGS[2]
     open(outfile, "a") do io
         println(io, "L\t", T_LOADED - T_START, "\t", start); flush(io)
         start == 1 && for (k, m) in Base.loaded_modules
-            k.name in ("GruntzLimit", "SymbolicLimits", "SymbolicUtils", "SymEngine") || continue
+            k.name in ("GruntzLimit", "SymbolicLimits", "SymbolicUtils", "SymEngine", "Giac") || continue
             println(io, "V\t", k.name, "\t", pkgversion(m))
         end
         foreach(i -> run_one(io, i), start:length(PROBLEMS))
