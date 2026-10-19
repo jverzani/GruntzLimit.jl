@@ -274,9 +274,6 @@ end
 
 ## Parameters and cases
 
-!!! warning "Experimental"
-    [`gruntz_cases`](@ref) and the `signs` keyword are experimental and may change.
-
 A parameter is taken to be a real number of unknown sign. `gruntz_limit` answers when the
 limit does not depend on the sign, as for
 

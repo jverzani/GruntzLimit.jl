@@ -88,7 +88,7 @@ Compute ``\\lim_{x \\to x_0} f(x)`` with Gruntz's algorithm.
 * `lift`: converts plain Julia numbers (and `π`) in the result to the symbolic number
   type. The default uses the constructor of `typeof(f)` when that is a non-`Real`
   `Number` (as with `Basic`); otherwise numbers are left as they are.
-* `signs` (**experimental**, may change): signs of parameters, or of expressions in them,
+* `signs`: signs of parameters, or of expressions in them,
   as pairs `c => s` with `s` one of `:positive`, `:negative`, `:nonnegative`,
   `:nonpositive`, `:zero` or `:nonzero` (e.g. `Dict(a => :positive)` or
   `Dict(a - 2 => :negative)`). `c` is written like `f`: a `Symbol` or `Expr` for an `Expr`,
