@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reference — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=7e310b63">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=573d7672">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Reference — GruntzLimit.jl">
   <meta property="og:title" content="Reference — GruntzLimit.jl">
@@ -54,7 +54,7 @@
 <div class="md-docstring" id="GruntzLimit.gruntz_limit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.gruntz_limit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/5ef56c65bd0a69f5e228e0078b63f698ced36269/src/limit.jl#L72-L122" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1751abb4db8993a9d87149d603e7b1c0b444f9cd/src/limit.jl#L72-L122" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -75,7 +75,7 @@
 </li>
 <li><p><code class="md-code-inline">lift</code>: converts plain Julia numbers (and <code class="md-code-inline">π</code>) in the result to the symbolic number type. The default uses the constructor of <code class="md-code-inline">typeof(f)</code> when that is a non-<code class="md-code-inline">Real</code> <code class="md-code-inline">Number</code> (as with <code class="md-code-inline">Basic</code>); otherwise numbers are left as they are.</p>
 </li>
-<li><p><code class="md-code-inline">signs</code> (<strong>experimental</strong>, may change): signs of parameters, or of expressions in them, as pairs <code class="md-code-inline">c =&gt; s</code> with <code class="md-code-inline">s</code> one of <code class="md-code-inline">:positive</code>, <code class="md-code-inline">:negative</code>, <code class="md-code-inline">:nonnegative</code>, <code class="md-code-inline">:nonpositive</code>, <code class="md-code-inline">:zero</code> or <code class="md-code-inline">:nonzero</code> (e.g. <code class="md-code-inline">Dict(a =&gt; :positive)</code> or <code class="md-code-inline">Dict(a - 2 =&gt; :negative)</code>). <code class="md-code-inline">c</code> is written like <code class="md-code-inline">f</code>: a <code class="md-code-inline">Symbol</code> or <code class="md-code-inline">Expr</code> for an <code class="md-code-inline">Expr</code>, a term of the same package otherwise. Consequences are used (<code class="md-code-inline">a &gt; 2</code> from <code class="md-code-inline">a - 2 &gt; 0</code>). A zero is solved for a parameter, which is substituted. Without them, a parameter is a real number of unknown sign. When the limit depends on a sign that is not decided, a <code class="md-code-inline">GruntzError</code> names the constant (see <a href="../reference/#GruntzLimit.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a>). A constant that may or may not be zero is taken to be nonzero, so answers are generic (<code class="md-code-inline">a/b</code> for <code class="md-code-inline">b != 0</code>).</p>
+<li><p><code class="md-code-inline">signs</code>: signs of parameters, or of expressions in them, as pairs <code class="md-code-inline">c =&gt; s</code> with <code class="md-code-inline">s</code> one of <code class="md-code-inline">:positive</code>, <code class="md-code-inline">:negative</code>, <code class="md-code-inline">:nonnegative</code>, <code class="md-code-inline">:nonpositive</code>, <code class="md-code-inline">:zero</code> or <code class="md-code-inline">:nonzero</code> (e.g. <code class="md-code-inline">Dict(a =&gt; :positive)</code> or <code class="md-code-inline">Dict(a - 2 =&gt; :negative)</code>). <code class="md-code-inline">c</code> is written like <code class="md-code-inline">f</code>: a <code class="md-code-inline">Symbol</code> or <code class="md-code-inline">Expr</code> for an <code class="md-code-inline">Expr</code>, a term of the same package otherwise. Consequences are used (<code class="md-code-inline">a &gt; 2</code> from <code class="md-code-inline">a - 2 &gt; 0</code>). A zero is solved for a parameter, which is substituted. Without them, a parameter is a real number of unknown sign. When the limit depends on a sign that is not decided, a <code class="md-code-inline">GruntzError</code> names the constant (see <a href="../reference/#GruntzLimit.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a>). A constant that may or may not be zero is taken to be nonzero, so answers are generic (<code class="md-code-inline">a/b</code> for <code class="md-code-inline">b != 0</code>).</p>
 </li>
 </ul>
 <p>Returns <code class="md-code-inline">Inf</code>, <code class="md-code-inline">-Inf</code>, an <code class="md-code-inline">Int</code>/<code class="md-code-inline">Rational</code> for rational limits, or otherwise a term assembled with <code class="md-code-inline">build</code>. Throws <a href="../reference/#GruntzLimit.GruntzError"><code class="md-code-inline">GruntzError</code></a> when the limit does not exist or cannot be computed.</p>
@@ -101,7 +101,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.GruntzError">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.GruntzError</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/5ef56c65bd0a69f5e228e0078b63f698ced36269/src/GruntzLimit.jl#L61-L72" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1751abb4db8993a9d87149d603e7b1c0b444f9cd/src/GruntzLimit.jl#L61-L72" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -115,14 +115,14 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.gruntz_cases">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.gruntz_cases</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/5ef56c65bd0a69f5e228e0078b63f698ced36269/src/limit_cases.jl#L162-L190" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1751abb4db8993a9d87149d603e7b1c0b444f9cd/src/limit_cases.jl#L162-L190" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">gruntz_cases(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())</code></pre>
 </div>
-<p>The limit of <code class="md-code-inline">f</code> as in <a href="../reference/#GruntzLimit.gruntz_limit"><code class="md-code-inline">gruntz_limit</code></a>, for each case of the free parameters in it (<strong>experimental</strong>). Where the limit depends on the sign of a constant with parameters, such as <code class="md-code-inline">a - 2</code>, or on whether it is zero, the limit is computed for each possibility (<code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a == 2</code>, <code class="md-code-inline">a &gt; 2</code>), a zero by solving for a parameter and substituting. Cases with the same limit are merged. Returns a <a href="../reference/#GruntzLimit.LimitCases"><code class="md-code-inline">LimitCases</code></a>.</p>
+<p>The limit of <code class="md-code-inline">f</code> as in <a href="../reference/#GruntzLimit.gruntz_limit"><code class="md-code-inline">gruntz_limit</code></a>, for each case of the free parameters in it. Where the limit depends on the sign of a constant with parameters, such as <code class="md-code-inline">a - 2</code>, or on whether it is zero, the limit is computed for each possibility (<code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a == 2</code>, <code class="md-code-inline">a &gt; 2</code>), a zero by solving for a parameter and substituting. Cases with the same limit are merged. Returns a <a href="../reference/#GruntzLimit.LimitCases"><code class="md-code-inline">LimitCases</code></a>.</p>
 <p><code class="md-code-inline">signs</code> is as for <code class="md-code-inline">gruntz_limit</code>, and restricts the cases. Parameters are not taken to be nonzero, so <code class="md-code-inline">a == 0</code> is a case where it matters.</p>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -146,7 +146,7 @@ LimitCases with 4 cases:
 <div class="md-docstring" id="GruntzLimit.LimitCases">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.LimitCases</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/5ef56c65bd0a69f5e228e0078b63f698ced36269/src/limit_cases.jl#L58-L82" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1751abb4db8993a9d87149d603e7b1c0b444f9cd/src/limit_cases.jl#L58-L82" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -170,7 +170,7 @@ cs[:a =&gt; 2, :b =&gt; 3]                  # the case: CaseCondition[...] =&gt;
 <div class="md-docstring" id="GruntzLimit.CaseCondition">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.CaseCondition</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/5ef56c65bd0a69f5e228e0078b63f698ced36269/src/limit_cases.jl#L4-L10" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1751abb4db8993a9d87149d603e7b1c0b444f9cd/src/limit_cases.jl#L4-L10" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -185,7 +185,7 @@ cs[:a =&gt; 2, :b =&gt; 3]                  # the case: CaseCondition[...] =&gt;
 <div class="md-docstring" id="GruntzLimit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/5ef56c65bd0a69f5e228e0078b63f698ced36269/src/GruntzLimit.jl#L1-L49" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1751abb4db8993a9d87149d603e7b1c0b444f9cd/src/GruntzLimit.jl#L1-L49" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -249,6 +249,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=7e310b63"></script>
+  <script src="../assets/materialdocs.js?v=573d7672"></script>
 </body>
 </html>
