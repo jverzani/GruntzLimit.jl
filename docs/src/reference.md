@@ -10,8 +10,8 @@ GruntzLimit.CaseCondition
 
 ## Internals
 
-The implementation lives in a submodule, whose docstring describes its design:
+The module's docstring describes the design:
 
 ```@docs
-GruntzLimit.Gruntz
+GruntzLimit
 ```

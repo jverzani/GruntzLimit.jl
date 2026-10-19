@@ -21,7 +21,7 @@ Steps 1–6 of the suggested order below are implemented on this branch:
   sign (`Dict(:(a - 2) => :negative)`, `Dict(:b => :zero)`).
 - `GruntzError` has a `kind`: `:nolimit`, `:undefined` or `:fail`.
 
-How it works (src/Gruntz.jl, "Conditions on parameters" and "Splitting into cases"):
+How it works (src/conditions.jl and src/cases.jl):
 
 - A context `CTX` of conditions `c > 0`, `c < 0`, `c == 0`, `c != 0` on constants, each
   normalised (first non-constant monomial with coefficient 1). `possible_signs(s)` gives the
@@ -106,7 +106,7 @@ substituted), **40 of 65 cases** come out right.
    number substituted: Gruntz's algorithm cannot bound an oscillating factor. That needs a
    squeeze argument, not case splitting.
 
-## Where the algorithm needs a sign or a zero test (src/Gruntz.jl)
+## Where the algorithm needs a sign or a zero test (src/)
 
 | Place | Question | Today, with a parameter |
 |---|---|---|
