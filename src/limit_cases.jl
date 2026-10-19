@@ -163,7 +163,7 @@ end
     gruntz_cases(f, x, x0 = Inf; dir = :+, build = nothing, lift = nothing, signs = ())
 
 The limit of `f` as in [`gruntz_limit`](@ref), for each case of the free parameters
-in it (**experimental**). Where the limit depends on the sign of a constant with
+in it. Where the limit depends on the sign of a constant with
 parameters, such as `a - 2`, or on whether it is zero, the limit is computed for each
 possibility (`a < 2`, `a == 2`, `a > 2`), a zero by solving for a parameter and
 substituting. Cases with the same limit are merged. Returns a [`LimitCases`](@ref).
