@@ -2,7 +2,7 @@
 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jverzani.github.io/GruntzLimit.jl/dev/)
 [![Build Status](https://github.com/jverzani/GruntzLimit.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/jverzani/GruntzLimit.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 37](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2037-2f8a4c)](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html)
+[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 37](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2037-2f8a4c)](https://rawcdn.githack.com/jverzani/GruntzLimit.jl/c09349412d1d95e7b4b8830551cbe885c7db9a1b/benchmark/limits/results/limits_comparison.html)
 
 
 Implementation of the Gruntz algorithm from (D. Gruntz, ["On Computing Limits in a Symbolic Manipulation System"](https://doi.org/10.3929/ethz-a-001631582), PhD thesis, ETH Zürich, 1996) for symbolic algebra systems in Julia supporting the `TermInterface` interface (such as [SymEngine.jl](https://github.com/symengine/SymEngine.jl), [SymbolicUtils.jl](https://github.com/JuliaSymbolics/SymbolicUtils.jl), [SimpleExpressions.jl](https://github.com/jverzani/SimpleExpressions.jl), ..., as well as Julia's own `Expr` objects) .
@@ -23,7 +23,7 @@ gruntz_limit((x^x - x^a)/(a^x - a^a), x, a) # 1
 
 A limit may depend on its parameters: for `x^(a - 2)` as `x → ∞`, it depends on the sign
 of `a - 2`. `gruntz_limit` then throws an error that names the condition it needs. You can
-supply the condition through the `signs` argument, or let `gruntz_cases` (experimental) work
+supply the condition through the `signs` argument, or let `gruntz_cases` work
 out every case, as in the example:
 
 ```julia
