@@ -139,3 +139,25 @@ function to_term(b, s::Sum)
     ts = Any[mono_term(b, m, c) for (m, c) in sort!(collect(s.t); by = p -> p.first.key)]
     length(ts) == 1 ? ts[1] : mk(b, :+, ts)
 end
+
+# Callable term types (SimpleExpressions): a constant such as π becomes a term,
+# π * one(x), the same as a user writes it.
+function callable_lift(x)
+    v -> v isa AbstractIrrational ? (try v * one(x) catch; v end) : v
+end
+
+# Symbolic number types that are not `Real` (e.g. SymEngine's `Basic`) are built
+# from plain numbers by their constructor, so results like exp(1) stay exact.
+function auto_lift(f, x)
+    for t in (f, x)
+        if t isa Number && !(t isa Real)
+            T = typeof(t)
+            return v -> try
+                T(v)
+            catch
+                v
+            end
+        end
+    end
+    other_terms(x) ? term_lift(x) : x isa Function ? callable_lift(x) : identity
+end

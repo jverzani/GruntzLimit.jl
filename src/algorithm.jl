@@ -165,3 +165,23 @@ function mrv_leadterm(e::Sum, x::Atom)
     f = subs_atoms(e, rewrite)
     leadterm(f, WLEAF, scaleS(g1, Q(-σ)), x)   # log(w) = -σ g1
 end
+
+# At x -> +oo every expression handled here has an eventual constant sign, so
+# abs(u) = sign(u) * u. Inner abs are resolved first. An abs of a constant whose
+# sign cannot be decided (free parameter) stays as an `abs` atom.
+function resolve_abs(e::Sum, x::Atom)
+    function res(a::Atom)
+        (a.kind === :fun && a.head === :abs) || return nothing
+        u = subs_atoms(a.args[1]::Sum, res)
+        hasleaf(u, x.key) && return scaleS(u, Q(sgn(u, x)))
+        sg = try
+            csign(u)
+        catch err
+            err isa NeedSign ? nothing : rethrow()
+        end
+        sg === nothing ? mkabs(u) : scaleS(u, Q(sg))
+    end
+    subs_atoms(e, res)
+end
+
+limit_pos(e::Sum, x::Atom) = limitinf(resolve_abs(e, x), x)

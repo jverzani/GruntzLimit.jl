@@ -7,65 +7,6 @@ function lim_equal(a, b)
     false
 end
 
-function with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom)
-    old = (CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[])
-    CTX[], SUBST[], CASES[], XATOM[] = ctx, sub, cases, x
-    SIGN_CACHE[] = Dict{Tuple{String,Bool},Vector{Int}}()
-    try
-        g()
-    finally
-        CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[] = old
-    end
-end
-
-substS(s::Sum, sub::Dict{String,Sum}) =
-    isempty(sub) ? s : subs_atoms(s, a -> a.kind === :leaf ? get(sub, a.key, nothing) : nothing)
-
-# Solves c = 0 for a parameter p, when c = k p + r or k log(p) + r with r free of p,
-# or c = k p^n with n > 0. Returns p's key => its value, or nothing.
-function solve_zero(c::Sum)
-    for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
-        length(m.fs) == 1 || continue
-        a, e = m.fs[1]
-        p = a.kind === :leaf ? a : a.kind === :fun && a.head === :log ? single_atom(a.args[1]::Sum) : nothing
-        (p === nothing || !isparam(p)) && continue
-        r = subS(c, monoS(m, k))
-        hasleaf(r, p.key) && continue
-        a == p && isempty(r.t) && e > 0 && return p.key => zeroS()
-        isone(e) || continue
-        v = scaleS(r, -inv(k))
-        return p.key => (a == p ? v : mkexp(v))
-    end
-    nothing
-end
-
-# adds the substitution p => v, applying it to the values already there
-function add_subst!(sub::Dict{String,Sum}, pv::Pair{String,Sum})
-    one = Dict(pv)
-    for (k, v) in sub
-        sub[k] = substS(v, one)
-    end
-    sub[pv.first] = pv.second
-    sub
-end
-
-# The context with the substitutions applied; nothing if it became false
-function subst_ctx(ctx::Vector{Cond}, sub::Dict{String,Sum})
-    out = Cond[]
-    for cd in ctx
-        c = substS(cd.c, sub)
-        r = ratconst(c)
-        if r === nothing
-            push!(out, normcond(c, cd.rel))
-        else
-            ok = cd.rel === :> ? r > 0 : cd.rel === :< ? r < 0 : cd.rel === :>= ? r >= 0 :
-                 cd.rel === :<= ? r <= 0 : cd.rel === :(==) ? iszero(r) : !iszero(r)
-            ok || return nothing
-        end
-    end
-    out
-end
-
 # the values of `signs`, as relations to 0
 const SIGN_RELS = Dict(:positive => :>, :negative => :<, :nonnegative => :>=,
                        :nonpositive => :<=, :zero => :(==), :nonzero => :!=)
@@ -104,26 +45,6 @@ function infdir(x0)
     s in ("-Inf", "-inf", "-oo", "-Infinity") ? -1 : 0
 end
 
-# At x -> +oo every expression handled here has an eventual constant sign, so
-# abs(u) = sign(u) * u. Inner abs are resolved first. An abs of a constant whose
-# sign cannot be decided (free parameter) stays as an `abs` atom.
-function resolve_abs(e::Sum, x::Atom)
-    function res(a::Atom)
-        (a.kind === :fun && a.head === :abs) || return nothing
-        u = subs_atoms(a.args[1]::Sum, res)
-        hasleaf(u, x.key) && return scaleS(u, Q(sgn(u, x)))
-        sg = try
-            csign(u)
-        catch err
-            err isa NeedSign ? nothing : rethrow()
-        end
-        sg === nothing ? mkabs(u) : scaleS(u, Q(sg))
-    end
-    subs_atoms(e, res)
-end
-
-limit_pos(e::Sum, x::Atom) = limitinf(resolve_abs(e, x), x)
-
 function _limit(e::Sum, xa::Atom, x0, dir::Symbol)
     xS = atomS(xa)
     inf = infdir(x0)
@@ -146,28 +67,6 @@ function _limit(e::Sum, xa::Atom, x0, dir::Symbol)
     else
         throw(GruntzError("dir must be :+, :- or :both"))
     end
-end
-
-# Callable term types (SimpleExpressions): a constant such as π becomes a term,
-# π * one(x), the same as a user writes it.
-function callable_lift(x)
-    v -> v isa AbstractIrrational ? (try v * one(x) catch; v end) : v
-end
-
-# Symbolic number types that are not `Real` (e.g. SymEngine's `Basic`) are built
-# from plain numbers by their constructor, so results like exp(1) stay exact.
-function auto_lift(f, x)
-    for t in (f, x)
-        if t isa Number && !(t isa Real)
-            T = typeof(t)
-            return v -> try
-                T(v)
-            catch
-                v
-            end
-        end
-    end
-    other_terms(x) ? term_lift(x) : x isa Function ? callable_lift(x) : identity
 end
 
 """

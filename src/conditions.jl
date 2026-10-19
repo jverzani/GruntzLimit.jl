@@ -14,6 +14,9 @@ struct Cond
     rel::Symbol
 end
 
+# Global state of the limit being computed. It is set only by `with_context` (below),
+# and read by the sign and zero tests here, by `series.jl`, `constructors.jl` (CASES),
+# `from_term.jl` (SUBST) and `cases.jl` (XATOM).
 const CTX = Ref(Cond[])
 const SUBST = Ref(Dict{String,Sum}())     # parameter key => value
 const CASES = Ref(false)                  # splitting into cases (`gruntz_cases`)
@@ -250,4 +253,66 @@ function require_positive(s::Sum)
     ps == [1] && return
     1 in ps || throw(GruntzError("log of a number that is not positive", :undefined))
     throw(NeedSign(k, ps, false))
+end
+
+# ---------------------------------------------------------------------------
+# Setting the context; substituting values for parameters
+# ---------------------------------------------------------------------------
+function with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom)
+    old = (CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[])
+    CTX[], SUBST[], CASES[], XATOM[] = ctx, sub, cases, x
+    SIGN_CACHE[] = Dict{Tuple{String,Bool},Vector{Int}}()
+    try
+        g()
+    finally
+        CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[] = old
+    end
+end
+
+substS(s::Sum, sub::Dict{String,Sum}) =
+    isempty(sub) ? s : subs_atoms(s, a -> a.kind === :leaf ? get(sub, a.key, nothing) : nothing)
+
+# Solves c = 0 for a parameter p, when c = k p + r or k log(p) + r with r free of p,
+# or c = k p^n with n > 0. Returns p's key => its value, or nothing.
+function solve_zero(c::Sum)
+    for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
+        length(m.fs) == 1 || continue
+        a, e = m.fs[1]
+        p = a.kind === :leaf ? a : a.kind === :fun && a.head === :log ? single_atom(a.args[1]::Sum) : nothing
+        (p === nothing || !isparam(p)) && continue
+        r = subS(c, monoS(m, k))
+        hasleaf(r, p.key) && continue
+        a == p && isempty(r.t) && e > 0 && return p.key => zeroS()
+        isone(e) || continue
+        v = scaleS(r, -inv(k))
+        return p.key => (a == p ? v : mkexp(v))
+    end
+    nothing
+end
+
+# adds the substitution p => v, applying it to the values already there
+function add_subst!(sub::Dict{String,Sum}, pv::Pair{String,Sum})
+    one = Dict(pv)
+    for (k, v) in sub
+        sub[k] = substS(v, one)
+    end
+    sub[pv.first] = pv.second
+    sub
+end
+
+# The context with the substitutions applied; nothing if it became false
+function subst_ctx(ctx::Vector{Cond}, sub::Dict{String,Sum})
+    out = Cond[]
+    for cd in ctx
+        c = substS(cd.c, sub)
+        r = ratconst(c)
+        if r === nothing
+            push!(out, normcond(c, cd.rel))
+        else
+            ok = cd.rel === :> ? r > 0 : cd.rel === :< ? r < 0 : cd.rel === :>= ? r >= 0 :
+                 cd.rel === :<= ? r <= 0 : cd.rel === :(==) ? iszero(r) : !iszero(r)
+            ok || return nothing
+        end
+    end
+    out
 end
