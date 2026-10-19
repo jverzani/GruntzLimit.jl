@@ -244,7 +244,7 @@ function numzero(s::Sum, x::Atom)
         z isa NeedSign && throw(z)
         return z
     end
-    CASES[] || return false
+    CONTEXT[].cases || return false
     groups = Dict{String,Sum}()
     for (m, c) in s.t
         k = Mono(filter(p -> hasleaf(p.first, x.key), m.fs)).key
@@ -260,9 +260,9 @@ end
 # When splitting into cases, leading coefficients that may vanish (b in b/w^2 + 1)
 # are tested, and dropped when zero
 function dropzeros(a::PS)
-    CASES[] || return a
+    CONTEXT[].cases || return a
     ks = sort!(collect(keys(a.c)))
-    i = findfirst(k -> !numzero(a.c[k], XATOM[]), ks)
+    i = findfirst(k -> !numzero(a.c[k], CONTEXT[].x), ks)
     i === nothing && return PS(Dict{Ex,Sum}(), a.prec)
     i == 1 ? a : PS(Dict{Ex,Sum}(k => a.c[k] for k in ks[i:end]), a.prec)
 end

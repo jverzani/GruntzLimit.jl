@@ -6,7 +6,7 @@
 # `signs` and, in `gruntz_cases`, from splitting into cases. A sign the context does
 # not decide raises `NeedSign`: `gruntz_cases` splits on it, `gruntz_limit` reports
 # it. A parameter given a value (the case `a - 2 = 0`) is substituted when terms are
-# converted (`SUBST`).
+# converted (`subst` of the context).
 
 # c > 0, c < 0, c >= 0, c <= 0, c == 0 or c != 0, c normalised by `normcond`
 struct Cond
@@ -14,14 +14,19 @@ struct Cond
     rel::Symbol
 end
 
-# Global state of the limit being computed. It is set only by `with_context` (below),
-# and read by the sign and zero tests here, by `series.jl`, `constructors.jl` (CASES),
-# `from_term.jl` (SUBST) and `cases.jl` (XATOM).
-const CTX = Ref(Cond[])
-const SUBST = Ref(Dict{String,Sum}())     # parameter key => value
-const CASES = Ref(false)                  # splitting into cases (`gruntz_cases`)
-const XATOM = Ref(WLEAF)                  # the limit variable
-const SIGN_CACHE = Ref(Dict{Tuple{String,Bool},Vector{Int}}())   # for CTX: possible signs
+# The context of the limit being computed. It is set by `with_context` (below) for
+# the extent of a call, in a `ScopedValue`, so concurrent limits each see their own.
+# Read by the sign and zero tests here, by `series.jl`, `constructors.jl` (cases),
+# `from_term.jl` (subst) and `cases.jl` (x).
+struct Context
+    conds::Vector{Cond}
+    subst::Dict{String,Sum}       # parameter key => value
+    cases::Bool                   # splitting into cases (`gruntz_cases`)
+    x::Atom                       # the limit variable
+    sign_cache::Union{Nothing,Dict{Tuple{String,Bool},Vector{Int}}}   # possible signs
+end
+# outside `with_context` (converting `signs`): no conditions, and no cache to share
+const CONTEXT = ScopedValue(Context(Cond[], Dict{String,Sum}(), false, WLEAF, nothing))
 
 # The sign of the constant `c` is needed; `possible` are the signs the context
 # allows. For a zero test (`zerotest`) only whether c is zero matters.
@@ -41,7 +46,7 @@ function normcond(c::Sum, rel::Symbol)
     Cond(scaleS(c, inv(k)), k < 0 ? flip(rel) : rel)
 end
 
-isparam(a::Atom, x::Atom = XATOM[]) =
+isparam(a::Atom, x::Atom = CONTEXT[].x) =
     a.kind === :leaf && a != x && !iswleaf(a) && numval_or_nothing(a) === nothing
 
 # c as a linear form in its parameter monomials, their numeric factors evaluated:
@@ -125,7 +130,7 @@ function satisfiable(clist::Vector{Tuple{Sum,Symbol}})
     end
     vars = Dict{String,Mono}()
     base = Ineq[]
-    for cd in CTX[]
+    for cd in CONTEXT[].conds
         append!(base, ineqs(cd, vars))
     end
     for (c, rel) in clist
@@ -168,13 +173,16 @@ function clear_factors(s::Sum)
 end
 
 known_nonzero(s::Sum) =
-    (k = skey(normcond(s, :!=).c); any(cd -> cd.rel === :!= && skey(cd.c) == k, CTX[]))
+    (k = skey(normcond(s, :!=).c); any(cd -> cd.rel === :!= && skey(cd.c) == k, CONTEXT[].conds))
 
 # The signs of the constant `s` that the context allows. With `facts`, the signs of
 # products and functions of parameters (a*b, 1/a, log(a)) are derived from their
 # factors' signs.
-possible_signs(s::Sum; facts::Bool = true) =
-    copy(get!(() -> _possible_signs(s, facts), SIGN_CACHE[], (skey(s), facts)))
+function possible_signs(s::Sum; facts::Bool = true)
+    cache = CONTEXT[].sign_cache
+    cache === nothing && return _possible_signs(s, facts)
+    copy(get!(() -> _possible_signs(s, facts), cache, (skey(s), facts)))
+end
 function _possible_signs(s::Sum, facts::Bool)
     if facts
         s2, σ = clear_factors(s)
@@ -183,7 +191,7 @@ function _possible_signs(s::Sum, facts::Bool)
     end
     vars = Dict{String,Mono}()
     base = Ineq[]
-    for cd in CTX[]
+    for cd in CONTEXT[].conds
         append!(base, ineqs(cd, vars))
     end
     a, k = linform(s, vars)
@@ -212,7 +220,7 @@ function csign(s::Sum)::Int
     v === nothing || return abs(v) < big"1e-60" ? 0 : (v > 0 ? 1 : -1)
     ps = possible_signs(s)
     isempty(ps) && throw(GruntzError("the conditions on the parameters are contradictory"))
-    CASES[] || length(ps) == 1 || filter!(!=(0), ps)   # generic values: nonzero
+    CONTEXT[].cases || length(ps) == 1 || filter!(!=(0), ps)   # generic values: nonzero
     length(ps) == 1 ? ps[1] : throw(NeedSign(s, ps, false))
 end
 
@@ -229,7 +237,7 @@ function zerostate(s::Sum)
         nothing
     end
     v === nothing || return abs(v) < big"1e-60"
-    CASES[] || return false
+    CONTEXT[].cases || return false
     ps = possible_signs(s)
     ps == [0] && return true
     0 in ps ? NeedSign(s, ps, true) : false
@@ -238,7 +246,7 @@ end
 # log needs a positive argument: when splitting into cases, a constant (factor)
 # with parameters is checked
 function require_positive(s::Sum)
-    hasvar(a::Atom) = hasleaf(a, XATOM[].key) || hasw(a)
+    hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
     k = if length(s.t) == 1
         m, c = first(s.t)
         monoS(Mono(filter(p -> !hasvar(p.first), m.fs)), c)
@@ -258,16 +266,8 @@ end
 # ---------------------------------------------------------------------------
 # Setting the context; substituting values for parameters
 # ---------------------------------------------------------------------------
-function with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom)
-    old = (CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[])
-    CTX[], SUBST[], CASES[], XATOM[] = ctx, sub, cases, x
-    SIGN_CACHE[] = Dict{Tuple{String,Bool},Vector{Int}}()
-    try
-        g()
-    finally
-        CTX[], SUBST[], CASES[], XATOM[], SIGN_CACHE[] = old
-    end
-end
+with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom) =
+    with(g, CONTEXT => Context(ctx, sub, cases, x, Dict{Tuple{String,Bool},Vector{Int}}()))
 
 substS(s::Sum, sub::Dict{String,Sum}) =
     isempty(sub) ? s : subs_atoms(s, a -> a.kind === :leaf ? get(sub, a.key, nothing) : nothing)

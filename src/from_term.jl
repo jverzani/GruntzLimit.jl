@@ -81,7 +81,7 @@ end
 # a leaf: a variable, or a parameter, replaced by its value when one is given
 function leafS(t)
     a = leafatom(t)
-    v = get(SUBST[], a.key, nothing)
+    v = get(CONTEXT[].subst, a.key, nothing)
     v === nothing ? atomS(a) : v
 end
 

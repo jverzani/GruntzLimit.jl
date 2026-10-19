@@ -108,7 +108,7 @@ function simplify(t::Split)
         function subd(v)
             (v isa Sum && t.zsub !== nothing) || return v
             try
-                with_context(() -> substS(v, Dict(t.zsub)), Cond[], Dict{String,Sum}(), false, XATOM[])
+                with_context(() -> substS(v, Dict(t.zsub)), Cond[], Dict{String,Sum}(), false, CONTEXT[].x)
             catch err
                 err isa GruntzError || rethrow()
                 nothing
