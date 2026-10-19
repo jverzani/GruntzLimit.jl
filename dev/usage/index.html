@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=c78591dc">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=b7bb6f88">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -421,7 +421,7 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">-1</code></pre>
 </div>
-<p>Anything else gives a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a>:</p>
+<p>Anything else gives a <a href="../reference/#GruntzLimit.GruntzError"><code class="md-code-inline">GruntzError</code></a>:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -437,7 +437,7 @@ end</code></pre>
 <div class="md-admonition md-admonition-warning">
 <p class="md-admonition-title">Experimental</p>
 <div class="md-admonition-body">
-<p><a href="../reference/#GruntzLimit.Gruntz.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> and the <code class="md-code-inline">signs</code> keyword are experimental and may change.</p>
+<p><a href="../reference/#GruntzLimit.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> and the <code class="md-code-inline">signs</code> keyword are experimental and may change.</p>
 </div>
 </div>
 <p>A parameter is taken to be a real number of unknown sign. <code class="md-code-inline">gruntz_limit</code> answers when the limit does not depend on the sign, as for</p>
@@ -448,7 +448,7 @@ end</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">0</code></pre>
 </div>
-<p>which is 0 whatever <code class="md-code-inline">a</code> is. When the limit depends on the sign of a constant, a <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> names the constant:</p>
+<p>which is 0 whatever <code class="md-code-inline">a</code> is. When the limit depends on the sign of a constant, a <a href="../reference/#GruntzLimit.GruntzError"><code class="md-code-inline">GruntzError</code></a> names the constant:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -461,7 +461,7 @@ end</code></pre>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;the limit depends on the sign of `a - 2`, which cannot be decided: give it with `signs`, or use `gruntz_cases`&quot;, :fail)</code></pre>
 </div>
 <h3 id="A-limit-for-each-case" class="md-heading">A limit for each case<a href="#A-limit-for-each-case" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
-<p><a href="../reference/#GruntzLimit.Gruntz.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> computes the limit for each case of the parameters. When the limit depends on the sign of a constant such as <code class="md-code-inline">a - 2</code>, it is computed for <code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a == 2</code> and <code class="md-code-inline">a &gt; 2</code>. The case <code class="md-code-inline">a == 2</code> is computed by substituting <code class="md-code-inline">a = 2</code>. Cases with the same limit are merged:</p>
+<p><a href="../reference/#GruntzLimit.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> computes the limit for each case of the parameters. When the limit depends on the sign of a constant such as <code class="md-code-inline">a - 2</code>, it is computed for <code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a == 2</code> and <code class="md-code-inline">a &gt; 2</code>. The case <code class="md-code-inline">a == 2</code> is computed by substituting <code class="md-code-inline">a = 2</code>. Cases with the same limit are merged:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -522,7 +522,7 @@ end</code></pre>
   b == 0 &amp;&amp; a &gt;= 0  =&gt;  Inf
   b != 0  =&gt;  a * b ^ -1</code></pre>
 </div>
-<p>The result is a <a href="../reference/#GruntzLimit.Gruntz.LimitCases"><code class="md-code-inline">GruntzLimit.LimitCases</code></a>, a vector of <code class="md-code-inline">conditions =&gt; limit</code> pairs. Each condition is a <a href="../reference/#GruntzLimit.Gruntz.CaseCondition"><code class="md-code-inline">GruntzLimit.CaseCondition</code></a>, with terms of the input&#39;s type:</p>
+<p>The result is a <a href="../reference/#GruntzLimit.LimitCases"><code class="md-code-inline">GruntzLimit.LimitCases</code></a>, a vector of <code class="md-code-inline">conditions =&gt; limit</code> pairs. Each condition is a <a href="../reference/#GruntzLimit.CaseCondition"><code class="md-code-inline">GruntzLimit.CaseCondition</code></a>, with terms of the input&#39;s type:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -548,7 +548,7 @@ cs(:a =&gt; 2, :b =&gt; 3), cs(:a =&gt; -1, :b =&gt; 2)</code></pre>
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">cs[:a =&gt; 2, :b =&gt; 3]</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">Pair{Vector{GruntzLimit.Gruntz.CaseCondition}, Any}(GruntzLimit.Gruntz.CaseCondition[a &gt; 1, b &gt; 1, a &lt;= b], :b)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">Pair{Vector{GruntzLimit.CaseCondition}, Any}(GruntzLimit.CaseCondition[a &gt; 1, b &gt; 1, a &lt;= b], :b)</code></pre>
 </div>
 <p>A condition is shown solved for a parameter when it is linear in one. A case whose condition <code class="md-code-inline">c == 0</code> cannot be solved for a parameter (<code class="md-code-inline">a*b == 1</code>, say) is not computed. The case&#39;s limit is then a <code class="md-code-inline">GruntzError</code>. Merging is pairwise, so a union of several cases may be listed in parts.</p>
 <h3 id="Giving-signs" class="md-heading">Giving signs<a href="#Giving-signs" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
@@ -604,7 +604,7 @@ gruntz_limit(exp(a*b*x), x; signs = Dict(a =&gt; :positive, b =&gt; :negative))<
 </div>
 <p>Signs that follow from those given are used. Linear consequences (<code class="md-code-inline">a &gt; 2</code> from <code class="md-code-inline">a - 2 &gt; 0</code>) are found by Fourier–Motzkin elimination. Products, quotients, powers and logarithms of parameters take their signs from their factors (<code class="md-code-inline">log(a)</code> has the sign of <code class="md-code-inline">a - 1</code>).</p>
 <h2 id="When-there-is-no-limit" class="md-heading">When there is no limit<a href="#When-there-is-no-limit" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
-<p>A <a href="../reference/#GruntzLimit.Gruntz.GruntzError"><code class="md-code-inline">GruntzError</code></a> is also thrown when the limit does not exist. For example, bounded oscillation:</p>
+<p>A <a href="../reference/#GruntzLimit.GruntzError"><code class="md-code-inline">GruntzError</code></a> is also thrown when the limit does not exist. For example, bounded oscillation:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -663,6 +663,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=c78591dc"></script>
+  <script src="../assets/materialdocs.js?v=b7bb6f88"></script>
 </body>
 </html>
