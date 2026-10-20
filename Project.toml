@@ -4,9 +4,11 @@ version = "1.0.0"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
 
 [deps]
+ScopedValues = "7e506255-f358-4e82-b7e4-beb19740aa63"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"
 
 [compat]
+ScopedValues = "1.3"
 TermInterface = "2.0.0"
 julia = "1.10.10"
 

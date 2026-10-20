@@ -1,14 +1,13 @@
 # ---------------------------------------------------------------------------
 # Gruntz's algorithm
 # ---------------------------------------------------------------------------
-const DEPTH = Ref(0)
+const DEPTH = ScopedValue(0)   # the depth of recursion of `limitinf`
 
 function limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
     hasleaf(e, x.key) || return e
     DEPTH[] > 120 && throw(GruntzError("recursion limit reached: the expression is too " *
                                        "complicated for the algorithm as implemented"))
-    DEPTH[] += 1
-    try
+    with(DEPTH => DEPTH[] + 1) do
         c0, e0 = mrv_leadterm(e, x)
         if sign(e0) > 0
             zeroS()
@@ -26,8 +25,6 @@ function limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
                 throw(GruntzError("no progress: leading coefficient equals the expression"))
             limitinf(c0, x)
         end
-    finally
-        DEPTH[] -= 1
     end
 end
 

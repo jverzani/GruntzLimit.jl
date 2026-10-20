@@ -47,6 +47,8 @@ jobs:
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        env:
+          JULIA_NUM_THREADS: 4   # for test_threads.jl
         with:
           coverage: true # This generates coverage reports automatically
       - uses: julia-actions/julia-processcoverage@v1

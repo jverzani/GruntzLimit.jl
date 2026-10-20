@@ -70,7 +70,7 @@ end
 
 function mklog(s::Sum)
     isempty(s.t) && throw(GruntzError("log(0)", :undefined))
-    CASES[] && require_positive(s)
+    CONTEXT[].cases && require_positive(s)
     if length(s.t) == 1
         m, c = first(s.t)
         c < 0 && throw(GruntzError("log of a negative number", :undefined))

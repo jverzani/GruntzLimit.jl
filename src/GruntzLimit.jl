@@ -50,6 +50,7 @@ algorithm needs without depending on a particular CAS.
 module GruntzLimit
 
 using TermInterface: iscall, operation, arguments, maketerm
+using ScopedValues: ScopedValue, with
 
 export gruntz_limit, gruntz_cases, GruntzError
 # LimitCases and CaseCondition are public types, not exported
