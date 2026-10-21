@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log => log,
                                   :sin => sin, :cos => cos, :atan => atan, :abs => abs,
-                                  :sqrt => sqrt)
+                                  :sqrt => sqrt, :floor => floor, :sign => sign)
 default_build(op, args...) = op(args...)
 
 # Build `op(args...)` for constant arguments WITHOUT evaluating it, for symbolic

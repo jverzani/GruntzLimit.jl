@@ -64,6 +64,28 @@
     @test gruntz_limit(abs(x^2 - 4)/(x - 2), x, 2; dir = :+) == 4
     @test gruntz_limit(abs(x^2 - 4)/(x - 2), x, 2; dir = :-) == -4
 
+    # floor and ceil: constant near the limit point, with jumps at integers
+    @test gruntz_limit(floor(x), x, 0; dir = :+) == 0
+    @test gruntz_limit(floor(x), x, 0; dir = :-) == -1
+    @test_throws GruntzError gruntz_limit(floor(x), x, 0; dir = :both)
+    @test gruntz_limit(ceil(x), x, 0; dir = :+) == 1
+    @test gruntz_limit(ceil(x), x, 0; dir = :-) == 0
+    @test gruntz_limit(floor(x), x, 1//2) == 0
+    @test gruntz_limit(floor(x^2), x, 0; dir = :-) == 0
+    @test gruntz_limit(floor(sin(x)/x), x, 0) == 0
+    @test gruntz_limit(ceil(cos(x)), x, 0) == 1
+    @test gruntz_limit(floor(PI + 1/x), x) == 3
+    @test gruntz_limit(floor(-1/x), x) == -1
+    @test_throws GruntzError gruntz_limit(floor(x), x)
+
+    # sign: the eventual sign of its argument
+    @test gruntz_limit(sign(x), x, 0; dir = :+) == 1
+    @test gruntz_limit(sign(x), x, 0; dir = :-) == -1
+    @test_throws GruntzError gruntz_limit(sign(x), x, 0; dir = :both)
+    @test gruntz_limit(sign(x - x^2), x) == -1
+    @test gruntz_limit(sign(sin(x)), x, 0; dir = :-) == -1
+    @test gruntz_limit(x * sign(x), x, 0; dir = :-) == 0
+
     # harder ones?
     @test gruntz_limit((cos(sin(x))-cos(x))/x^4, x, 0) == 1//6
     @test gruntz_limit((x^x - x^a)/(a^x - a^a), x, a) == 1

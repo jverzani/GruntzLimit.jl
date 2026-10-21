@@ -29,7 +29,9 @@ function numval(a::Atom)
     end
     v = numval(a.args[1]::Sum)
     a.head === :exp ? exp(v) : a.head === :log ? log(v) : a.head === :sin ? sin(v) :
-    a.head === :atan ? atan(v) : a.head === :abs ? abs(v) : cos(v)
+    a.head === :atan ? atan(v) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) :
+    a.head === :sign ? (abs(v) < big"1e-60" ? zero(v) : sign(v)) :   # zero as `csign` decides
+    a.head === :cos ? cos(v) : throw(GruntzError("cannot evaluate $(a.head)"))
 end
 function numval(s::Sum)
     acc = BigFloat(0)

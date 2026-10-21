@@ -83,14 +83,14 @@ function ineqs(cd::Cond, vars::Dict{String,Mono})
 end
 
 # The sign of an atom with parameters, from the context (linear reasoning only):
-# ±1 or nothing. log(s) has the sign of s - 1; abs is taken to be positive (a zero
+# ±1 or nothing. log(s) has the sign of s - 1, sign(s) that of s; abs is taken to be positive (a zero
 # argument is split off as a case of its own).
 function atom_sign(a::Atom)
     a.kind === :fun && a.head in (:exp, :abs) && return 1
     s = a.kind === :leaf ? atomS(a) :
         a.kind === :base ? a.args[1]::Sum :
         a.kind === :fun && a.head === :log ? subS(a.args[1]::Sum, oneS()) :
-        a.kind === :fun && a.head === :atan ? a.args[1]::Sum : nothing
+        a.kind === :fun && a.head in (:atan, :sign) ? a.args[1]::Sum : nothing
     s === nothing && return nothing
     ps = possible_signs(s; facts = false)
     length(ps) == 1 && ps[1] != 0 ? ps[1] : nothing
