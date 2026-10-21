@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=cc9ed018">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=2454b9d4">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -308,6 +308,13 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">-1</code></pre>
 </div>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(:(floor(x)), :x, 2; dir = :-)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">1</code></pre>
+</div>
 <p>A parameter is just another <code class="md-code-inline">Symbol</code>, and it can also be the limit point:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
@@ -373,7 +380,9 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 <h2 id="Supported-functions" class="md-heading">Supported functions<a href="#Supported-functions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>The operations understood are</p>
 <ul class="md-list-tight">
-<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>;</p>
+<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code>;</p>
+</li>
+<li><p><code class="md-code-inline">floor</code> and <code class="md-code-inline">ceil</code>, when their argument has a finite limit;</p>
 </li>
 <li><p><code class="md-code-inline">exp</code>, and <code class="md-code-inline">log</code> (one or two arguments);</p>
 </li>
@@ -657,6 +666,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=cc9ed018"></script>
+  <script src="../assets/materialdocs.js?v=2454b9d4"></script>
 </body>
 </html>

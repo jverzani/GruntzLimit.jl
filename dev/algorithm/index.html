@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How it works — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=2a1d49b4">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=caa6ffb4">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="How it works — GruntzLimit.jl">
   <meta property="og:title" content="How it works — GruntzLimit.jl">
@@ -65,8 +65,10 @@
 </li>
 </ul>
 <p>As <span class="md-math md-math-inline">\(x \to \infty\)</span>, each expression handled here eventually has a constant sign. So <code class="md-code-inline">abs(u)</code> is replaced by <code class="md-code-inline">sign(u) * u</code> before the limit is computed.</p>
+<p><code class="md-code-inline">sign(u)</code> is replaced by that eventual constant sign. Only the sign matters, so <code class="md-code-inline">u</code> may tend to any limit, or to infinity: <code class="md-code-inline">sign(x)</code> at <span class="md-math md-math-inline">\(0^+\)</span> is <code class="md-code-inline">sign(1/x)</code> at <span class="md-math md-math-inline">\(\infty\)</span>, which is 1, and at <span class="md-math md-math-inline">\(0^-\)</span> it is <span class="md-math md-math-inline">\(-1\)</span>.</p>
+<p><code class="md-code-inline">floor(u)</code> is eventually constant when <code class="md-code-inline">u</code> tends to a finite limit <span class="md-math md-math-inline">\(L\)</span>, so it is replaced too: by <code class="md-code-inline">floor(L)</code> when <span class="md-math md-math-inline">\(L\)</span> is not an integer, and otherwise by <span class="md-math md-math-inline">\(L\)</span> or <span class="md-math md-math-inline">\(L - 1\)</span> as <code class="md-code-inline">u</code> approaches <span class="md-math md-math-inline">\(L\)</span> from above or below (the sign of <code class="md-code-inline">u - L</code>). That is the jump: <code class="md-code-inline">floor(x)</code> at <span class="md-math md-math-inline">\(0^+\)</span> is <code class="md-code-inline">floor(1/x)</code> at <span class="md-math md-math-inline">\(\infty\)</span>, which is 0, while at <span class="md-math md-math-inline">\(0^-\)</span> it is <span class="md-math md-math-inline">\(-1\)</span>. <code class="md-code-inline">ceil(u)</code> is <code class="md-code-inline">-floor(-u)</code>. When <code class="md-code-inline">u</code> tends to infinity, or <span class="md-math md-math-inline">\(L\)</span> has a parameter (and may or may not be an integer), a <code class="md-code-inline">GruntzError</code> is thrown.</p>
 <h2 id="Canonical-form" class="md-heading">Canonical form<a href="#Canonical-form" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
-<p>The input term is converted into an internal canonical form: sums of monomials with exact rational coefficients and exponents, built over <em>atoms</em>. An atom is a variable or constant, an application of <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code>, <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code> or <code class="md-code-inline">abs</code>, or a sum used as a base. Some simplifications are applied during conversion:</p>
+<p>The input term is converted into an internal canonical form: sums of monomials with exact rational coefficients and exponents, built over <em>atoms</em>. An atom is a variable or constant, an application of <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code>, <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code> or <code class="md-code-inline">floor</code>, or a sum used as a base. Some simplifications are applied during conversion:</p>
 <ul class="md-list-tight">
 <li><p><code class="md-code-inline">exp(a + c*log(y))</code> becomes <code class="md-code-inline">y^c * exp(a)</code>, and <code class="md-code-inline">log</code> of a product splits into a sum;</p>
 </li>
@@ -140,6 +142,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=2a1d49b4"></script>
+  <script src="../assets/materialdocs.js?v=caa6ffb4"></script>
 </body>
 </html>
