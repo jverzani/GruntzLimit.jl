@@ -123,6 +123,37 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(abs(x^2 - 4)/(x - 2)), :x, 2; dir = :-) == -4
     end
 
+    @testset "floor and ceil" begin
+        @test gruntz_limit(:(floor(x)), :x, 0; dir = :+) == 0
+        @test gruntz_limit(:(floor(x)), :x, 0; dir = :-) == -1
+        @test_throws GruntzError gruntz_limit(:(floor(x)), :x, 0; dir = :both)
+        @test gruntz_limit(:(ceil(x)), :x, 0; dir = :+) == 1
+        @test gruntz_limit(:(ceil(x)), :x, 0; dir = :-) == 0
+        @test gruntz_limit(:(floor(x)), :x, 2; dir = :-) == 1
+        @test gruntz_limit(:(ceil(x)), :x, 2; dir = :+) == 3
+        @test gruntz_limit(:(floor(x)), :x, 1//2) == 0
+        @test gruntz_limit(:(floor(x)), :x, π) == 3
+        @test gruntz_limit(:(floor(cos(x))), :x, 0) == 0
+        @test gruntz_limit(:(floor(1 - exp(-x))), :x) == 0
+        @test gruntz_limit(:(floor(exp(-x) + 1)), :x) == 1
+        # an integer limit recognised numerically, approached from above
+        @test gruntz_limit(:(floor(log(8)/log(2) + 1/x)), :x) == 3
+        # nested, and inside abs
+        @test gruntz_limit(:(floor(floor(x)/2 + x)), :x, 1; dir = :-) == 0
+        @test gruntz_limit(:(abs(floor(x) - 1/2)), :x, 0; dir = :-) == 3//2
+        @test gruntz_limit(:(floor(7//2) + floor(x)), :x, 0; dir = :+) == 3
+        # a constant with a parameter stays; a limit point with one is an error
+        @test gruntz_limit(:(floor(a) * x / x), :x) == :(floor(a))
+        @test_throws GruntzError gruntz_limit(:(floor(a + 1/x)), :x)
+        # the side of the jump depends on the sign of a parameter
+        @test gruntz_limit(:(floor(1 + a/x)), :x; signs = Dict(:a => :negative)) == 0
+        cs = gruntz_cases(:(floor(1 + a/x)), :x)
+        @test [string(only(c.first)) => c.second for c in cs] == ["a < 0" => 0, "a >= 0" => 1]
+        # a diverging argument (bounded oscillation of the fractional part)
+        @test_throws GruntzError gruntz_limit(:(floor(x)), :x)
+        @test_throws GruntzError gruntz_limit(:(x * floor(1/x)), :x, 0; dir = :+)
+    end
+
     @testset "parameters" begin
         @test gruntz_limit(:((1 + a/x)^x), :x) == :(exp(a))
         @test gruntz_limit(:(sqrt(x^2 + a*x) - x), :x) == :($(1//2) * a)

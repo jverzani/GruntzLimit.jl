@@ -15,11 +15,18 @@ Every limit is reduced to a limit at ``+\infty``:
 As ``x \to \infty``, each expression handled here eventually has a constant sign. So `abs(u)` is replaced
 by `sign(u) * u` before the limit is computed.
 
+`floor(u)` is eventually constant when `u` tends to a finite limit ``L``, so it is replaced too:
+by `floor(L)` when ``L`` is not an integer, and otherwise by ``L`` or ``L - 1`` as `u` approaches
+``L`` from above or below (the sign of `u - L`). That is the jump: `floor(x)` at ``0^+`` is
+`floor(1/x)` at ``\infty``, which is 0, while at ``0^-`` it is ``-1``. `ceil(u)` is `-floor(-u)`. When
+`u` tends to infinity, or ``L`` has a parameter (and may or may not be an integer), a
+`GruntzError` is thrown.
+
 ## Canonical form
 
 The input term is converted into an internal canonical form: sums of monomials with exact
 rational coefficients and exponents, built over *atoms*. An atom is a variable or constant, an
-application of `exp`, `log`, `sin`, `cos`, `atan` or `abs`, or a sum used as a base. Some
+application of `exp`, `log`, `sin`, `cos`, `atan`, `abs` or `floor`, or a sum used as a base. Some
 simplifications are applied during conversion:
 
 * `exp(a + c*log(y))` becomes `y^c * exp(a)`, and `log` of a product splits into a sum;

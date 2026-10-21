@@ -70,12 +70,21 @@ const EXPR_CONSTANTS = Dict{Symbol,Any}(:pi => π, :π => π, :ℯ => ℯ)
 function from_term(t)::Sum
     if safe_iscall(t)
         args = arguments(t)
-        isempty(args) || return apply_op(operation(t), Sum[from_term(a) for a in args])
+        isempty(args) || return apply_op(op_or_name(t), Sum[from_term(a) for a in args])
     end
     t isa Union{Integer,Rational,AbstractFloat,AbstractIrrational,Complex} && return from_number(t)
     t isa Symbol && haskey(EXPR_CONSTANTS, t) && return from_number(EXPR_CONSTANTS[t])
     v = leaf_number(t)
     v === nothing ? leafS(t) : v
+end
+
+# The operation of a term; when the package gives none (`missing`, as SymEngine does for
+# its `ceiling`), the function name it prints, e.g. :ceiling for `ceiling(y)`
+function op_or_name(t)
+    op = operation(t)
+    ismissing(op) || return op
+    m = match(r"^([A-Za-z_][A-Za-z_0-9]*)\(", string(t))
+    m === nothing ? op : Symbol(m.captures[1])
 end
 
 # a leaf: a variable, or a parameter, replaced by its value when one is given
@@ -124,6 +133,10 @@ function apply_op(op, a::Vector{Sum})
         mkatan(a[1])
     elseif n === :abs && na == 1
         mkabs(a[1])
+    elseif n === :floor && na == 1
+        mkfloor(a[1])
+    elseif n in (:ceil, :ceiling) && na == 1           # SymEngine prints ceil as ceiling
+        mkceil(a[1])
     elseif n === :sin && na == 1
         mksin(a[1])
     elseif n === :cos && na == 1

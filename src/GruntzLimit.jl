@@ -37,7 +37,7 @@ Julia's `Expr`:
   so a SymEngine limit of exp(1) comes back as `E`, not a float.
 
 Operations understood (given as `Function`s; `Symbol` names are accepted too):
-`+ - * / ^ inv sqrt cbrt exp log abs`, `sin cos tan sec csc cot`, their inverses
+`+ - * / ^ inv sqrt cbrt exp log abs floor ceil`, `sin cos tan sec csc cot`, their inverses
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
 their inverses `asinh acosh atanh asech acsch acoth`. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.

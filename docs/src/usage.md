@@ -181,6 +181,10 @@ gruntz_limit(:(1/x^2 - 1/sin(x)^2), :x, 0)
 gruntz_limit(:(x/abs(x)), :x, 0; dir = :-)
 ```
 
+```@example expr
+gruntz_limit(:(floor(x)), :x, 2; dir = :-)
+```
+
 A parameter is just another `Symbol`, and it can also be the limit point:
 
 ```@example expr
@@ -229,6 +233,7 @@ gruntz_limit(:((1 + 1/x)^x), :x; build = (op, args...) -> op(args...))
 The operations understood are
 
 * arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`;
+* `floor` and `ceil`, when their argument has a finite limit;
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;

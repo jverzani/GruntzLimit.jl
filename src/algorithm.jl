@@ -164,12 +164,14 @@ function mrv_leadterm(e::Sum, x::Atom)
 end
 
 # At x -> +oo every expression handled here has an eventual constant sign, so
-# abs(u) = sign(u) * u. Inner abs are resolved first. An abs of a constant whose
-# sign cannot be decided (free parameter) stays as an `abs` atom.
-function resolve_abs(e::Sum, x::Atom)
+# abs(u) = sign(u) * u, and floor(u) is eventually constant (see `resolve_floor`).
+# Inner abs and floor are resolved first. An abs of a constant whose sign cannot be
+# decided (free parameter) stays as an `abs` atom.
+function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head === :abs) || return nothing
+        (a.kind === :fun && a.head in (:abs, :floor)) || return nothing
         u = subs_atoms(a.args[1]::Sum, res)
+        a.head === :floor && return resolve_floor(u, x)
         hasleaf(u, x.key) && return scaleS(u, Q(sgn(u, x)))
         sg = try
             csign(u)
@@ -181,4 +183,33 @@ function resolve_abs(e::Sum, x::Atom)
     subs_atoms(e, res)
 end
 
-limit_pos(e::Sum, x::Atom) = limitinf(resolve_abs(e, x), x)
+# floor(u) for x -> +oo, u tending to a finite L: floor(L) when L is not an integer;
+# when it is, L or L - 1 as u approaches it from above or below (a jump). A constant
+# that is numerically an integer (as `csign` decides zero) is taken to be one. A
+# constant u with a parameter stays as a `floor` atom; a limit L with a parameter
+# is an error, as whether it is an integer cannot be decided.
+function resolve_floor(u::Sum, x::Atom)
+    hasx = hasleaf(u, x.key)
+    L = hasx ? limitinf(u, x) : u
+    L isa Infinity && throw(GruntzError("floor of an argument that tends to infinity is not supported"))
+    r = ratconst(L)
+    if r === nothing
+        v = try
+            numval(L)
+        catch err
+            err isa FreeSymbol || rethrow()
+            hasx || return mkfloor(u)
+            throw(GruntzError("the argument of floor tends to a limit with a parameter, " *
+                              "which may or may not be an integer"))
+        end
+        n = round(BigInt, v)
+        csign(subS(L, constS(n))) == 0 || return constS(floor(BigInt, v))
+        r = Q(n)
+    end
+    isinteger(r) || return constS(floor(r))
+    d = subS(u, constS(r))
+    (hasx && !isempty(d.t)) || return constS(r)
+    constS(sgn(d, x) > 0 ? r : r - 1)
+end
+
+limit_pos(e::Sum, x::Atom) = limitinf(resolve_piecewise(e, x), x)
