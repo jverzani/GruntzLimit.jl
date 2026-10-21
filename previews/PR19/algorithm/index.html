@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How it works — GruntzLimit.jl</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=4d5e76b1">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <meta name="title" content="How it works — GruntzLimit.jl">
+  <meta property="og:title" content="How it works — GruntzLimit.jl">
+  <meta property="twitter:title" content="How it works — GruntzLimit.jl">
+  <meta name="description" content="Documentation for GruntzLimit.jl.">
+  <meta property="og:description" content="Documentation for GruntzLimit.jl.">
+  <meta property="twitter:description" content="Documentation for GruntzLimit.jl.">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <span class="md-navbar-title">GruntzLimit.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/jverzani/GruntzLimit.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../usage/">Usage</a>
+      <a href="../algorithm/" class="md-nav-active">How it works</a>
+      <a href="../reference/">Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+      <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/jverzani/GruntzLimit.jl/blob/main/docs/src/algorithm.md" title="Edit source on GitHub" aria-label="Edit source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></a></div>
+<h1 id="How-it-works" class="md-heading">How it works<a href="#How-it-works" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p>This is an outline of Gruntz&#39;s algorithm as implemented here. Gruntz&#39;s thesis has the details and proofs.</p>
+<h2 id="Reduction-to-x-\to-\infty" class="md-heading">Reduction to <span class="md-math md-math-inline">\(x \to \infty\)</span><a href="#Reduction-to-x-\to-\infty" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Every limit is reduced to a limit at <span class="md-math md-math-inline">\(+\infty\)</span>:</p>
+<ul class="md-list-tight">
+<li><p><span class="md-math md-math-inline">\(x \to -\infty\)</span>: substitute <span class="md-math md-math-inline">\(x \mapsto -x\)</span>;</p>
+</li>
+<li><p><span class="md-math md-math-inline">\(x \to x_0^+\)</span>: substitute <span class="md-math md-math-inline">\(x \mapsto x_0 + 1/x\)</span>;</p>
+</li>
+<li><p><span class="md-math md-math-inline">\(x \to x_0^-\)</span>: substitute <span class="md-math md-math-inline">\(x \mapsto x_0 - 1/x\)</span>;</p>
+</li>
+<li><p><code class="md-code-inline">dir = :both</code> computes both one-sided limits and checks that they agree.</p>
+</li>
+</ul>
+<p>As <span class="md-math md-math-inline">\(x \to \infty\)</span>, each expression handled here eventually has a constant sign. So <code class="md-code-inline">abs(u)</code> is replaced by <code class="md-code-inline">sign(u) * u</code> before the limit is computed.</p>
+<p><code class="md-code-inline">sign(u)</code> is replaced by that eventual constant sign. Only the sign matters, so <code class="md-code-inline">u</code> may tend to any limit, or to infinity: <code class="md-code-inline">sign(x)</code> at <span class="md-math md-math-inline">\(0^+\)</span> is <code class="md-code-inline">sign(1/x)</code> at <span class="md-math md-math-inline">\(\infty\)</span>, which is 1, and at <span class="md-math md-math-inline">\(0^-\)</span> it is <span class="md-math md-math-inline">\(-1\)</span>.</p>
+<p><code class="md-code-inline">floor(u)</code> is eventually constant when <code class="md-code-inline">u</code> tends to a finite limit <span class="md-math md-math-inline">\(L\)</span>, so it is replaced too: by <code class="md-code-inline">floor(L)</code> when <span class="md-math md-math-inline">\(L\)</span> is not an integer, and otherwise by <span class="md-math md-math-inline">\(L\)</span> or <span class="md-math md-math-inline">\(L - 1\)</span> as <code class="md-code-inline">u</code> approaches <span class="md-math md-math-inline">\(L\)</span> from above or below (the sign of <code class="md-code-inline">u - L</code>). That is the jump: <code class="md-code-inline">floor(x)</code> at <span class="md-math md-math-inline">\(0^+\)</span> is <code class="md-code-inline">floor(1/x)</code> at <span class="md-math md-math-inline">\(\infty\)</span>, which is 0, while at <span class="md-math md-math-inline">\(0^-\)</span> it is <span class="md-math md-math-inline">\(-1\)</span>. <code class="md-code-inline">ceil(u)</code> is <code class="md-code-inline">-floor(-u)</code>. When <code class="md-code-inline">u</code> tends to infinity, or <span class="md-math md-math-inline">\(L\)</span> has a parameter (and may or may not be an integer), a <code class="md-code-inline">GruntzError</code> is thrown.</p>
+<h2 id="Canonical-form" class="md-heading">Canonical form<a href="#Canonical-form" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The input term is converted into an internal canonical form: sums of monomials with exact rational coefficients and exponents, built over <em>atoms</em>. An atom is a variable or constant, an application of <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code>, <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code> or <code class="md-code-inline">floor</code>, or a sum used as a base. Some simplifications are applied during conversion:</p>
+<ul class="md-list-tight">
+<li><p><code class="md-code-inline">exp(a + c*log(y))</code> becomes <code class="md-code-inline">y^c * exp(a)</code>, and <code class="md-code-inline">log</code> of a product splits into a sum;</p>
+</li>
+<li><p><code class="md-code-inline">tan</code>, <code class="md-code-inline">sec</code>, <code class="md-code-inline">csc</code>, <code class="md-code-inline">cot</code> and the hyperbolic functions are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code> and <code class="md-code-inline">exp</code>;</p>
+</li>
+<li><p>the inverse trigonometric functions are rewritten in terms of <code class="md-code-inline">atan</code> (for example <span class="md-math md-math-inline">\(\arcsin u = \arctan\big(u/\sqrt{1-u^2}\big)\)</span>), and the inverse hyperbolic functions in terms of <code class="md-code-inline">log</code> (for example <span class="md-math md-math-inline">\(\operatorname{arsinh} u = \log\big(u + \sqrt{u^2+1}\big)\)</span>);</p>
+</li>
+<li><p>integer powers of short sums are expanded.</p>
+</li>
+</ul>
+<p>These rules give the algorithm the zero recognition it needs, without a full computer algebra system.</p>
+<h2 id="The-most-rapidly-varying-subexpressions" class="md-heading">The most rapidly varying subexpressions<a href="#The-most-rapidly-varying-subexpressions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>For two functions <span class="md-math md-math-inline">\(f, g \to \infty\)</span>, <span class="md-math md-math-inline">\(f\)</span> grows faster than <span class="md-math md-math-inline">\(g\)</span> when <span class="md-math md-math-inline">\(\log f / \log g \to \infty\)</span>. They are in the same <em>comparability class</em> when the ratio tends to a finite nonzero constant. The set <span class="md-math md-math-inline">\(\Omega\)</span> of most rapidly varying subexpressions of <span class="md-math md-math-inline">\(f\)</span> is computed recursively. This step itself requires limits, which are computed with the same algorithm.</p>
+<p>If <span class="md-math md-math-inline">\(x \in \Omega\)</span>, the expression is first <em>moved up</em> (<span class="md-math md-math-inline">\(x \mapsto e^x\)</span>) so that every member of <span class="md-math md-math-inline">\(\Omega\)</span> is an exponential <span class="md-math md-math-inline">\(e^{g_i}\)</span>.</p>
+<h2 id="Rewriting-and-series-expansion" class="md-heading">Rewriting and series expansion<a href="#Rewriting-and-series-expansion" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>One member <span class="md-math md-math-inline">\(e^{g_1}\)</span> of <span class="md-math md-math-inline">\(\Omega\)</span> is chosen, and <span class="md-math md-math-inline">\(w = e^{\mp g_1} \to 0^+\)</span>. Every <span class="md-math md-math-inline">\(e^{g_i} \in \Omega\)</span> is rewritten as <span class="md-math md-math-inline">\(w^{-c_i}\, e^{g_i - c_i g_1}\)</span>, where <span class="md-math md-math-inline">\(c_i = \lim g_i / g_1\)</span> is rational. The expression becomes a function of <span class="md-math md-math-inline">\(w\)</span> whose coefficients are less rapidly varying than <span class="md-math md-math-inline">\(w\)</span>. It is expanded as a generalized power series in <span class="md-math md-math-inline">\(w\)</span>, and the leading term <span class="md-math md-math-inline">\(c_0 w^{e_0}\)</span> gives the limit:</p>
+<ul class="md-list-tight">
+<li><p><span class="md-math md-math-inline">\(e_0 &gt; 0\)</span>: the limit is <span class="md-math md-math-inline">\(0\)</span>;</p>
+</li>
+<li><p><span class="md-math md-math-inline">\(e_0 &lt; 0\)</span>: the limit is <span class="md-math md-math-inline">\(\pm\infty\)</span>, according to the sign of <span class="md-math md-math-inline">\(c_0\)</span>;</p>
+</li>
+<li><p><span class="md-math md-math-inline">\(e_0 = 0\)</span>: the limit is the limit of <span class="md-math md-math-inline">\(c_0\)</span>, computed recursively (<span class="md-math md-math-inline">\(c_0\)</span> is simpler).</p>
+</li>
+</ul>
+<p>When the leading coefficient cancels, the series precision is increased and the expansion is repeated.</p>
+<h2 id="Rebuilding-the-answer" class="md-heading">Rebuilding the answer<a href="#Rebuilding-the-answer" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>A rational answer is returned as an <code class="md-code-inline">Int</code> or <code class="md-code-inline">Rational</code>, and an infinite one as <code class="md-code-inline">±Inf</code>. Anything else is converted back from the canonical form by calling <code class="md-code-inline">build(op, args...)</code> for each compound node, and <code class="md-code-inline">lift</code> for each number. By default <code class="md-code-inline">build</code> calls <code class="md-code-inline">op(args...)</code>, except for <code class="md-code-inline">Expr</code> input, where it constructs an unevaluated call (see <a href="../usage/#Expr-answers"><code class="md-code-inline">Expr</code> answers</a>), and for term types such as SymbolicUtils, where a call on numbers only is built with TermInterface&#39;s <code class="md-code-inline">maketerm</code> so that it stays exact.</p>
+<h2 id="Limitations" class="md-heading">Limitations<a href="#Limitations" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<ul class="md-list-tight">
+<li><p>Only the functions listed in <a href="../usage/#Supported-functions">Supported functions</a> are understood.</p>
+</li>
+<li><p>The limit point is real, and so are all values; complex numbers are rejected.</p>
+</li>
+<li><p>The sign of a constant is decided numerically (in <code class="md-code-inline">BigFloat</code>), and a constant that is zero to that precision is taken to be zero. Sines and cosines of rational multiples of <span class="md-math md-math-inline">\(\pi\)</span> with denominators 1, 2, 3, 4 and 6 are evaluated exactly.</p>
+</li>
+<li><p>A free parameter is a real number of unknown sign. When the algorithm needs the sign of a constant that contains one, and the signs given with <code class="md-code-inline">signs</code> do not decide it, <code class="md-code-inline">gruntz_limit</code> throws a <a href="../reference/#GruntzLimit.GruntzError"><code class="md-code-inline">GruntzError</code></a> naming the constant. <code class="md-code-inline">gruntz_cases</code> instead computes the limit for each sign (see <a href="../usage/#Parameters-and-cases">Parameters and cases</a>). Where only the size of a limit matters, as when deciding that <span class="md-math md-math-inline">\(x^a\)</span> and <span class="md-math md-math-inline">\(x\)</span> are comparable, the sign is not needed.</p>
+</li>
+<li><p><code class="md-code-inline">gruntz_limit</code> takes a constant with parameters to be nonzero when that cannot be decided, so an answer such as <code class="md-code-inline">a/b</code> holds for <code class="md-code-inline">b != 0</code>. <code class="md-code-inline">gruntz_cases</code> tests such constants and splits off the case where they vanish.</p>
+</li>
+<li><p>Comparable terms whose exponents have an irrational ratio, such as <span class="md-math md-math-inline">\(3^x\)</span> and <span class="md-math md-math-inline">\(5^x\)</span>, are handled with irrational powers of <span class="md-math md-math-inline">\(\omega\)</span>; such powers are ordered by the sign of their difference.</p>
+</li>
+</ul>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Reduction-to-x-\to-\infty">Reduction to </a>
+          <a class="md-toc-link md-toc-h2" href="#Canonical-form">Canonical form</a>
+          <a class="md-toc-link md-toc-h2" href="#The-most-rapidly-varying-subexpressions">The most rapidly varying subexpressions</a>
+          <a class="md-toc-link md-toc-h2" href="#Rewriting-and-series-expansion">Rewriting and series expansion</a>
+          <a class="md-toc-link md-toc-h2" href="#Rebuilding-the-answer">Rebuilding the answer</a>
+          <a class="md-toc-link md-toc-h2" href="#Limitations">Limitations</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.js"></script>
+  <script>var MD_KATEX_OPTIONS = {};
+document.querySelectorAll('.md-math').forEach(function (el) {
+  var tex = el.textContent.trim().replace(/^\\[\[(]/, '').replace(/\\[\])]$/, '');
+  katex.render(tex, el, Object.assign({ throwOnError: false }, MD_KATEX_OPTIONS,
+    { displayMode: el.classList.contains('md-math-display') }));
+});</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=4d5e76b1"></script>
+</body>
+</html>
