@@ -232,7 +232,7 @@ gruntz_limit(:((1 + 1/x)^x), :x; build = (op, args...) -> op(args...))
 
 The operations understood are
 
-* arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`;
+* arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`, `sign`;
 * `floor` and `ceil`, when their argument has a finite limit;
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;

@@ -78,6 +78,14 @@
     @test gruntz_limit(floor(-1/x), x) == -1
     @test_throws GruntzError gruntz_limit(floor(x), x)
 
+    # sign: the eventual sign of its argument
+    @test gruntz_limit(sign(x), x, 0; dir = :+) == 1
+    @test gruntz_limit(sign(x), x, 0; dir = :-) == -1
+    @test_throws GruntzError gruntz_limit(sign(x), x, 0; dir = :both)
+    @test gruntz_limit(sign(x - x^2), x) == -1
+    @test gruntz_limit(sign(sin(x)), x, 0; dir = :-) == -1
+    @test gruntz_limit(x * sign(x), x, 0; dir = :-) == 0
+
     # harder ones?
     @test gruntz_limit((cos(sin(x))-cos(x))/x^4, x, 0) == 1//6
     @test gruntz_limit((x^x - x^a)/(a^x - a^a), x, a) == 1

@@ -133,6 +133,8 @@ function apply_op(op, a::Vector{Sum})
         mkatan(a[1])
     elseif n === :abs && na == 1
         mkabs(a[1])
+    elseif n === :sign && na == 1
+        mksign(a[1])
     elseif n === :floor && na == 1
         mkfloor(a[1])
     elseif n in (:ceil, :ceiling) && na == 1           # SymEngine prints ceil as ceiling

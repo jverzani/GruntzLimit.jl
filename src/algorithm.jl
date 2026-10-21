@@ -164,21 +164,21 @@ function mrv_leadterm(e::Sum, x::Atom)
 end
 
 # At x -> +oo every expression handled here has an eventual constant sign, so
-# abs(u) = sign(u) * u, and floor(u) is eventually constant (see `resolve_floor`).
-# Inner abs and floor are resolved first. An abs of a constant whose sign cannot be
-# decided (free parameter) stays as an `abs` atom.
+# sign(u) is that constant and abs(u) = sign(u) * u; floor(u) is eventually constant
+# too (see `resolve_floor`). Inner abs, sign and floor are resolved first. An abs or
+# sign of a constant whose sign cannot be decided (free parameter) stays as an atom.
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :floor)) || return nothing
+        (a.kind === :fun && a.head in (:abs, :sign, :floor)) || return nothing
         u = subs_atoms(a.args[1]::Sum, res)
         a.head === :floor && return resolve_floor(u, x)
-        hasleaf(u, x.key) && return scaleS(u, Q(sgn(u, x)))
-        sg = try
+        sg = hasleaf(u, x.key) ? sgn(u, x) : try
             csign(u)
         catch err
             err isa NeedSign ? nothing : rethrow()
         end
-        sg === nothing ? mkabs(u) : scaleS(u, Q(sg))
+        sg === nothing && return a.head === :abs ? mkabs(u) : mksign(u)
+        a.head === :abs ? scaleS(u, Q(sg)) : constS(sg)
     end
     subs_atoms(e, res)
 end

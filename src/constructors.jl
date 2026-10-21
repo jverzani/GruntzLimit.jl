@@ -153,6 +153,20 @@ function mkfloor(s::Sum)
 end
 mkceil(s::Sum) = negS(mkfloor(negS(s)))
 
+# sign: sign(c*m) = sign(c) * sign(m), and sign-normalised as abs is, so sign(-u) =
+# -sign(u). Eliminated with abs before the limit is computed.
+function mksign(s::Sum)
+    isempty(s.t) && return zeroS()
+    r = ratconst(s)
+    r !== nothing && return constS(sign(r))
+    if length(s.t) == 1
+        m, c = first(s.t)
+        return scaleS(atomS(funatom(:sign, Sum[monoS(m, Q(1))])), Q(sign(c)))
+    end
+    c1 = first(sort!(collect(s.t); by = p -> p.first.key)).second
+    c1 < 0 ? negS(atomS(funatom(:sign, Sum[negS(s)]))) : atomS(funatom(:sign, Sum[s]))
+end
+
 function mkfun(h::Symbol, a::Vector{Sum})
     h === :exp ? mkexp(a[1]) :
     h === :log ? mklog(a[1]) :
@@ -160,6 +174,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :atan ? mkatan(a[1]) :
     h === :abs ? mkabs(a[1]) :
     h === :floor ? mkfloor(a[1]) :
+    h === :sign ? mksign(a[1]) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 
