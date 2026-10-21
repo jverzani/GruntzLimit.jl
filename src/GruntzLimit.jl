@@ -101,5 +101,6 @@ include("to_term.jl")
 include("limit.jl")
 include("cases.jl")
 include("limit_cases.jl")
+include("frontend.jl")
 
 end # module
