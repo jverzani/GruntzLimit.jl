@@ -11,6 +11,11 @@ end
 
 function leaf_big(h)
     h isa Real && return BigFloat(h)
+    if h isa Function            # a callable leaf answers without an exception
+        v = leaf_value(h)
+        v === nothing && throw(FreeSymbol(h))
+        return BigFloat(v)
+    end
     for conv in (BigFloat, Float64)
         try
             v = BigFloat(conv(h))
@@ -46,8 +51,18 @@ function numval(s::Sum)
 end
 bigq(q::Q) = BigFloat(numerator(q)) / BigFloat(denominator(q))
 
+# Does the atom contain a leaf that is certainly a free symbol? Decided without
+# exceptions for callable leaves (a `throw` costs ~40 μs, for its backtrace, and atoms
+# are tested often); other leaves are left to `numval`.
+surely_free(h) = h isa Function && !(h isa Real) && leaf_value(h) === nothing
+function surely_free(a::Atom)
+    a.kind === :leaf && return surely_free(a.head)
+    any(u -> any(m -> any(p -> surely_free(p.first), m.fs), keys((u::Sum).t)), a.args)
+end
+
 # the value of an atom, or nothing for an atom with parameters
 function numval_or_nothing(a::Atom)
+    surely_free(a) && return nothing
     try
         numval(a)
     catch err

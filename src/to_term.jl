@@ -6,29 +6,18 @@ const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log =
                                   :sqrt => sqrt, :floor => floor, :sign => sign)
 default_build(op, args...) = op(args...)
 
-# Build `op(args...)` for constant arguments WITHOUT evaluating it, for symbolic
-# types that defer evaluation only when a symbolic variable is involved
-# (SimpleExpressions). Plain Julia would turn e.g. sqrt(2) or (-1//2)*π into a
-# Float64 at once. Strategies, in order:
-#  1. placeholder substitution: build op(x, args[2:end]...) with the symbolic
-#     variable `x` as first argument, then substitute args[1] for it with
-#     `u(args[1], :)`, which SimpleExpressions documents as leaving a symbolic
-#     expression (evaluated later with `u()`);
-#  2. TermInterface's `maketerm`, trying both conventions for `head`;
-#  3. evaluating eagerly (the result is then a plain number).
-function placeholder_call(x, op, args)
-    isempty(args) && return nothing
-    try
-        u = op(x, args[2:end]...)
-        u isa Function || return nothing
-        r = u(args[1], :)
-        r isa Function ? r : nothing
-    catch
-        nothing
-    end
-end
-
+# Build `op(args...)` for constant arguments WITHOUT evaluating it, for callable
+# symbolic types that defer evaluation only when a symbolic variable is involved
+# (SimpleExpressions, SymJ). Plain Julia would turn e.g. sqrt(2) or (-1//2)*π into a
+# Float64 at once. The term is built with TermInterface's `maketerm`, trying both
+# conventions for `head`, a power with exponent p/2 or p/3 from sqrt or cbrt (see
+# `root_power`); failing that, the operation is evaluated (the result is then a
+# plain number).
+# These run a few times per result, for many operations and argument types:
+# `@nospecialize` compiles them once instead of once per combination (which cost
+# 25-45 ms of compilation per operation on first use).
 function maketerm_call(T, op, args)
+    @nospecialize
     for TT in unique(Any[T, Base.typename(T).wrapper])
         for attempt in (() -> maketerm(TT, op, Any[args...], nothing),
                         () -> maketerm(TT, :call, Any[op; args...], nothing))
@@ -43,11 +32,24 @@ function maketerm_call(T, op, args)
 end
 
 function deferred_call(x, op, args)
-    r = placeholder_call(x, op, args)
-    r === nothing || return r
-    r = maketerm_call(typeof(x), op, args)
-    r === nothing || return r
-    op(args...)
+    @nospecialize
+    mt(o, a) = maketerm_call(typeof(x), o, a)
+    if op === (^) && length(args) == 2
+        r = root_power(mt, args[1], args[2])
+        r === nothing || return r
+    end
+    r = mt(op, args)
+    r === nothing ? op(args...) : r
+end
+
+# n^e for a number n and e = p/2 or p/3, from sqrt(n) or cbrt(n) built by `mt(op,
+# args)`: term types may fold a numeric power to a float, but keep a root exact.
+# nothing for another exponent, or when the root is not built.
+function root_power(mt, n, e)
+    @nospecialize
+    (e isa Rational && denominator(e) in (2, 3)) || return nothing
+    root = mt(denominator(e) == 2 ? sqrt : cbrt, Any[n])
+    root === nothing ? nothing : isone(numerator(e)) ? root : root^numerator(e)
 end
 
 expr_build(op, args...) = Expr(:call, nameof(op), args...)
@@ -64,12 +66,9 @@ function term_build(x)
         all(a -> a isa Number, args) || return op(args...)
         if op === (^) && length(args) == 2
             n, e = args
-            if e isa Integer && n isa Union{Integer,Rational}
-                return num(Q(n)^e)
-            elseif e isa Rational && denominator(e) in (2, 3)
-                root = mt(denominator(e) == 2 ? sqrt : cbrt, Any[n])
-                root === nothing || return isone(numerator(e)) ? root : root^numerator(e)
-            end
+            e isa Integer && n isa Union{Integer,Rational} && return num(Q(n)^e)
+            r = root_power(mt, n, e)
+            r === nothing || return r
         end
         r = mt(op, args)
         r === nothing ? op(args...) : r
@@ -99,7 +98,10 @@ function auto_build(f, x)
     x isa Symbol && return expr_build
     other_terms(x) && return term_build(x)
     typeof(x) <: Function || return default_build
-    (op, args...) -> any(a -> a isa Function, args) ? op(args...) : deferred_call(x, op, args)
+    function (op, args...)
+        @nospecialize
+        any(a -> a isa Function, args) ? op(args...) : deferred_call(x, op, args)
+    end
 end
 
 # `build(op, args...)` constructs a compound term; `lift(v)` turns plain Julia
@@ -131,7 +133,8 @@ function mono_term(b, m::Mono, c::Q)
     end
     isempty(fs) && return b.lift(num(c))
     isone(c) && return length(fs) == 1 ? fs[1] : mk(b, :*, fs)
-    mk(b, :*, Any[b.lift(num(c)); fs])
+    pushfirst!(fs, b.lift(num(c)))      # not Any[c; fs]: a generic vcat to compile
+    mk(b, :*, fs)
 end
 
 function to_term(b, s::Sum)
