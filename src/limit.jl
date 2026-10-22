@@ -49,7 +49,7 @@ function _limit(e::Sum, xa::Atom, x0, dir::Symbol)
     xS = atomS(xa)
     inf = infdir(x0)
     if inf != 0
-        return inf > 0 ? limit_pos(e, xa) :
+        return inf > 0 ? limit_pos(subs_atoms(e, _ -> nothing), xa) :   # rebuild: see DEFER_DOMAIN
                limit_pos(subs_atoms(e, a -> a == xa ? negS(xS) : nothing), xa)
     end
     p = from_term(x0)
@@ -148,7 +148,7 @@ end
 
 # the limit, an infinite one with its sign decided
 function limit_value(f, xa::Atom, x0, dir::Symbol)
-    L = _limit(from_term(f), xa, x0, dir)
+    L = _limit(with(() -> from_term(f), DEFER_DOMAIN => true), xa, x0, dir)
     L isa Infinity && signof(L)
     L
 end

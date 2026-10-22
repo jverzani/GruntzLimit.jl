@@ -73,7 +73,10 @@ function mklog(s::Sum)
     CONTEXT[].cases && require_positive(s)
     if length(s.t) == 1
         m, c = first(s.t)
-        c < 0 && throw(GruntzError("log of a negative number", :undefined))
+        if c < 0
+            _defer_domain(m) && return atomS(funatom(:log, Sum[s]))
+            throw(GruntzError("log of a negative number", :undefined))
+        end
         res = lograt(c)
         for (a, e) in m.fs
             res = addS(res, scaleS(logatom(a), e))

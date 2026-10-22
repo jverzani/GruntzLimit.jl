@@ -280,6 +280,23 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(atan(x)), :x; build = callop) ≈ π/2
     end
 
+    @testset "negative arguments that are positive where the limit is taken" begin
+        # -x > 0 for x -> 0⁻ and x -> -Inf: the domain check waits for the substitution
+        @test gruntz_limit(:(x*log(-x)), :x, 0; dir = :-) == 0
+        @test gruntz_limit(:(log(-x)), :x, 0; dir = :-) == -Inf
+        @test gruntz_limit(:(sqrt(-x)), :x, 0; dir = :-) == 0
+        @test gruntz_limit(:((-x)^(1//3)*x), :x, 0; dir = :-) == 0
+        @test gruntz_limit(:(log(-x)/x), :x, -Inf) == 0
+        @test gruntz_limit(:(sqrt(-x)/x), :x, -Inf) == 0
+        # and still undefined where the argument is negative
+        @test_throws GruntzError gruntz_limit(:(log(-x)), :x)
+        @test_throws GruntzError gruntz_limit(:(sqrt(-x)), :x)
+        @test_throws GruntzError gruntz_limit(:(log(-x)), :x, 0)
+        @test_throws GruntzError gruntz_limit(:(log(-x)), :x, 0; dir = :both)
+        @test_throws GruntzError gruntz_limit(:(x*log(-x)), :x, 1; dir = :-)
+        @test_throws GruntzError gruntz_limit(:(log(-2)*x), :x)
+    end
+
     @testset "errors" begin
         @test_throws GruntzError gruntz_limit(:(sin(x)), :x)
         @test_throws GruntzError gruntz_limit(:(sin(1/x)), :x, 0)
