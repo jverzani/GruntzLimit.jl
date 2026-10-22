@@ -10,6 +10,7 @@ SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
 GruntzLimit = {path = ".."}
 
 [compat]
+Documenter = "1.19.0"
 Latexify = "0.16.12"
 MaterialDocs = "0.2.1"
 SymEngine = "0.13.2"
