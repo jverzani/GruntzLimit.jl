@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=4afea68a">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=afd2a13a">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -606,6 +606,7 @@ gruntz_limit(exp(a*b*x), x; signs = Dict(a =&gt; :positive, b =&gt; :negative))<
 <pre class="md-output md-output-text"><code class="nohighlight ansi">0</code></pre>
 </div>
 <p>Signs that follow from those given are used. Linear consequences (<code class="md-code-inline">a &gt; 2</code> from <code class="md-code-inline">a - 2 &gt; 0</code>) are found by Fourier–Motzkin elimination. Products, quotients, powers and logarithms of parameters take their signs from their factors (<code class="md-code-inline">log(a)</code> has the sign of <code class="md-code-inline">a - 1</code>).</p>
+<p>Signs that leave a logarithm or a fractional power of the parameters without a valid argument (<code class="md-code-inline">log(a*x)</code> or <code class="md-code-inline">sqrt(a)</code> with <code class="md-code-inline">a</code> negative) make the limit undefined: a <code class="md-code-inline">GruntzError</code> of kind <code class="md-code-inline">:undefined</code>. Without such signs, <code class="md-code-inline">gruntz_limit</code> takes the parameters to be values for which <code class="md-code-inline">f</code> is defined, as it takes them to be nonzero.</p>
 <h2 id="When-there-is-no-limit" class="md-heading">When there is no limit<a href="#When-there-is-no-limit" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>A <a href="../reference/#GruntzLimit.GruntzError"><code class="md-code-inline">GruntzError</code></a> is also thrown when the limit does not exist. For example, bounded oscillation:</p>
 <div class="md-multi-output">
@@ -666,6 +667,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=4afea68a"></script>
+  <script src="../assets/materialdocs.js?v=afd2a13a"></script>
 </body>
 </html>
