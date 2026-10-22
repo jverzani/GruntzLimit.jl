@@ -11,5 +11,6 @@ GruntzLimit = {path = ".."}
 
 [compat]
 Latexify = "0.16.12"
+MaterialDocs = "0.2.1"
 SymEngine = "0.13.2"
 SymbolicUtils = "4.51.0"
