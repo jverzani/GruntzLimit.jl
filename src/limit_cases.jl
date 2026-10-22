@@ -39,18 +39,17 @@ function show_conditions(conds::Vector{CaseCondition})
 end
 
 # c rel 0, solved for a parameter it is linear in when there is one (a - b > 0 is
-# shown as a > b, log(a) - 1 < 0 as a < exp(1))
+# shown as a > b, log(a) - 1 < 0 as a < exp(1), log(-a) - 1 < 0 as a > -exp(1))
 function show_condition(bd::Builder, c::Sum, rel::Symbol)
     for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
         (length(m.fs) == 1 && isone(m.fs[1].second)) || continue
-        a = m.fs[1].first
-        p = a.kind === :leaf ? a : a.kind === :fun && a.head === :log ? single_atom(a.args[1]::Sum) : nothing
-        (p === nothing || !isparam(p)) && continue
+        pw = param_of(m.fs[1].first)
+        pw === nothing && continue
+        p, how = pw
         r = subS(c, monoS(m, k))
         hasleaf(r, p.key) && continue
-        v = scaleS(r, -inv(k))
-        return CaseCondition(user_value(bd, atomS(p)), k < 0 ? flip(rel) : rel,
-                         user_value(bd, a == p ? v : mkexp(v)))
+        rel2 = (k < 0) ⊻ (how === :neglog) ? flip(rel) : rel   # -p rel e^v is p flip(rel) -e^v
+        return CaseCondition(user_value(bd, atomS(p)), rel2, user_value(bd, param_value(how, scaleS(r, -inv(k)))))
     end
     CaseCondition(user_value(bd, c), rel, 0)
 end

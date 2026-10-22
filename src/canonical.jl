@@ -85,6 +85,18 @@ hasleaf(s::Sum, k::String) = any(m -> any(p -> hasleaf(p.first, k), m.fs), keys(
 hasatom(a::Atom, k::String) = a.key == k || any(u -> hasatom(u::Sum, k), a.args)
 hasatom(s::Sum, k::String) = any(m -> any(p -> hasatom(p.first, k), m.fs), keys(s.t))
 
+# --- deferred domain checks -------------------------------------------------
+# While the input is converted (`limit_value`), the limit variable x is just a
+# symbol, but `_limit` then replaces it by x0 + 1/x, x0 - 1/x or -x. So a monomial in
+# x with a negative coefficient, as in log(-x) or sqrt(-x), may be positive where the
+# limit is taken, and the sign of a parameter in it (log(a*x), a < 0) can only be
+# required after the substitution. During conversion logs and fractional powers of
+# monomials in x are kept unevaluated;
+# `_limit` rebuilds the expression after its substitution (with the deferral off),
+# which simplifies them or raises the domain error then.
+const DEFER_DOMAIN = ScopedValue(false)
+_defer_domain(m::Mono) = DEFER_DOMAIN[] && any(p -> hasleaf(p.first, CONTEXT[].x.key), m.fs)
+
 # --- rational powers --------------------------------------------------------
 function iroot(n::BigInt, k::Int)
     n == 0 && return big(0)
@@ -114,6 +126,22 @@ function powS(s::Sum, q::Q)
     end
     if length(s.t) == 1
         m, c = first(s.t)
+        if !isone(denominator(q))
+            _defer_domain(m) && return monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))   # checked later
+            require_positive(s; strict = q < 0, what = "fractional power")
+        end
+        if !isone(denominator(q)) && needs_signs(m, c)
+            pf = positive_factors(m, c)
+            if pf !== nothing                    # otherwise ratpow raises the error
+                c2, kept, negs, grp = pf
+                mm = powMono(kept, q)            # (a^e)^q = ((-a)^e)^q, for a < 0
+                for (a, e) in negs
+                    mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(negatom(a)) => e * q]))
+                end
+                grp === nothing || (mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(grp) => q])))
+                return mulS(powS(constS(c2), q), monoS(mm, Q(1)))
+            end
+        end
         mm = powMono(m, q)
         r = ratpow(c, q)
         if r === nothing
@@ -129,5 +157,6 @@ function powS(s::Sum, q::Q)
         end
         return res
     end
+    !isone(denominator(q)) && require_positive(s; strict = q < 0, what = "fractional power")
     monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))
 end

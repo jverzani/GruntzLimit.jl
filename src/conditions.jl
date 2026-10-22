@@ -96,15 +96,15 @@ function atom_sign(a::Atom)
     length(ps) == 1 && ps[1] != 0 ? ps[1] : nothing
 end
 
+# a fractional power is positive: its base is checked when it is made (see
+# `require_positive`)
 function mono_sign(m::Mono)
     sg = 1
     for (a, e) in m.fs
+        isone(denominator(e)) || continue
         sa = atom_sign(a)
         sa === nothing && return nothing
-        if sa < 0
-            isone(denominator(e)) || return nothing
-            isodd(numerator(e)) && (sg = -sg)
-        end
+        sa < 0 && isodd(numerator(e)) && (sg = -sg)
     end
     sg
 end
@@ -160,12 +160,9 @@ function clear_factors(s::Sum)
     fs = Pair{Atom,Q}[]
     for (a, e) in values(lows)
         iszero(e) && continue
-        sa = atom_sign(a)
+        sa = isone(denominator(e)) ? atom_sign(a) : 1   # as in `mono_sign`
         sa === nothing && continue
-        if sa < 0
-            isone(denominator(e)) || continue
-            isodd(numerator(e)) && (σ = -σ)
-        end
+        sa < 0 && isodd(numerator(e)) && (σ = -σ)
         push!(fs, a => -e)
     end
     isempty(fs) && return s, 1
@@ -243,10 +240,56 @@ function zerostate(s::Sum)
     0 in ps ? NeedSign(s, ps, true) : false
 end
 
-# log needs a positive argument: when splitting into cases, a constant (factor)
-# with parameters is checked
-function require_positive(s::Sum)
-    hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
+hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
+
+# c*m, for log and fractional powers, which are taken factor by factor, as a product
+# of positive factors: (|c|, kept, negs, grp). `kept` are the factors taken as they
+# are: of x, numbers, fractional powers, and parameters known to be positive. `negs`
+# are those known to be negative, with an integer exponent: each is taken as -a. The
+# others, of undecided sign, are taken as they are outside case splitting when the
+# product is positive (parameters are generic); otherwise they are grouped, with the
+# sign, as the one positive constant `grp` (log(-a*b), a < 0 < b undecided...).
+# `nothing` when the factors' signs make c*m negative.
+function positive_factors(m::Mono, c::Q)
+    kept, negs, und = Pair{Atom,Q}[], Pair{Atom,Q}[], Pair{Atom,Q}[]
+    σ = c < 0 ? -1 : 1
+    for (a, e) in m.fs
+        if hasvar(a) || numval_or_nothing(a) !== nothing || !isone(denominator(e))
+            push!(kept, a => e)
+            continue
+        end
+        sa = atom_sign(a)
+        if sa == 1
+            push!(kept, a => e)
+        elseif sa == -1
+            push!(negs, a => e)
+            isodd(numerator(e)) && (σ = -σ)
+        else
+            push!(und, a => e)
+        end
+    end
+    grp = nothing
+    if !isempty(und)
+        if σ > 0 && !CONTEXT[].cases
+            append!(kept, und)
+        else
+            grp = monoS(mono(Dict{Atom,Q}(und)), Q(σ))
+            σ = 1
+        end
+    end
+    σ < 0 && return nothing
+    abs(c), mono(Dict{Atom,Q}(kept)), negs, grp
+end
+# whether c*m needs `positive_factors`: a negative coefficient, or a parameter
+needs_signs(m::Mono, c::Q) =
+    c < 0 || any(p -> !hasvar(p.first) && numval_or_nothing(p.first) === nothing, m.fs)
+negatom(a::Atom) = scaleS(atomS(a), Q(-1))
+
+# log needs a positive argument, a fractional power a nonnegative one (positive for a
+# negative exponent: `strict`): a constant (factor) with parameters is checked. One
+# the context rules out is an error; one it does not decide is split on when
+# splitting into cases, and otherwise taken to be valid (parameters are generic).
+function require_positive(s::Sum; strict::Bool = true, what::String = "log")
     k = if length(s.t) == 1
         m, c = first(s.t)
         monoS(Mono(filter(p -> !hasvar(p.first), m.fs)), c)
@@ -258,9 +301,10 @@ function require_positive(s::Sum)
     ratconst(k) === nothing || return
     any(m -> any(p -> numval_or_nothing(p.first) === nothing, m.fs), keys(k.t)) || return
     ps = possible_signs(k)
-    ps == [1] && return
-    1 in ps || throw(GruntzError("log of a number that is not positive", :undefined))
-    throw(NeedSign(k, ps, false))
+    (ps == [1] || ps == [0]) && return
+    any(p -> p > 0 || (p == 0 && !strict), ps) ||
+        throw(GruntzError("$what of a number that is not " * (strict ? "positive" : "nonnegative"), :undefined))
+    CONTEXT[].cases && throw(NeedSign(k, ps, false))
 end
 
 # ---------------------------------------------------------------------------
@@ -272,20 +316,35 @@ with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom) 
 substS(s::Sum, sub::Dict{String,Sum}) =
     isempty(sub) ? s : subs_atoms(s, a -> a.kind === :leaf ? get(sub, a.key, nothing) : nothing)
 
-# Solves c = 0 for a parameter p, when c = k p + r or k log(p) + r with r free of p,
-# or c = k p^n with n > 0. Returns p's key => its value, or nothing.
+# The parameter p of an atom p, log(p) or log(-p), and which of the three it is
+# (:id, :log, :neglog); or nothing
+function param_of(a::Atom)
+    a.kind === :leaf && return isparam(a) ? (a, :id) : nothing
+    (a.kind === :fun && a.head === :log) || return nothing
+    s = a.args[1]::Sum
+    for (u, how) in ((s, :log), (negS(s), :neglog))
+        p = single_atom(u)
+        p !== nothing && isparam(p) && return (p, how)
+    end
+    nothing
+end
+# p from the value v of its atom (p, log(p) or log(-p))
+param_value(how::Symbol, v::Sum) = how === :id ? v : how === :log ? mkexp(v) : negS(mkexp(v))
+
+# Solves c = 0 for a parameter p, when c = k p + r, k log(p) + r or k log(-p) + r with
+# r free of p, or c = k p^n with n > 0. Returns p's key => its value, or nothing.
 function solve_zero(c::Sum)
     for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
         length(m.fs) == 1 || continue
         a, e = m.fs[1]
-        p = a.kind === :leaf ? a : a.kind === :fun && a.head === :log ? single_atom(a.args[1]::Sum) : nothing
-        (p === nothing || !isparam(p)) && continue
+        pw = param_of(a)
+        pw === nothing && continue
+        p, how = pw
         r = subS(c, monoS(m, k))
         hasleaf(r, p.key) && continue
-        a == p && isempty(r.t) && e > 0 && return p.key => zeroS()
+        how === :id && isempty(r.t) && e > 0 && return p.key => zeroS()
         isone(e) || continue
-        v = scaleS(r, -inv(k))
-        return p.key => (a == p ? v : mkexp(v))
+        return p.key => param_value(how, scaleS(r, -inv(k)))
     end
     nothing
 end
