@@ -6,16 +6,16 @@ the repository.
 
 | File | Role |
 |---|---|
-| `problems.jl` | 19 problems, 65 cases: each `(f, x0, dir, cases, source)`, a case being `(condition, sample, answer)` |
+| `problems.jl` | 25 problems, 79 cases: each `(f, x0, dir, cases, source)`, a case being `(condition, sample, answer)` |
 | `check_problems.jl` | confirms every answer numerically, and that the cases do not overlap |
 | `cases.jl` | scores `gruntz_cases`: the sample of each case must fall in exactly one returned case, with the right limit |
 | `baseline.jl` | `gruntz_limit` without case splitting: with no information, and with `signs` from each case's sample |
 
 ```sh
 cd benchmark/cases
-julia check_problems.jl                              # all 65 cases of 19 problems confirmed
-julia --project=../limits/env_gruntz cases.jl        # 63 of 65 cases right (about 8 s)
-julia --project=../limits/env_gruntz baseline.jl     # 44 of 65 cases done with signs
+julia check_problems.jl                              # all 79 cases of 25 problems confirmed
+julia --project=../limits/env_gruntz cases.jl        # 77 of 79 cases right (about 10 s)
+julia --project=../limits/env_gruntz baseline.jl     # 55 of 79 cases done with signs
 ```
 
 The two cases `gruntz_cases` misses are those of problem 17, `x^a sin(1/x)` at 0⁺: Gruntz's

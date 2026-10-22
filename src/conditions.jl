@@ -96,15 +96,15 @@ function atom_sign(a::Atom)
     length(ps) == 1 && ps[1] != 0 ? ps[1] : nothing
 end
 
+# a fractional power is positive: its base is checked when it is made (see
+# `require_positive`)
 function mono_sign(m::Mono)
     sg = 1
     for (a, e) in m.fs
+        isone(denominator(e)) || continue
         sa = atom_sign(a)
         sa === nothing && return nothing
-        if sa < 0
-            isone(denominator(e)) || return nothing
-            isodd(numerator(e)) && (sg = -sg)
-        end
+        sa < 0 && isodd(numerator(e)) && (sg = -sg)
     end
     sg
 end
@@ -160,12 +160,9 @@ function clear_factors(s::Sum)
     fs = Pair{Atom,Q}[]
     for (a, e) in values(lows)
         iszero(e) && continue
-        sa = atom_sign(a)
+        sa = isone(denominator(e)) ? atom_sign(a) : 1   # as in `mono_sign`
         sa === nothing && continue
-        if sa < 0
-            isone(denominator(e)) || continue
-            isodd(numerator(e)) && (σ = -σ)
-        end
+        sa < 0 && isodd(numerator(e)) && (σ = -σ)
         push!(fs, a => -e)
     end
     isempty(fs) && return s, 1
@@ -243,10 +240,23 @@ function zerostate(s::Sum)
     0 in ps ? NeedSign(s, ps, true) : false
 end
 
-# log needs a positive argument: when splitting into cases, a constant (factor)
-# with parameters is checked
-function require_positive(s::Sum)
-    hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
+hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
+
+# c*m, c < 0, as (-c) * k * r: k = -(the factors of m free of x), when those have a
+# parameter and the context allows c*k > 0 (as -a*x is for a < 0); otherwise nothing.
+# log and fractional powers of c*m then take k as a whole, not factor by factor.
+function negparam(m::Mono, c::Q)
+    kf = Mono(filter(p -> !hasvar(p.first), m.fs))
+    any(p -> numval_or_nothing(p.first) === nothing, kf.fs) || return nothing
+    1 in possible_signs(monoS(kf, c)) || return nothing
+    monoS(kf, Q(-1)), Mono(filter(p -> hasvar(p.first), m.fs))
+end
+
+# log needs a positive argument, a fractional power a nonnegative one (positive for a
+# negative exponent: `strict`): a constant (factor) with parameters is checked. One
+# the context rules out is an error; one it does not decide is split on when
+# splitting into cases, and otherwise taken to be valid (parameters are generic).
+function require_positive(s::Sum; strict::Bool = true, what::String = "log")
     k = if length(s.t) == 1
         m, c = first(s.t)
         monoS(Mono(filter(p -> !hasvar(p.first), m.fs)), c)
@@ -258,9 +268,10 @@ function require_positive(s::Sum)
     ratconst(k) === nothing || return
     any(m -> any(p -> numval_or_nothing(p.first) === nothing, m.fs), keys(k.t)) || return
     ps = possible_signs(k)
-    ps == [1] && return
-    1 in ps || throw(GruntzError("log of a number that is not positive", :undefined))
-    throw(NeedSign(k, ps, false))
+    (ps == [1] || ps == [0]) && return
+    any(p -> p > 0 || (p == 0 && !strict), ps) ||
+        throw(GruntzError("$what of a number that is not " * (strict ? "positive" : "nonnegative"), :undefined))
+    CONTEXT[].cases && throw(NeedSign(k, ps, false))
 end
 
 # ---------------------------------------------------------------------------

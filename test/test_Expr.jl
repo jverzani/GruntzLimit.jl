@@ -199,6 +199,17 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(x^a), :x, 0; signs = [:a => :positive]) == 0
         @test_throws GruntzError gruntz_limit(:(x^a), :x, 0)
         @test gruntz_limit(:(x^a - x^b), :x; signs = Dict(:(a - b) => :positive, :b => :positive)) == Inf
+        # signs that rule out a log or a fractional power make the limit undefined;
+        # without them, a parameter is generic
+        neg = Dict(:a => :negative)
+        @test_throws GruntzError gruntz_limit(:(log(a*x)/x), :x; signs = neg)
+        @test_throws GruntzError gruntz_limit(:(log(-a*x)*x), :x, 0; dir = :-, signs = neg)
+        @test gruntz_limit(:(log(-a*x)*x), :x, 0; dir = :-, signs = Dict(:a => :positive)) == 0
+        @test_throws GruntzError gruntz_limit(:(sqrt(a)*x + x), :x; signs = neg)
+        @test_throws GruntzError gruntz_limit(:(x/sqrt(a - 1)), :x; signs = Dict(:(a - 1) => :negative))
+        @test gruntz_limit(:(sqrt(a)*x), :x; signs = Dict(:a => :nonnegative)) == Inf
+        @test gruntz_limit(:(sqrt(a)*x + x), :x) == Inf
+        @test (try gruntz_limit(:(log(a*x)/x), :x; signs = neg) catch e; e.kind end) === :undefined
     end
 
     @testset "cases of parameters (experimental)" begin
@@ -217,6 +228,28 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
               Set(["b != 0" => "a * b ^ -1", "b == 0" => :undefined])
         @test shown(gruntz_cases(:(abs(x)/x), :x, :a; dir = :both)) ==
               Set(["a < 0" => -1, "a == 0" => :nolimit, "a > 0" => 1])
+        # a negative coefficient with a parameter: the split is on the parameter's sign
+        @test shown(gruntz_cases(:(log(-a*x)/x), :x)) == Set(["a < 0" => 0, "a >= 0" => :undefined])
+        @test shown(gruntz_cases(:(log(-a*x)*x), :x, 0)) == Set(["a < 0" => 0, "a >= 0" => :undefined])
+        @test shown(gruntz_cases(:(log(-a*x)*x), :x, 0; dir = :-)) == Set(["a <= 0" => :undefined, "a > 0" => 0])
+        @test shown(gruntz_cases(:(log(a*x)*x), :x, 0; dir = :-)) == Set(["a < 0" => 0, "a >= 0" => :undefined])
+        @test shown(gruntz_cases(:(log(-a*x)/x), :x, -Inf)) == Set(["a <= 0" => :undefined, "a > 0" => 0])
+        @test shown(gruntz_cases(:(log(-a)*x), :x)) ==
+              Set(["a < -1" => Inf, "a == -1" => 0, "a < 0 && a > -1" => -Inf, "a >= 0" => :undefined])
+        @test shown(gruntz_cases(:(sqrt(-a*x)/x), :x)) == Set(["a <= 0" => 0, "a > 0" => :undefined])
+        # a fractional power of a parameter needs a nonnegative base (positive, for a
+        # negative exponent), and is then positive
+        @test shown(gruntz_cases(:(sqrt(a)*x), :x)) == Set(["a < 0" => :undefined, "a == 0" => 0, "a > 0" => Inf])
+        @test shown(gruntz_cases(:(a^(1//3)*x), :x)) == Set(["a < 0" => :undefined, "a == 0" => 0, "a > 0" => Inf])
+        @test shown(gruntz_cases(:(x/sqrt(a)), :x)) == Set(["a <= 0" => :undefined, "a > 0" => Inf])
+        @test shown(gruntz_cases(:(sqrt(a - 1)*x), :x)) == Set(["a < 1" => :undefined, "a == 1" => 0, "a > 1" => Inf])
+        @test shown(gruntz_cases(:(sqrt(a)*x + x), :x)) == Set(["a < 0" => :undefined, "a >= 0" => Inf])
+        @test shown(gruntz_cases(:(sqrt(a*x)/x), :x)) == Set(["a < 0" => :undefined, "a >= 0" => 0])
+        @test shown(gruntz_cases(:(sqrt(a*x)*x), :x, 0; dir = :-)) == Set(["a <= 0" => 0, "a > 0" => :undefined])
+        @test gruntz_limit(:(sqrt(a)*x + x), :x) == Inf
+        @test gruntz_limit(:(log(-2a*x)/x), :x; signs = Dict(:a => :negative)) == 0
+        @test gruntz_limit(:(sqrt(-a*x)/x), :x; signs = Dict(:a => :negative)) == 0
+        @test_throws GruntzError gruntz_limit(:(log(-a*x)/x), :x; signs = Dict(:a => :positive))
         # signs restrict the cases; a limit without parameters has one case
         @test shown(gruntz_cases(:(x^(a - 2)), :x; signs = Dict(:a => :negative))) == Set(["always" => 0])
         @test shown(gruntz_cases(:(sin(x)/x), :x, 0)) == Set(["always" => 1])

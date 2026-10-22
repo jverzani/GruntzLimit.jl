@@ -401,6 +401,11 @@ Signs that follow from those given are used. Linear consequences (`a > 2` from `
 are found by Fourier–Motzkin elimination. Products, quotients, powers and logarithms of
 parameters take their signs from their factors (`log(a)` has the sign of `a - 1`).
 
+Signs that leave a logarithm or a fractional power of the parameters without a valid
+argument (`log(a*x)` or `sqrt(a)` with `a` negative) make the limit undefined: a
+`GruntzError` of kind `:undefined`. Without such signs, `gruntz_limit` takes the
+parameters to be values for which `f` is defined, as it takes them to be nonzero.
+
 ## When there is no limit
 
 A [`GruntzError`](@ref) is also thrown when the limit does not exist. For example, bounded
