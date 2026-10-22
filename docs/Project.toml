@@ -10,4 +10,5 @@ SymbolicUtils = "d1185830-fcd6-423d-90d6-eec64667417b"
 GruntzLimit = {path = ".."}
 
 [compat]
+SymEngine = "0.13.2"
 SymbolicUtils = "4.51.0"
