@@ -74,20 +74,20 @@ function mklog(s::Sum)
     require_positive(s)
     if length(s.t) == 1
         m, c = first(s.t)
-        if c < 0
-            np = negparam(m, c)
-            np === nothing && throw(GruntzError("log of a negative number", :undefined))
-            k, r = np
-            res = addS(lograt(-c), atomS(funatom(:log, Sum[k])))
-            for (a, e) in r.fs
-                res = addS(res, scaleS(logatom(a), e))
-            end
-            return res
+        negs, grp = Pair{Atom,Q}[], nothing
+        if needs_signs(m, c)
+            pf = positive_factors(m, c)
+            pf === nothing && throw(GruntzError("log of a negative number", :undefined))
+            c, m, negs, grp = pf
         end
         res = lograt(c)
         for (a, e) in m.fs
             res = addS(res, scaleS(logatom(a), e))
         end
+        for (a, e) in negs                       # log(a^e) = e log(-a), for a < 0
+            res = addS(res, scaleS(atomS(funatom(:log, Sum[negatom(a)])), e))
+        end
+        grp === nothing || (res = addS(res, atomS(funatom(:log, Sum[grp]))))
         return res
     end
     atomS(funatom(:log, Sum[s]))

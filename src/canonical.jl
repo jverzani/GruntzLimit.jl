@@ -130,12 +130,16 @@ function powS(s::Sum, q::Q)
             _defer_domain(m) && return monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))   # checked later
             require_positive(s; strict = q < 0, what = "fractional power")
         end
-        if c < 0 && !isone(denominator(q))
-            np = negparam(m, c)
-            if np !== nothing
-                k, r = np
-                kr = mulMono(Mono(Pair{Atom,Q}[baseatom(k) => q]), powMono(r, q))
-                return mulS(powS(constS(-c), q), monoS(kr, Q(1)))
+        if !isone(denominator(q)) && needs_signs(m, c)
+            pf = positive_factors(m, c)
+            if pf !== nothing                    # otherwise ratpow raises the error
+                c2, kept, negs, grp = pf
+                mm = powMono(kept, q)            # (a^e)^q = ((-a)^e)^q, for a < 0
+                for (a, e) in negs
+                    mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(negatom(a)) => e * q]))
+                end
+                grp === nothing || (mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(grp) => q])))
+                return mulS(powS(constS(c2), q), monoS(mm, Q(1)))
             end
         end
         mm = powMono(m, q)

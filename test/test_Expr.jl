@@ -210,6 +210,14 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(sqrt(a)*x), :x; signs = Dict(:a => :nonnegative)) == Inf
         @test gruntz_limit(:(sqrt(a)*x + x), :x) == Inf
         @test (try gruntz_limit(:(log(a*x)/x), :x; signs = neg) catch e; e.kind end) === :undefined
+        # a product of parameters is split into logs and powers of positive factors
+        nn = Dict(:a => :negative, :b => :negative)
+        @test gruntz_limit(:(log(a*b*x) - log(x)), :x; signs = nn) == :(log(-1a) + log(-1b))
+        @test gruntz_limit(:(log(a*b*x) - log(x)), :x) == :(log(a) + log(b))
+        @test gruntz_limit(:(log(-a*b) + 0*x), :x; signs = Dict(:a => :negative, :b => :positive)) == :(log(-1a) + log(b))
+        @test gruntz_limit(:(log(a^2*x) - log(x)), :x; signs = neg) == :(2 * log(-1a))
+        @test gruntz_limit(:(sqrt(a*b)*x), :x; signs = nn) == Inf
+        @test_throws GruntzError gruntz_limit(:(log(a*b*x)/x), :x; signs = Dict(:a => :negative, :b => :positive))
     end
 
     @testset "cases of parameters (experimental)" begin
@@ -250,6 +258,14 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(log(-2a*x)/x), :x; signs = Dict(:a => :negative)) == 0
         @test gruntz_limit(:(sqrt(-a*x)/x), :x; signs = Dict(:a => :negative)) == 0
         @test_throws GruntzError gruntz_limit(:(log(-a*x)/x), :x; signs = Dict(:a => :positive))
+        # a product of parameters: valid when both are negative
+        @test shown(gruntz_cases(:(sqrt(a*b)*x), :x)) ==
+              Set(["a < 0 && b < 0" => Inf, "a < 0 && b == 0" => 0, "a < 0 && b > 0" => :undefined, "a == 0" => 0,
+                   "a > 0 && b < 0" => :undefined, "a > 0 && b == 0" => 0, "a > 0 && b > 0" => Inf])
+        cs = gruntz_cases(:(log(a*b)*x), :x)
+        @test cs(:a => -2, :b => -1//2) == 0 && cs(:a => -2, :b => -1) == Inf && cs(:a => -2, :b => -1//4) == -Inf
+        @test cs(:a => 2, :b => 1//2) == 0 && cs(:a => -2, :b => 1) == :undefined
+        @test shown(gruntz_cases(:(log(-a) - 1 + 0*x), :x)) == Set(["a < 0" => "-1 + log(-1a)", "a >= 0" => :undefined])
         # signs restrict the cases; a limit without parameters has one case
         @test shown(gruntz_cases(:(x^(a - 2)), :x; signs = Dict(:a => :negative))) == Set(["always" => 0])
         @test shown(gruntz_cases(:(sin(x)/x), :x, 0)) == Set(["always" => 1])

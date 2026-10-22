@@ -15,7 +15,7 @@ Steps 1–6 of the suggested order below are implemented on this branch:
 - `gruntz_cases(f, x, x0; ...)` returns a `LimitCases`, a vector of
   `Vector{CaseCondition} => limit`. A limit is a value, `:nolimit`, `:undefined`, or a
   `GruntzError` for a case not computed. `benchmark/cases/cases.jl` scores it at
-  **77 of 79 cases**; the two misses are problem 17 (out of scope).
+  **84 of 86 cases**; the two misses are problem 17 (out of scope).
 - `gruntz_limit` throws a `GruntzError` naming the constant whose sign is needed
   (`the limit depends on the sign of `a - 2``). `signs` takes constants as keys and 0 as a
   sign (`Dict(:(a - 2) => :negative)`, `Dict(:b => :zero)`).
@@ -68,7 +68,7 @@ Known weaknesses:
 
 ## The test problems
 
-`benchmark/cases/problems.jl` has 25 problems with 79 cases. Each case is a condition, a
+`benchmark/cases/problems.jl` has 27 problems with 86 cases. Each case is a condition, a
 sample value of the parameters inside it, and the answer (a value, `:nolimit` or
 `:undefined`). The conditions of a problem cover all real values of the parameters, so a
 case-splitting method can be checked for completeness as well as for each answer.

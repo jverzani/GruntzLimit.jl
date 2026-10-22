@@ -106,4 +106,11 @@
     (:(x/sqrt(a - 1)), Inf, :both,
      [(:(a <= 1), (a = 0.5,), :undefined), (:(a > 1), (a = 2,), Inf)],
      "a negative power: a - 1 > 0"),
+    (:(sqrt(a*b)*x), Inf, :both,
+     [(:(a*b < 0), (a = -1, b = 2), :undefined), (:(a*b == 0), (a = 0, b = 2), 0), (:(a*b > 0), (a = -1, b = -2), Inf)],
+     "a product of parameters, both negative"),
+    (:(log(a*b)*x), Inf, :both,
+     [(:(a*b <= 0), (a = -1, b = 2), :undefined), (:(0 < a*b < 1), (a = -0.5, b = -1), -Inf),
+      (:(a*b == 1), (a = -2, b = -0.5), 0), (:(a*b > 1), (a = -2, b = -2), Inf)],
+     "log(a b) = log(-a) + log(-b) when both are negative"),
 ]
