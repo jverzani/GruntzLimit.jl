@@ -6,6 +6,7 @@ const METHODS = [
     ("expr", "GruntzLimit", "Gruntz", "Expr"),
     ("symengine", "GruntzLimit", "Gruntz", "SymEngine"),
     ("symbolicutils", "GruntzLimit", "Gruntz", "SymbolicUtils"),
+    ("symj", "GruntzLimit", "Gruntz", "SymJ"),
     ("symboliclimits", "SymbolicLimits", "limit", "SymbolicUtils"),
     ("symboliclimits_explog", "SymbolicLimits", "limit, powers as exp/log", "SymbolicUtils"),
     ("giac", "Giac", "limit (for reference)", "Giac"),

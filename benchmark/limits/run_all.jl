@@ -16,12 +16,21 @@ function commit(dir)
         "unknown"
     end
 end
-commits = [("GruntzLimit", commit(joinpath(HERE, "..", "..")))]
+# SymJ is not registered yet: env_symj takes it from its main branch, updated here to
+# the latest commit, which is recorded in place of a version
+const SYMJ = "https://github.com/jverzani/SymJ.jl"
+run(`julia --project=$(joinpath(HERE, "env_symj")) -e 'using Pkg; Pkg.update("SymJ")'`)
+symj = try
+    first(split(readchomp(`git ls-remote $SYMJ refs/heads/main`)))[1:7]
+catch
+    "unknown"
+end
+commits = [("GruntzLimit", commit(joinpath(HERE, "..", ".."))), ("SymJ", symj)]
 open(joinpath(HERE, "results", "commits.tsv"), "w") do io
     foreach(((name, c),) -> println(io, name, "\t", c), commits)
 end
 
-for (name, env) in (("expr", "env_gruntz"), ("symengine", "env_gruntz"), ("symbolicutils", "env_gruntz"),
+for (name, env) in (("expr", "env_gruntz"), ("symengine", "env_gruntz"), ("symbolicutils", "env_gruntz"), ("symj", "env_symj"),
                     ("symboliclimits", "env_sl"), ("symboliclimits_explog", "env_sl"), ("giac", "env_giac"))
     @info "running $name"
     run(`julia $(joinpath(HERE, "supervise.jl")) $name $env $LIMIT`)

@@ -1,0 +1,8 @@
+# GruntzLimit with SymJ terms; SymJ is not registered yet, so it comes from the head of its main
+[deps]
+GruntzLimit = "549ac5eb-4437-4bd1-88f1-51d4e2fa49c9"
+SymJ = "73a6d648-42a5-483e-b8b5-fc71c1696ef5"
+
+[sources]
+GruntzLimit = {path = "../../.."}
+SymJ = {url = "https://github.com/jverzani/SymJ.jl", rev = "main"}
