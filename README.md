@@ -68,7 +68,7 @@ with parameters. SymbolicLimits handles only `+`, `*`, integer powers, `exp` and
 count on the badge is therefore for the problems rewritten in those terms (`u^v` as
 `exp(v*log(u))`, and so on), as a user might rewrite them.
 
-The [comparison](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html)
+The [comparison](https://rawcdn.githack.com/jverzani/GruntzLimit.jl/c09349412d1d95e7b4b8830551cbe885c7db9a1b/benchmark/limits/results/limits_comparison.html)
 has both runs of SymbolicLimits, and GruntzLimit with `Expr` and SymEngine terms too. See
 `benchmark/limits/README.md` to rerun it.
 

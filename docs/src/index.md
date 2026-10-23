@@ -1,6 +1,6 @@
 # GruntzLimit.jl
 
-[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 37](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2037-2f8a4c)](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html)
+[![Limits, correct of 66: GruntzLimit 66, SymbolicLimits 37](https://img.shields.io/badge/limits%2C%20correct%20of%2066-GruntzLimit%2066%20%C2%B7%20SymbolicLimits%2037-2f8a4c)](https://rawcdn.githack.com/jverzani/GruntzLimit.jl/c09349412d1d95e7b4b8830551cbe885c7db9a1b/benchmark/limits/results/limits_comparison.html)
 
 Limits of univariate real expressions using the algorithm of D. Gruntz,
 [*On Computing Limits in a Symbolic Manipulation System*](https://doi.org/10.3929/ethz-a-001631582)
@@ -25,7 +25,7 @@ answer is rebuilt in your term type by calling operations as functions.
 This package was implemented by Claude Code. See also
 [SymbolicLimits.jl](https://github.com/SciML/SymbolicLimits.jl), which implements Gruntz's
 algorithm for Symbolics.jl.
-The [comparison](https://htmlpreview.github.io/?https://github.com/jverzani/GruntzLimit.jl/blob/main/benchmark/limits/results/limits_comparison.html) (the badge above) has
+The [comparison](https://rawcdn.githack.com/jverzani/GruntzLimit.jl/c09349412d1d95e7b4b8830551cbe885c7db9a1b/benchmark/limits/results/limits_comparison.html) (the badge above) has
 both packages on 66 limit problems, the examples of Gruntz's thesis among them; see
 `benchmark/limits/README.md` in the repository to rerun it.
 

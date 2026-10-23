@@ -145,8 +145,11 @@ badge comparing the number of problems solved
 correctly by `symbolicutils` (GruntzLimit, SymbolicUtils) and
 `symboliclimits_explog` (SymbolicLimits on the same problems, powers rewritten as
 `exp`/`log`, as a user could). It links to the page through
-htmlpreview.github.io, from `main`, so the page must be committed and pushed
-there. It is a static badge: after a run that changes these numbers, update
+rawcdn.githack.com at a commit hash (githack caches each URL permanently, so a
+branch name would keep showing the first version it saw). After a run, commit and
+push the page, then put that commit's hash in the link (README.md and
+docs/src/index.md).
+It is a static badge: after a run that changes these numbers, update
 them in the badge URL and its alt text, in both places.
 
 ## Results so far
