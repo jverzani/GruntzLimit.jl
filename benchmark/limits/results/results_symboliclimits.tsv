@@ -1,137 +1,137 @@
-L	1.0131800174713135	1
+L	1.1421279907226562	1
 V	SymbolicLimits	1.2.2
 V	SymbolicUtils	4.51.0
-S	1	1.792271490838967e9
-R	1	solved	verified	0.6468169689178467	-1
-S	2	1.792271491588333e9
-R	2	solved	verified	0.5338809490203857	1
-S	3	1.792271492123105e9
-R	3	solved	verified	1.3219730854034424	Inf (assuming false)
-S	4	1.792271493516937e9
-R	4	error	none	0.19321298599243164	Not implemented: POW with noninteger exponent -log(x). Transform to log/exp.
-S	5	1.792271493717572e9
-R	5	error	none	1.1155710220336914	Not implemented: POW with noninteger exponent 1.718281828459045. Transform to log/exp.
-S	6	1.792271494833718e9
-R	6	solved	verified	3.63315486907959	Inf
-S	7	1.792271498467588e9
-R	7	solved	verified	3.896807909011841	1.0
-S	8	1.792271502369866e9
-R	8	solved	verified	0.759357213973999	1
-S	9	1.792271503129908e9
-R	9	error	none	0.001444101333618164	Not implemented: sqrt
-S	10	1.792271503136118e9
-R	10	solved	verified	2.6230251789093018	0.3333333333333333
-S	11	1.792271505770094e9
-R	11	error	none	0.28030896186828613	Not implemented: POW with noninteger exponent 0.5. Transform to log/exp.
-S	12	1.792271506051019e9
-R	12	error	none	0.007050991058349609	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
-S	13	1.792271506058604e9
-R	13	error	none	0.01199197769165039	Not implemented: POW with noninteger exponent log(x^(0.6931471805599453 / log(x))). Transform to log/exp.
-S	14	1.792271506071118e9
-R	14	solved	verified	5.311248064041138	Inf
-S	15	1.79227151138318e9
-R	15	error	none	0.0041730403900146484	Not implemented: POW with noninteger exponent 49//45. Transform to log/exp.
-S	16	1.79227151139472e9
-R	16	error	none	0.11289000511169434	Not implemented: POW with noninteger exponent 0.5. Transform to log/exp.
-S	17	1.792271511511479e9
-R	17	error	none	0.09350800514221191	Not implemented: POW with noninteger exponent 0.5. Transform to log/exp.
-S	18	1.792271511605587e9
-R	18	solved	wrong	2.0058109760284424	Inf
-S	19	1.792271513612416e9
-R	19	solved	verified	0.10003495216369629	1
-S	20	1.792271513713184e9
-R	20	solved	verified	0.16407012939453125	2.718281828459045
-S	21	1.792271513887738e9
-R	21	error	none	0.00029397010803222656	Not implemented: sin
-S	22	1.792271513888742e9
-R	22	error	none	0.0073871612548828125	Not implemented: sin
-S	23	1.792271513896629e9
-R	23	solved	verified	0.5140349864959717	0 (assuming false)
-S	24	1.792271514411424e9
-R	24	error	none	0.00021600723266601562	Not implemented: POW with noninteger exponent x^2. Transform to log/exp.
-S	25	1.792271514412102e9
-R	25	error	none	0.0002319812774658203	Not implemented: POW with noninteger exponent x. Transform to log/exp.
-S	26	1.792271514412747e9
-R	26	error	none	0.0001361370086669922	Not implemented: POW with noninteger exponent log(x)*x. Transform to log/exp.
-S	27	1.792271514413307e9
-R	27	solved	verified	0.032061100006103516	0.5
-S	28	1.79227151444603e9
-R	28	solved	verified	0.05719804763793945	1.0
-S	29	1.792271514503925e9
-R	29	error	none	0.00023794174194335938	Not implemented: POW with noninteger exponent log(x). Transform to log/exp.
-S	30	1.79227151450459e9
-R	30	error	none	0.0002589225769042969	Not implemented: sqrt
-S	31	1.792271514505276e9
-R	31	error	none	0.00029206275939941406	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
-S	32	1.792271514506035e9
-R	32	solved	verified	0.004434108734130859	1
-S	33	1.792271514510978e9
-R	33	error	none	0.0001327991485595703	Not implemented: POW with noninteger exponent sin(1 / x). Transform to log/exp.
-S	34	1.792271514511461e9
-R	34	error	none	0.00030112266540527344	Not implemented: sin
-S	35	1.792271514512188e9
-R	35	error	none	0.004152059555053711	Not implemented: sqrt
-S	36	1.792271514516725e9
-R	36	error	none	0.00013518333435058594	Not implemented: POW with noninteger exponent b*x. Transform to log/exp.
-S	37	1.79227151451728e9
-R	37	error	none	0.00025010108947753906	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
-S	38	1.792271514517919e9
-R	38	error	none	0.00017595291137695312	Not implemented: POW with noninteger exponent a. Transform to log/exp.
-S	39	1.792271514518474e9
-R	39	solved	verified	0.012884855270385742	a
-S	40	1.792271514623776e9
-R	40	error	none	0.00017714500427246094	Not implemented: POW with noninteger exponent x. Transform to log/exp.
-S	41	1.792271514624395e9
-R	41	error	none	0.00018906593322753906	Not implemented: sqrt
-S	42	1.792271514625035e9
-R	42	error	none	0.007776975631713867	Not implemented: sin
-S	43	1.792271514657128e9
-R	43	error	none	0.00028014183044433594	Not implemented: tan
-S	44	1.792271514658149e9
-R	44	error	none	0.0002689361572265625	Not implemented: tan
-S	45	1.792271514659105e9
-R	45	error	none	0.0003428459167480469	Not implemented: sin
-S	46	1.792271514660159e9
-R	46	solved	verified	0.03425908088684082	0.5
-S	47	1.792271514695312e9
-R	47	error	none	0.005639076232910156	Not implemented: POW with noninteger exponent 1 / ((-1 / x)^2). Transform to log/exp.
-S	48	1.79227151470167e9
-R	48	error	none	0.0014519691467285156	Not implemented: sin
-S	49	1.792271514703868e9
-R	49	error	none	0.009392023086547852	Not implemented: atan
-S	50	1.792271514741622e9
-R	50	solved	verified	0.05077695846557617	0 (assuming false)
-S	51	1.792271514796614e9
-R	51	error	none	0.00019216537475585938	Not implemented: POW with noninteger exponent (1 / x)^(1 / x). Transform to log/exp.
-S	52	1.79227151479746e9
-R	52	error	none	0.0003478527069091797	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
-S	53	1.792271514798501e9
-R	53	solved	verified	0.00654292106628418	0
-S	54	1.792271514805821e9
-R	54	solved	verified	0.019364118576049805	0.5
-S	55	1.792271514826053e9
-R	55	error	none	0.00019288063049316406	Not implemented: POW with noninteger exponent x. Transform to log/exp.
-S	56	1.792271514827183e9
-R	56	error	none	0.004057168960571289	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
-S	57	1.792271514884958e9
-R	57	error	none	0.000141143798828125	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
-S	58	1.792271514886243e9
-R	58	error	none	0.0003628730773925781	Not implemented: POW with noninteger exponent -1 / x. Transform to log/exp.
-S	59	1.792271514887266e9
-R	59	error	none	0.00020313262939453125	Not implemented: sin
-S	60	1.792271514888119e9
-R	60	error	none	0.0003371238708496094	Not implemented: cos
-S	61	1.792271514889151e9
-R	61	error	none	0.0001499652862548828	Not implemented: POW with noninteger exponent -x. Transform to log/exp.
-S	62	1.792271514889952e9
-R	62	error	none	0.00020694732666015625	Not implemented: cos
-S	63	1.792271514890847e9
-R	63	error	none	0.0002651214599609375	Not implemented: POW with noninteger exponent a. Transform to log/exp.
-S	64	1.792271514891762e9
-R	64	error	none	0.00011396408081054688	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
-S	65	1.792271514898531e9
-R	65	error	none	0.00010991096496582031	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
-S	66	1.792271514899672e9
-R	66	error	none	9.584426879882812e-5	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
+S	1	1.792780650828625e9
+R	1	solved	verified	0.702826976776123	-1
+S	2	1.792780651642966e9
+R	2	solved	verified	0.5480649471282959	1
+S	3	1.792780652192049e9
+R	3	solved	verified	1.433542013168335	Inf (assuming false)
+S	4	1.79278065370243e9
+R	4	error	none	0.20898795127868652	Not implemented: POW with noninteger exponent -log(x). Transform to log/exp.
+S	5	1.792780653919857e9
+R	5	error	none	1.320119857788086	Not implemented: POW with noninteger exponent 1.718281828459045. Transform to log/exp.
+S	6	1.792780655240646e9
+R	6	solved	verified	4.238911867141724	Inf
+S	7	1.792780659480473e9
+R	7	solved	verified	4.621258974075317	1.0
+S	8	1.792780664111986e9
+R	8	solved	verified	1.0307490825653076	1
+S	9	1.792780665143806e9
+R	9	error	none	0.001987934112548828	Not implemented: sqrt
+S	10	1.79278066515329e9
+R	10	solved	verified	3.351861000061035	0.3333333333333333
+S	11	1.792780668523923e9
+R	11	error	none	0.3640120029449463	Not implemented: POW with noninteger exponent 0.5. Transform to log/exp.
+S	12	1.792780668890643e9
+R	12	error	none	0.009070873260498047	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
+S	13	1.792780668900408e9
+R	13	error	none	0.014854192733764648	Not implemented: POW with noninteger exponent log(x^(0.6931471805599453 / log(x))). Transform to log/exp.
+S	14	1.792780668915906e9
+R	14	solved	verified	7.302250862121582	Inf
+S	15	1.792780676219755e9
+R	15	error	none	0.007529020309448242	Not implemented: POW with noninteger exponent 49//45. Transform to log/exp.
+S	16	1.79278067624498e9
+R	16	error	none	0.1833810806274414	Not implemented: POW with noninteger exponent 0.5. Transform to log/exp.
+S	17	1.792780676434611e9
+R	17	error	none	0.1257181167602539	Not implemented: POW with noninteger exponent 0.5. Transform to log/exp.
+S	18	1.79278067656123e9
+R	18	solved	wrong	2.6694722175598145	Inf
+S	19	1.792780679232286e9
+R	19	solved	verified	0.12749409675598145	1
+S	20	1.792780679360744e9
+R	20	solved	verified	0.20325303077697754	2.718281828459045
+S	21	1.792780679578093e9
+R	21	error	none	0.0004889965057373047	Not implemented: sin
+S	22	1.792780679579893e9
+R	22	error	none	0.00918889045715332	Not implemented: sin
+S	23	1.792780679589931e9
+R	23	solved	verified	0.6930689811706543	0 (assuming false)
+S	24	1.79278068028433e9
+R	24	error	none	0.0003330707550048828	Not implemented: POW with noninteger exponent x^2. Transform to log/exp.
+S	25	1.792780680285981e9
+R	25	error	none	0.0003020763397216797	Not implemented: POW with noninteger exponent x. Transform to log/exp.
+S	26	1.792780680286934e9
+R	26	error	none	0.0002548694610595703	Not implemented: POW with noninteger exponent log(x)*x. Transform to log/exp.
+S	27	1.792780680287717e9
+R	27	solved	verified	0.041452884674072266	0.5
+S	28	1.792780680330006e9
+R	28	solved	verified	0.07547903060913086	1.0
+S	29	1.792780680406373e9
+R	29	error	none	0.00033020973205566406	Not implemented: POW with noninteger exponent log(x). Transform to log/exp.
+S	30	1.792780680407278e9
+R	30	error	none	0.0003108978271484375	Not implemented: sqrt
+S	31	1.792780680408154e9
+R	31	error	none	0.0003719329833984375	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
+S	32	1.792780680409057e9
+R	32	solved	verified	0.005589962005615234	1
+S	33	1.792780680415387e9
+R	33	error	none	0.0002129077911376953	Not implemented: POW with noninteger exponent sin(1 / x). Transform to log/exp.
+S	34	1.792780680416092e9
+R	34	error	none	0.00035500526428222656	Not implemented: sin
+S	35	1.792780680416969e9
+R	35	error	none	0.005741119384765625	Not implemented: sqrt
+S	36	1.792780680423252e9
+R	36	error	none	0.0002219676971435547	Not implemented: POW with noninteger exponent b*x. Transform to log/exp.
+S	37	1.792780680424135e9
+R	37	error	none	0.0003018379211425781	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
+S	38	1.79278068042496e9
+R	38	error	none	0.0002040863037109375	Not implemented: POW with noninteger exponent a. Transform to log/exp.
+S	39	1.792780680425621e9
+R	39	solved	verified	0.016098976135253906	a
+S	40	1.792780680567668e9
+R	40	error	none	0.00019502639770507812	Not implemented: POW with noninteger exponent x. Transform to log/exp.
+S	41	1.79278068056843e9
+R	41	error	none	0.00021004676818847656	Not implemented: sqrt
+S	42	1.79278068056917e9
+R	42	error	none	0.010740995407104492	Not implemented: sin
+S	43	1.792780680614077e9
+R	43	error	none	0.0003948211669921875	Not implemented: tan
+S	44	1.792780680615515e9
+R	44	error	none	0.00034618377685546875	Not implemented: tan
+S	45	1.792780680616772e9
+R	45	error	none	0.00044798851013183594	Not implemented: sin
+S	46	1.792780680618272e9
+R	46	solved	verified	0.046653032302856445	0.5
+S	47	1.792780680666243e9
+R	47	error	none	0.0065097808837890625	Not implemented: POW with noninteger exponent 1 / ((-1 / x)^2). Transform to log/exp.
+S	48	1.792780680673673e9
+R	48	error	none	0.0020859241485595703	Not implemented: sin
+S	49	1.792780680676755e9
+R	49	error	none	0.015578031539916992	Not implemented: atan
+S	50	1.792780680731231e9
+R	50	solved	verified	0.06644105911254883	0 (assuming false)
+S	51	1.792780680804334e9
+R	51	error	none	0.00027489662170410156	Not implemented: POW with noninteger exponent (1 / x)^(1 / x). Transform to log/exp.
+S	52	1.79278068080559e9
+R	52	error	none	0.0004918575286865234	Not implemented: POW with noninteger exponent 1 / x. Transform to log/exp.
+S	53	1.792780680807125e9
+R	53	solved	verified	0.009541988372802734	0
+S	54	1.792780680817976e9
+R	54	solved	verified	0.025432825088500977	0.5
+S	55	1.792780680844449e9
+R	55	error	none	0.0002999305725097656	Not implemented: POW with noninteger exponent x. Transform to log/exp.
+S	56	1.79278068084632e9
+R	56	error	none	0.006017923355102539	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
+S	57	1.792780680931385e9
+R	57	error	none	0.00021696090698242188	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
+S	58	1.792780680933651e9
+R	58	error	none	0.0004138946533203125	Not implemented: POW with noninteger exponent -1 / x. Transform to log/exp.
+S	59	1.792780680934876e9
+R	59	error	none	0.00023818016052246094	Not implemented: sin
+S	60	1.792780680935965e9
+R	60	error	none	0.0003561973571777344	Not implemented: cos
+S	61	1.792780680937028e9
+R	61	error	none	0.0001780986785888672	Not implemented: POW with noninteger exponent -x. Transform to log/exp.
+S	62	1.792780680937878e9
+R	62	error	none	0.00022101402282714844	Not implemented: cos
+S	63	1.792780680938783e9
+R	63	error	none	0.00033593177795410156	Not implemented: POW with noninteger exponent a. Transform to log/exp.
+S	64	1.792780680939878e9
+R	64	error	none	0.0001800060272216797	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
+S	65	1.792780680951057e9
+R	65	error	none	0.0001430511474609375	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
+S	66	1.792780680952585e9
+R	66	error	none	0.00013399124145507812	MethodError: no method matching isinf(::SymbolicUtils.BasicSymbolicImpl.var"typeof(BasicSymbolicImpl)"{SymReal}) The function `isinf` exists, but no method is defined for this combination of argument types. Closest candidates are: isinf(!Matched::BigFloat) @ Base mpfr.jl:1130 isinf(!Matched::Missing) @ Base missing.jl:103 isinf(!Matched::Complex) @ Base complex.jl:152 ... 
 D
-T	26.217403173446655	60.0
+T	32.75899696350098	60.0

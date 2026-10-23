@@ -1,6 +1,6 @@
 # Limits comparison
 
-GruntzLimit on three term types, SciML's
+GruntzLimit on four term types, SciML's
 [SymbolicLimits.jl](https://github.com/SciML/SymbolicLimits.jl) on
 SymbolicUtils terms, and Giac's own `limit` (through
 [Giac.jl](https://github.com/s-celles/Giac.jl)) as a reference from a
@@ -11,6 +11,7 @@ long-established computer algebra system, on the limit problems of `problems.jl`
 | `expr` | GruntzLimit (this package) | Julia `Expr` |
 | `symengine` | GruntzLimit | SymEngine |
 | `symbolicutils` | GruntzLimit | SymbolicUtils |
+| `symj` | GruntzLimit | [SymJ](https://github.com/jverzani/SymJ.jl) |
 | `symboliclimits` | SymbolicLimits, `limit` | SymbolicUtils |
 | `symboliclimits_explog` | SymbolicLimits, `limit`, after rewriting powers and radicals as `exp`/`log` | SymbolicUtils |
 | `giac` | Giac.jl, Giac's `limit` (for reference) | Giac |
@@ -39,13 +40,15 @@ positive (`a = 1.7`, `b = 2.3` in the check).
 
 ## Running it
 
-GruntzLimit comes from this checkout; everything else from the registry.
+GruntzLimit comes from this checkout; SymJ, not yet registered, from the latest commit
+of its `main` branch (`run_all.jl` updates it first); everything else from the registry.
 
 ```sh
 cd benchmark/limits
 julia --project=env_gruntz -e 'using Pkg; Pkg.instantiate()'   # once, or after changing a package
 julia --project=env_sl -e 'using Pkg; Pkg.instantiate()'
 julia --project=env_giac -e 'using Pkg; Pkg.instantiate()'
+julia --project=env_symj -e 'using Pkg; Pkg.instantiate()'
 julia run_all.jl            # or `julia run_all.jl 120` for a 120 s limit per problem
 ```
 
@@ -59,6 +62,11 @@ To run or rerun one method, then rebuild the page:
 julia supervise.jl symengine env_gruntz 60
 julia build.jl
 ```
+
+Running `symj` alone uses the SymJ commit last installed in `env_symj`; to pick up a
+newer one, run `julia --project=env_symj -e 'using Pkg; Pkg.update("SymJ")'`. Once SymJ
+is registered, drop its `[sources]` entry in `env_symj/Project.toml` and the update in
+`run_all.jl`.
 
 To pick up a newer registered SymbolicLimits, run
 `julia --project=env_sl -e 'using Pkg; Pkg.update()'` first.
@@ -74,12 +82,12 @@ To pick up a newer registered SymbolicLimits, run
 | `core.jl` | shared by the workers: builds each problem with the worker's variables, takes the limit, checks it, writes a line per problem |
 | `supervise.jl` | runs a worker; if one problem takes longer than the limit, kills the process, records a timeout and restarts at the next problem |
 | `build.jl`, `template.html` | turn the results into the page |
-| `env_gruntz`, `env_sl`, `env_giac` | the environments: GruntzLimit with SymEngine and SymbolicUtils; SymbolicLimits with SymbolicUtils; Giac.jl |
+| `env_gruntz`, `env_symj`, `env_sl`, `env_giac` | the environments: GruntzLimit with SymEngine and SymbolicUtils; GruntzLimit with SymJ; SymbolicLimits with SymbolicUtils; Giac.jl |
 
 Each problem is built from its expression with the worker's own values for
 `x`, `a`, `b`, `π` and `ℯ`: `SymEngine.@vars` with `PI` and `E`; SymbolicUtils
 `@syms x::Real a::Real b::Real` with `identity(π)` and `exp(Const(1))` (as in
-`test/test_SymbolicUtils.jl`). For `expr` the quoted expression is the term.
+`test/test_SymbolicUtils.jl`); SymJ `Sym(:x)` with `Sym(π)` and `Sym(ℯ)`. For `expr` the quoted expression is the term.
 The direction is given to both packages: GruntzLimit's `dir = :+`, `:-`,
 `:both`, SymbolicLimits' `:right`, `:left`, `:both` (none at ±∞).
 
@@ -116,7 +124,7 @@ SymbolicLimits' assumptions (other than `true`) are appended to its answer.
 | `T` | wall time in seconds, limit in seconds |
 
 `results/commits.tsv` records the git commit of GruntzLimit (and whether it
-had uncommitted changes) when `run_all.jl` ran.
+had uncommitted changes) and of SymJ when `run_all.jl` ran.
 
 ## Adding a method
 
@@ -156,12 +164,13 @@ them in the badge URL and its alt text, in both places.
 
 Correct out of 66. Times are on one machine and only comparable within a run.
 
-| Date | Julia | GruntzLimit | expr | symengine | symbolicutils | symboliclimits | symboliclimits_explog | giac |
-|---|---|---|---|---|---|---|---|---|
-| 2026-10-17 | 1.13.0 | `d64dfcd` | 60 | 61 | 61 | 19 | 37 | |
-| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes | 65 | 65 | 65 | 19 | 37 | |
-| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes, parameter signs | 66 | 66 | 66 | 19 | 37 | |
-| 2026-10-18 | 1.13.0 | `5dfb3a7` | 66 | 66 | 66 | 19 | 37 | 65 |
+| Date | Julia | GruntzLimit | expr | symengine | symbolicutils | symj | symboliclimits | symboliclimits_explog | giac |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-17 | 1.13.0 | `d64dfcd` | 60 | 61 | 61 | | 19 | 37 | |
+| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes | 65 | 65 | 65 | | 19 | 37 | |
+| 2026-10-17 | 1.13.0 | `d64dfcd` + fixes, parameter signs | 66 | 66 | 66 | | 19 | 37 | |
+| 2026-10-18 | 1.13.0 | `5dfb3a7` | 66 | 66 | 66 | | 19 | 37 | 65 |
+| 2026-10-23 | 1.13.0 | `74807b6` | 66 | 66 | 66 | 66 | 19 | 37 | 65 |
 
 Notes:
 
@@ -177,3 +186,6 @@ Notes:
   third run. Giac misses only xᵃ/eˣ (38), where it cannot make the series
   expansion with the sign of `a` unknown. Giac's answers `undef`, unsigned
   `infinity` and `bounded_function(…)` (no limit) are not counted as answers.
+- The fifth run adds GruntzLimit on SymJ terms (SymJ `787277f`, the head of its
+  `main`); it solves all 66, in 0.6 s, as SymJ's GruntzLimit extension precompiles
+  the limit code. All methods were rerun.
