@@ -3,8 +3,22 @@
 # ---------------------------------------------------------------------------
 const DEPTH = ScopedValue(0)   # the depth of recursion of `limitinf`
 
+# The same limits are asked for many times over (comparing mrv classes, signs of
+# leading coefficients): the results are cached for the extent of the context, which
+# fixes the conditions they depend on. Sums are never mutated, so sharing is safe.
 function limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
     hasleaf(e, x.key) || return e
+    cache = CONTEXT[].limit_cache
+    cache === nothing && return _limitinf(e, x)
+    k = (skey(e), x.key)
+    r = get(cache, k, nothing)
+    r === nothing || return r::Union{Sum,Infinity}
+    r = _limitinf(e, x)
+    cache[k] = r
+    r
+end
+
+function _limitinf(e::Sum, x::Atom)::Union{Sum,Infinity}
     DEPTH[] > 120 && throw(GruntzError("recursion limit reached: the expression is too " *
                                        "complicated for the algorithm as implemented"))
     with(DEPTH => DEPTH[] + 1) do
