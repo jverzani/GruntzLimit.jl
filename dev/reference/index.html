@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reference — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=79c18fd7">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=cf3f2392">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Reference — GruntzLimit.jl">
   <meta property="og:title" content="Reference — GruntzLimit.jl">
@@ -54,7 +54,7 @@
 <div class="md-docstring" id="GruntzLimit.gruntz_limit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.gruntz_limit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1b122d59b055f5194a3458d1b8e43f2b036e11d9/src/limit.jl#L72-L122" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/0bca0832ae265bff0881829191b833ff5a309968/src/limit.jl#L72-L122" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -101,7 +101,7 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <div class="md-docstring" id="GruntzLimit.GruntzError">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.GruntzError</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1b122d59b055f5194a3458d1b8e43f2b036e11d9/src/GruntzLimit.jl#L61-L72" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/0bca0832ae265bff0881829191b833ff5a309968/src/GruntzLimit.jl#L61-L74" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -109,13 +109,13 @@ julia&gt; gruntz_limit(:(atan(x)), :x)
 <pre><code class="language-julia">GruntzError(msg)</code></pre>
 </div>
 <p>Thrown by <a href="../reference/#GruntzLimit.gruntz_limit"><code class="md-code-inline">gruntz_limit</code></a> when a limit cannot be computed: the limit does not exist (bounded oscillation such as <code class="md-code-inline">sin(x)</code> at <code class="md-code-inline">Inf</code>, or one-sided limits that differ with <code class="md-code-inline">dir = :both</code>), the expression uses an unsupported function, or the algorithm as implemented cannot finish (e.g. the sign of a constant involving a free parameter cannot be decided).</p>
-<p><code class="md-code-inline">kind</code> is <code class="md-code-inline">:nolimit</code> when the limit is known not to exist, <code class="md-code-inline">:undefined</code> when the expression is not defined (e.g. <code class="md-code-inline">log</code> of a negative number), and <code class="md-code-inline">:fail</code> otherwise.</p>
+<p><code class="md-code-inline">kind</code> is <code class="md-code-inline">:nolimit</code> when the limit is known not to exist, <code class="md-code-inline">:undefined</code> when the expression is not defined (e.g. <code class="md-code-inline">log</code> of a negative number), <code class="md-code-inline">:sign</code> when the limit depends on the sign of a constant with a parameter that cannot be decided (give it with <code class="md-code-inline">signs</code>, or use <a href="../reference/#GruntzLimit.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a>), and <code class="md-code-inline">:fail</code> otherwise.</p>
 </div>
 </div>
 <div class="md-docstring" id="GruntzLimit.gruntz_cases">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.gruntz_cases</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1b122d59b055f5194a3458d1b8e43f2b036e11d9/src/limit_cases.jl#L161-L189" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/0bca0832ae265bff0881829191b833ff5a309968/src/limit_cases.jl#L161-L189" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -146,7 +146,7 @@ LimitCases with 4 cases:
 <div class="md-docstring" id="GruntzLimit.LimitCases">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.LimitCases</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1b122d59b055f5194a3458d1b8e43f2b036e11d9/src/limit_cases.jl#L57-L81" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/0bca0832ae265bff0881829191b833ff5a309968/src/limit_cases.jl#L57-L81" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -170,7 +170,7 @@ cs[:a =&gt; 2, :b =&gt; 3]                  # the case: CaseCondition[...] =&gt;
 <div class="md-docstring" id="GruntzLimit.CaseCondition">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit.CaseCondition</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1b122d59b055f5194a3458d1b8e43f2b036e11d9/src/limit_cases.jl#L4-L10" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/0bca0832ae265bff0881829191b833ff5a309968/src/limit_cases.jl#L4-L10" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -185,7 +185,7 @@ cs[:a =&gt; 2, :b =&gt; 3]                  # the case: CaseCondition[...] =&gt;
 <div class="md-docstring" id="GruntzLimit">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>GruntzLimit</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/1b122d59b055f5194a3458d1b8e43f2b036e11d9/src/GruntzLimit.jl#L1-L49" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/GruntzLimit.jl/blob/0bca0832ae265bff0881829191b833ff5a309968/src/GruntzLimit.jl#L1-L49" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -249,6 +249,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=79c18fd7"></script>
+  <script src="../assets/materialdocs.js?v=cf3f2392"></script>
 </body>
 </html>

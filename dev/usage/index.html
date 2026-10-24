@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=c007ed94">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=b9feca34">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -461,7 +461,7 @@ catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;the limit depends on the sign of `a - 2`, which cannot be decided: give it with `signs`, or use `gruntz_cases`&quot;, :fail)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;the limit depends on the sign of `a - 2`, which cannot be decided: give it with `signs`, or use `gruntz_cases`&quot;, :sign)</code></pre>
 </div>
 <h3 id="A-limit-for-each-case" class="md-heading">A limit for each case<a href="#A-limit-for-each-case" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
 <p><a href="../reference/#GruntzLimit.gruntz_cases"><code class="md-code-inline">gruntz_cases</code></a> computes the limit for each case of the parameters. When the limit depends on the sign of a constant such as <code class="md-code-inline">a - 2</code>, it is computed for <code class="md-code-inline">a &lt; 2</code>, <code class="md-code-inline">a == 2</code> and <code class="md-code-inline">a &gt; 2</code>. The case <code class="md-code-inline">a == 2</code> is computed by substituting <code class="md-code-inline">a = 2</code>. Cases with the same limit are merged:</p>
@@ -667,6 +667,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=c007ed94"></script>
+  <script src="../assets/materialdocs.js?v=b9feca34"></script>
 </body>
 </html>
