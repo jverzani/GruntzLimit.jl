@@ -68,7 +68,9 @@ algorithm as implemented cannot finish (e.g. the sign of a constant involving a 
 parameter cannot be decided).
 
 `kind` is `:nolimit` when the limit is known not to exist, `:undefined` when the
-expression is not defined (e.g. `log` of a negative number), and `:fail` otherwise.
+expression is not defined (e.g. `log` of a negative number), `:sign` when the limit
+depends on the sign of a constant with a parameter that cannot be decided (give it with
+`signs`, or use [`gruntz_cases`](@ref)), and `:fail` otherwise.
 """
 struct GruntzError <: Exception
     msg::String
