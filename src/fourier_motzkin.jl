@@ -9,7 +9,7 @@ struct Ineq
 end
 negate(a::Dict{String,BigFloat}) = Dict{String,BigFloat}(v => -t for (v, t) in a)
 
-const FM_TOL = big"1e-40"
+const FM_TOL = 1e-40          # a Float64: a BigFloat constant is unsafe in precompiled code
 
 # Fourier–Motzkin elimination: whether the inequalities have a real solution, the
 # monomials taken as independent variables. A system that grows too large is taken
