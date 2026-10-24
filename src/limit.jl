@@ -133,7 +133,7 @@ function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = 
             err isa NeedSign || rethrow()
             c = show_condition(bd, split_target(err.c), :>)
             throw(GruntzError("the limit depends on the sign of `$(difference(c))`, which " *
-                              "cannot be decided: give it with `signs`, or use `gruntz_cases`"))
+                              "cannot be decided: give it with `signs`, or use `gruntz_cases`", :sign))
         end
     end
     user_value(bd, L)

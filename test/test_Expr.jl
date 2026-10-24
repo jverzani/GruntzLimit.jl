@@ -198,6 +198,7 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(exp(a*b*x)), :x; signs = Dict(:a => :positive, :b => :negative)) == 0
         @test gruntz_limit(:(x^a), :x, 0; signs = [:a => :positive]) == 0
         @test_throws GruntzError gruntz_limit(:(x^a), :x, 0)
+        @test (try gruntz_limit(:(x^a), :x, 0) catch e; e.kind end) === :sign
         @test gruntz_limit(:(x^a - x^b), :x; signs = Dict(:(a - b) => :positive, :b => :positive)) == Inf
         # signs that rule out a log or a fractional power make the limit undefined;
         # without them, a parameter is generic
