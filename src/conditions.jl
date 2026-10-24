@@ -24,9 +24,10 @@ struct Context
     cases::Bool                   # splitting into cases (`gruntz_cases`)
     x::Atom                       # the limit variable
     sign_cache::Union{Nothing,Dict{Tuple{String,Bool},Vector{Int}}}   # possible signs
+    limit_cache::Union{Nothing,Dict{Tuple{String,String},Any}}        # `limitinf` results
 end
 # outside `with_context` (converting `signs`): no conditions, and no cache to share
-const CONTEXT = ScopedValue(Context(Cond[], Dict{String,Sum}(), false, WLEAF, nothing))
+const CONTEXT = ScopedValue(Context(Cond[], Dict{String,Sum}(), false, WLEAF, nothing, nothing))
 
 # The sign of the constant `c` is needed; `possible` are the signs the context
 # allows. For a zero test (`zerotest`) only whether c is zero matters.
@@ -311,7 +312,8 @@ end
 # Setting the context; substituting values for parameters
 # ---------------------------------------------------------------------------
 with_context(g, ctx::Vector{Cond}, sub::Dict{String,Sum}, cases::Bool, x::Atom) =
-    with(g, CONTEXT => Context(ctx, sub, cases, x, Dict{Tuple{String,Bool},Vector{Int}}()))
+    with(g, CONTEXT => Context(ctx, sub, cases, x, Dict{Tuple{String,Bool},Vector{Int}}(),
+                               Dict{Tuple{String,String},Any}()))
 
 substS(s::Sum, sub::Dict{String,Sum}) =
     isempty(sub) ? s : subs_atoms(s, a -> a.kind === :leaf ? get(sub, a.key, nothing) : nothing)
