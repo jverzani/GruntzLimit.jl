@@ -110,6 +110,29 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:((atan(x) - x)/x^3), :x, 0) == -1//3
     end
 
+    @testset "error function" begin
+        @test gruntz_limit(:(erf(x)), :x) == 1
+        @test gruntz_limit(:(erf(x)), :x, -Inf) == -1
+        @test gruntz_limit(:(erfc(x)), :x) == 0
+        @test gruntz_limit(:(erf(x)), :x, 1) == :(erf(1))
+        @test ev(gruntz_limit(:(erf(x)/x), :x, 0)) ≈ 2/sqrt(π)
+        @test ev(gruntz_limit(:((erf(x) - 2x/sqrt(pi))/x^3), :x, 0)) ≈ -2/(3sqrt(π))
+        @test ev(gruntz_limit(:((erf(x + 1) - erf(1))/x), :x, 0)) ≈ 2/(sqrt(π)*ℯ)
+        @test ev(gruntz_limit(:(erf(1/x)*x), :x)) ≈ 2/sqrt(π)
+        # erf(u) = 1 - exp(-u^2) erfs(u) for u -> oo: the exponential is in the mrv set
+        @test ev(gruntz_limit(:(x*exp(x^2)*erfc(x)), :x)) ≈ 1/sqrt(π)
+        @test ev(gruntz_limit(:(x*exp(x^2)*(1 + erf(x))), :x, -Inf)) ≈ -1/sqrt(π)
+        @test ev(gruntz_limit(:(x^2*exp(x^4)*(1 - erf(x^2))), :x)) ≈ 1/sqrt(π)
+        @test ev(gruntz_limit(:(x^3*(exp(x^2)*erfc(x) - 1/(sqrt(pi)*x))), :x)) ≈ -1/(2sqrt(π))
+        @test gruntz_limit(:(log(erfc(x))/x^2), :x) == -1
+        @test gruntz_limit(:(erf(exp(x))^exp(x^2)), :x) == 1
+        # erfs of an argument that is a constant for w but tends to infinity with x
+        @test ev(gruntz_limit(:((erf(x - exp(-x)) - erf(x))*exp(x^2 + x)), :x)) ≈ -2/sqrt(π)
+        @test gruntz_limit(:(erf(a*x)), :x; signs = Dict(:a => :negative)) == -1
+        @test [join(string.(c.first), ", ") => c.second for c in gruntz_cases(:(erf(a*x)), :x)] ==
+              ["a < 0" => -1, "a == 0" => 0, "a > 0" => 1]
+    end
+
     @testset "absolute value" begin
         @test gruntz_limit(:(x/abs(x)), :x, 0; dir = :+) == 1
         @test gruntz_limit(:(x/abs(x)), :x, 0; dir = :-) == -1

@@ -238,9 +238,10 @@ The operations understood are
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
 * hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
-* inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`.
+* inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`;
+* the error function `erf` and `erfc`, as in SpecialFunctions.jl.
 
-Inside the package, most of these are rewritten in terms of `sin`, `cos`, `atan`, `exp` and `log`.
+Inside the package, most of these are rewritten in terms of `sin`, `cos`, `atan`, `erf`, `exp` and `log`.
 An answer involving them is correct, but it may be written differently from the input.
 For example, ``\arcsin(1/2)`` comes back in terms of `atan`:
 

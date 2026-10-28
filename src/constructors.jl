@@ -139,6 +139,17 @@ function mkatan(s::Sum)
     atomS(funatom(:atan, Sum[s]))
 end
 
+# erf is odd, as atan is. erfs(u) = exp(u^2) erfc(u) is the tractable part of erf(u)
+# for u -> +oo (see `resolve_piecewise`); it is never built from the input.
+function mkerf(s::Sum)
+    isempty(s.t) && return zeroS()
+    if length(s.t) == 1 && first(s.t).second < 0
+        return negS(mkerf(negS(s)))
+    end
+    atomS(funatom(:erf, Sum[s]))
+end
+mkerfs(s::Sum) = atomS(funatom(:erfs, Sum[s]))
+
 # abs: |c*m| = |c| * abs(m); sign-normalised so abs(u) and abs(-u) coincide.
 # It is eliminated before the limit is computed (see `resolve_piecewise`).
 function mkabs(s::Sum)
@@ -182,6 +193,8 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :log ? mklog(a[1]) :
     h === :sin ? mksin(a[1]) :
     h === :atan ? mkatan(a[1]) :
+    h === :erf ? mkerf(a[1]) :
+    h === :erfs ? mkerfs(a[1]) :
     h === :abs ? mkabs(a[1]) :
     h === :floor ? mkfloor(a[1]) :
     h === :sign ? mksign(a[1]) :
