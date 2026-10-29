@@ -133,6 +133,10 @@
     @test gruntz_limit(cos(x)/(x - PI/2), x, PI/2; dir = :both) == -1
     @test gruntz_limit(sin(x)/(x - PI), x, PI; dir = :both) == -1
     @test gruntz_limit(sin(x)^2/(1 + cos(x)), x, PI; dir = :both) == 2
+    # shifts by multiples of π/2 and parity: cos(2x + π) and cos(2x - π) coincide
+    @test gruntz_limit(-log(2cos(2x + PI) + 2)/2 + log(2cos(2x - PI) + 2)/2, x, 0; dir = :both) == 0
+    @test gruntz_limit((cos(x + PI/2) + sin(x))/x^3, x, 0) == 0
+    @test gruntz_limit((sin(-x) + sin(x + 3PI))/x, x, 0) == -2
 
     # comparable exponentials with an irrational ratio of exponents
     @test gruntz_limit((2^x + 3^x)/3^x, x) == 1
