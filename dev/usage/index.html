@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=7fa52ec6">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=4ea3106f">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -392,10 +392,12 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p>hyperbolic: <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code>, <code class="md-code-inline">tanh</code>, <code class="md-code-inline">sech</code>, <code class="md-code-inline">csch</code>, <code class="md-code-inline">coth</code>;</p>
 </li>
-<li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>.</p>
+<li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>;</p>
+</li>
+<li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl.</p>
 </li>
 </ul>
-<p>Inside the package, most of these are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">exp</code> and <code class="md-code-inline">log</code>. An answer involving them is correct, but it may be written differently from the input. For example, <span class="md-math md-math-inline">\(\arcsin(1/2)\)</span> comes back in terms of <code class="md-code-inline">atan</code>:</p>
+<p>Inside the package, most of these are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">erf</code>, <code class="md-code-inline">exp</code> and <code class="md-code-inline">log</code>. An answer involving them is correct, but it may be written differently from the input. For example, <span class="md-math md-math-inline">\(\arcsin(1/2)\)</span> comes back in terms of <code class="md-code-inline">atan</code>:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -667,6 +669,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=7fa52ec6"></script>
+  <script src="../assets/materialdocs.js?v=4ea3106f"></script>
 </body>
 </html>
