@@ -121,13 +121,37 @@ function mksin(s::Sum)
     isempty(s.t) && return zeroS()
     q = piratio(s)
     v = q === nothing ? nothing : sinpi_exact(q)
-    v === nothing ? atomS(funatom(:sin, Sum[s])) : v
+    v === nothing ? trigatom(:sin, s) : v
 end
 function mkcos(s::Sum)
     isempty(s.t) && return oneS()
     q = piratio(s)
     v = q === nothing ? nothing : sinpi_exact(q + Q(1) // 2)   # cos(t) = sin(t + π/2)
-    v === nothing ? atomS(funatom(:cos, Sum[s])) : v
+    v === nothing ? trigatom(:cos, s) : v
+end
+
+# A sin or cos atom, its argument normalised to u + r*π with 0 <= r < 1/2 and the first
+# monomial of u with a positive coefficient: the parity and the shifts by multiples of
+# π/2 are taken out. Otherwise cos(2t + π) - cos(2t - π), which is 0, is not recognised
+# as zero (and its series cancel to every order).
+const PI_MONO = Mono(Pair{Atom,Q}[PI_ATOM => Q(1)])
+function trigatom(h::Symbol, s::Sum)
+    q = get(s.t, PI_MONO, zero(Q))
+    u = Sum(Dict{Mono,Q}(m => c for (m, c) in s.t if m != PI_MONO))
+    sg = 1
+    if !isempty(u.t) && first(sort!(collect(u.t); by = p -> p.first.key)).second < 0
+        u, q = negS(u), -q                       # sin(-t) = -sin(t), cos(-t) = cos(t)
+        h === :sin && (sg = -sg)
+    end
+    r = mod(q, 2)
+    k = floor(Int, 2r)
+    r -= Q(k) // 2
+    for _ in 1:k                                 # sin(t + π/2) = cos(t), cos(t + π/2) = -sin(t)
+        h === :cos && (sg = -sg)
+        h = h === :sin ? :cos : :sin
+    end
+    arg = iszero(r) ? u : addS(u, scaleS(atomS(PI_ATOM), r))
+    scaleS(atomS(funatom(h, Sum[arg])), Q(sg))
 end
 
 # atan is odd: pull a negative sign of a single-term argument outside
