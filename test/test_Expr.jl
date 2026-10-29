@@ -191,6 +191,15 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test r isa Expr && ev(r; b = 3) ≈ exp(3)/3
         r = gruntz_limit(:(x^2), :x, :(a + 1))
         @test r isa Expr && ev(r; a = 3) ≈ 16
+
+        # a = -(-a): powers of a and of -a are joined, so these zeros are recognised
+        @test gruntz_limit(:(a/sqrt(-a) + sqrt(-a)), :x) == 0
+        @test gruntz_limit(:((a/sqrt(-a) + sqrt(-a))*exp(x) + 1), :x) == 1
+        @test gruntz_limit(:((a/sqrt(-2a) + sqrt(-2a)/2)*x), :x) == 0
+        @test gruntz_limit(:((a*b/sqrt(-a*b) + sqrt(-a*b))*x), :x) == 0
+        @test gruntz_limit(:((a/cbrt(-a) + cbrt(-a)^2)*x), :x) == 0
+        @test gruntz_limit(:((1/sqrt(2) - sqrt(2)/2)*a*x), :x) == 0
+        @test gruntz_limit(:((a/sqrt(-a))*x), :x) == -Inf
     end
 
     @testset "signs of parameters (experimental)" begin

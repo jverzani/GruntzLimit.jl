@@ -62,11 +62,46 @@ end
 scaleS(a::Sum, c::Q) = iszero(c) ? zeroS() : Sum(Dict{Mono,Q}(m => c * v for (m, v) in a.t))
 negS(a::Sum) = scaleS(a, Q(-1))
 subS(a::Sum, b::Sum) = addS(a, negS(b))
+# Normalises the base atoms of a monomial; returns the coefficient and the monomial.
+# * A rational base has an exponent in (0, 1): 2^(-1/2) = 2^(1/2) / 2.
+# * A factor M^k, k an integer, next to the base (-M)^r (from a fractional power of -M,
+#   as in a/sqrt(-a)) is joined to it: M^k (-M)^r = (-1)^k (-M)^(k+r).
+# Otherwise 1/sqrt(2) - sqrt(2)/2 or a/sqrt(-a) + sqrt(-a), which are 0, are not
+# recognised as zero.
+function normbases(m::Mono)
+    any(p -> p.first.kind === :base, m.fs) || return Q(1), m
+    d, k0 = Dict{Atom,Q}(m.fs), Q(1)
+    for (b, r) in m.fs
+        b.kind === :base || continue
+        s = b.args[1]::Sum
+        length(s.t) == 1 || continue
+        mm, c = first(s.t)
+        if isempty(mm.fs)
+            n = floor(r)
+            iszero(n) && continue
+            k0 *= c^Int(n)
+            r -= n
+        elseif c == -1 && all(p -> isone(denominator(p.second)), mm.fs)
+            a1, e1 = mm.fs[1]
+            k = get(d, a1, zero(Q)) / e1
+            (iszero(k) || !isone(denominator(k)) || any(p -> get(d, p.first, zero(Q)) != k * p.second, mm.fs)) &&
+                continue
+            foreach(p -> delete!(d, p.first), mm.fs)
+            r += k
+            isodd(numerator(k)) && (k0 = -k0)
+        else
+            continue
+        end
+        iszero(r) ? delete!(d, b) : (d[b] = r)
+    end
+    k0, mono(d)
+end
+
 function mulS(a::Sum, b::Sum)
     d = Dict{Mono,Q}()
     for (m1, c1) in a.t, (m2, c2) in b.t
-        m = mulMono(m1, m2)
-        v = get(d, m, zero(Q)) + c1 * c2
+        k, m = normbases(mulMono(m1, m2))
+        v = get(d, m, zero(Q)) + k * c1 * c2
         iszero(v) ? delete!(d, m) : (d[m] = v)
     end
     Sum(d)
