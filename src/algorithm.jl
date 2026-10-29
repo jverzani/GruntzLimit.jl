@@ -181,11 +181,14 @@ end
 # sign(u) is that constant and abs(u) = sign(u) * u; floor(u) is eventually constant
 # too (see `resolve_floor`). Inner abs, sign and floor are resolved first. An abs or
 # sign of a constant whose sign cannot be decided (free parameter) stays as an atom.
+# erf(u), for u -> ±oo, is rewritten as ±(1 - exp(-u^2) erfs(±u)), so that the
+# exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor)) || return nothing
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf)) || return nothing
         u = subs_atoms(a.args[1]::Sum, res)
         a.head === :floor && return resolve_floor(u, x)
+        a.head === :erf && return resolve_erf(u, x)
         sg = hasleaf(u, x.key) ? sgn(u, x) : try
             csign(u)
         catch err
@@ -195,6 +198,14 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :abs ? scaleS(u, Q(sg)) : constS(sg)
     end
     subs_atoms(e, res)
+end
+
+function resolve_erf(u::Sum, x::Atom)
+    hasleaf(u, x.key) || return mkerf(u)
+    L = limitinf(u, x)
+    L isa Infinity || return mkerf(u)
+    σ = Q(signof(L))
+    scaleS(subS(oneS(), mulS(mkexp(negS(mulS(u, u))), mkerfs(scaleS(u, σ)))), σ)
 end
 
 # floor(u) for x -> +oo, u tending to a finite L: floor(L) when L is not an integer;

@@ -105,7 +105,8 @@ end
 
 binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end; r)
 
-# sum_{k>=kmin} coef(k) u^k, u having positive valuation; relative target `Trel`
+# sum_{k>=kmin} coef(k) u^k, u having positive valuation; relative target `Trel`.
+# A coefficient is a rational or a constant `Sum`.
 # A valuation with a parameter (w^a) has no numerical value: a few terms are taken
 # and the precision is that of the first one left out.
 function polyPS(u::PS, coef, kmin::Int, Trel::Q)
@@ -124,7 +125,7 @@ function polyPS(u::PS, coef, kmin::Int, Trel::Q)
     for k in 0:K
         if k >= kmin
             ck = coef(k)
-            iszero(ck) || (acc = addPS(acc, scalePS(pw, constS(ck))))
+            iszero(ck) || (acc = addPS(acc, scalePS(pw, ck isa Sum ? ck : constS(ck))))
         end
         k < K && (pw = mulPS(pw, u))
     end
@@ -194,6 +195,62 @@ function atanPS(a::PS, x::Atom, P::Q)
     addPS(atanSeries(v, P), constPS(mkatan(c0)))
 end
 
+# erf(c + u) = erf(c) + 2/sqrt(π) exp(-c^2) sum_{n>=1} (-1)^(n-1) H_{n-1}(c) u^n / n!,
+# H_n the Hermite polynomials: H_0 = 1, H_1 = 2c, H_{n+1} = 2c H_n - 2n H_{n-1}.
+# The argument is bounded: one that tends to ±oo was rewritten with erfs.
+function erfPS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: erf of an unbounded argument"))
+    c0, u = const_and_rest(a)
+    H = Sum[oneS(), scaleS(c0, Q(2))]
+    function coef(n)
+        n == 0 && return Q(0)
+        while length(H) < n
+            j = length(H) - 1
+            push!(H, subS(mulS(scaleS(c0, Q(2)), H[end]), scaleS(H[end-1], Q(2j))))
+        end
+        scaleS(H[n], Q((-1)^(n - 1)) // factorial(big(n)))
+    end
+    k = scaleS(mulS(mkexp(negS(mulS(c0, c0))), powS(atomS(PI_ATOM), -Q(1) // 2)), Q(2))
+    addPS(scalePS(polyPS(u, coef, 1, P), k), constPS(mkerf(c0)))
+end
+
+# erfs(v) = exp(v^2) erfc(v), v -> +oo. When v tends to infinity as w -> 0, the
+# asymptotic series 1/sqrt(π) sum_{n>=0} (-1)^n (2n-1)!!/2^n v^(-2n-1): its error
+# after a term is of the order of the next one, so it is truncated as a convergent
+# series would be. Otherwise v = c + u, with c tending to infinity with x but a
+# constant for w, and erfs(c + u) = sum_n erfs^(n)(c) u^n / n!: as erfs' = 2t erfs -
+# 2/sqrt(π), erfs^(n) = A_n(t) erfs(t) + B_n(t)/sqrt(π) with A_0 = 1, B_0 = 0,
+# A_{n+1} = A_n' + 2t A_n, B_{n+1} = B_n' - 2 A_n (polynomials in t).
+function erfsPS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    rpi = powS(atomS(PI_ATOM), -Q(1) // 2)
+    if sign(val(a)) < 0
+        function acoef(k)
+            iseven(k) && return Q(0)
+            n = (k - 1) ÷ 2
+            Q((-1)^n) * prod(Q(2j - 1) // 2 for j in 1:n; init = Q(1))
+        end
+        return scalePS(polyPS(powPS(a, Q(-1), P), acoef, 1, P), rpi)
+    end
+    c0, u = const_and_rest(a)
+    e0 = mkerfs(c0)
+    deriv(p) = Q[(i - 1) * p[i] for i in 2:length(p)]
+    times2t(p) = [Q(0); 2 .* p]
+    polyadd(p, q) = (n = max(length(p), length(q)); Q[get(p, i, 0) + get(q, i, 0) for i in 1:n])
+    peval(p) = foldr((ci, acc) -> addS(constS(ci), mulS(c0, acc)), p; init = zeroS())
+    A, B = [Q[1]], [Q[]]
+    function tcoef(n)
+        while length(A) <= n
+            An, Bn = A[end], B[end]
+            push!(A, polyadd(deriv(An), times2t(An)))
+            push!(B, polyadd(deriv(Bn), -2 .* An))
+        end
+        scaleS(addS(mulS(peval(A[n+1]), e0), mulS(peval(B[n+1]), rpi)), inv(Q(factorial(big(n)))))
+    end
+    polyPS(u, tcoef, 0, P)
+end
+
 function logPS(a::PS, logw::Sum, P::Q)
     v, c0, r = split_lead(a)
     L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
@@ -209,6 +266,8 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :exp ? expPS(arg, P) :
     h === :log ? logPS(arg, logw, P) :
     h === :atan ? atanPS(arg, x, P) :
+    h === :erf ? erfPS(arg, P) :
+    h === :erfs ? erfsPS(arg, P) :
     h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
 end
 

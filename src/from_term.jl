@@ -131,6 +131,10 @@ function apply_op(op, a::Vector{Sum})
         mulS(mklog(a[2]), powS(mklog(a[1]), Q(-1)))
     elseif n === :atan && na == 1
         mkatan(a[1])
+    elseif n === :erf && na == 1
+        mkerf(a[1])
+    elseif n === :erfc && na == 1                     # erfc(u) = 1 - erf(u)
+        subS(oneS(), mkerf(a[1]))
     elseif n === :abs && na == 1
         mkabs(a[1])
     elseif n === :sign && na == 1

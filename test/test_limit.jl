@@ -40,6 +40,10 @@
     @test gruntz_limit(cosh(x)/exp(x), x) == 1//2
 
     # arctangent
+    @test gruntz_limit(erf(x), x) == 1
+    @test gruntz_limit(erfc(x), x, -Inf) == 2
+    @test gruntz_limit(x^2*exp(x^2)*erfc(x) - x/sqrt(PI), x) == 0
+    @test isequal(gruntz_limit(erf(x), x, 1), erf(ONE))
     @test isequal(gruntz_limit(atan(x), x), (1//2) * PI)
     @test isequal(gruntz_limit(atan(x), x, -Inf), (-1//2) * PI)
     @test isequal(gruntz_limit(atan(exp(x)), x), (1//2) * PI)

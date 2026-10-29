@@ -1,5 +1,6 @@
 using GruntzLimit
 using Test
+using SpecialFunctions: erf, erfc
 
 include("test_Expr.jl")
 include("test_SymEngine.jl")

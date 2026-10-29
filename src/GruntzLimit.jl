@@ -39,7 +39,8 @@ Julia's `Expr`:
 Operations understood (given as `Function`s; `Symbol` names are accepted too):
 `+ - * / ^ inv sqrt cbrt exp log abs sign floor ceil`, `sin cos tan sec csc cot`, their inverses
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
-their inverses `asinh acosh atanh asech acsch acoth`. Limits that do not
+their inverses `asinh acosh atanh asech acsch acoth`, and `erf erfc` (as defined by
+SpecialFunctions.jl). Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 
 Design: terms are converted to an internal canonical form (sums of monomials with
@@ -51,6 +52,7 @@ module GruntzLimit
 
 using TermInterface: iscall, operation, arguments, maketerm
 using ScopedValues: ScopedValue, with
+import SpecialFunctions
 
 export gruntz_limit, gruntz_cases, GruntzError
 # LimitCases and CaseCondition are public types, not exported
