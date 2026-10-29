@@ -237,14 +237,14 @@ function erfsPS(a::PS, P::Q)
     e0 = mkerfs(c0)
     deriv(p) = Q[(i - 1) * p[i] for i in 2:length(p)]
     times2t(p) = [Q(0); 2 .* p]
-    padd(p, q) = (n = max(length(p), length(q)); Q[get(p, i, 0) + get(q, i, 0) for i in 1:n])
+    polyadd(p, q) = (n = max(length(p), length(q)); Q[get(p, i, 0) + get(q, i, 0) for i in 1:n])
     peval(p) = foldr((ci, acc) -> addS(constS(ci), mulS(c0, acc)), p; init = zeroS())
     A, B = [Q[1]], [Q[]]
     function tcoef(n)
         while length(A) <= n
             An, Bn = A[end], B[end]
-            push!(A, padd(deriv(An), times2t(An)))
-            push!(B, padd(deriv(Bn), -2 .* An))
+            push!(A, polyadd(deriv(An), times2t(An)))
+            push!(B, polyadd(deriv(Bn), -2 .* An))
         end
         scaleS(addS(mulS(peval(A[n+1]), e0), mulS(peval(B[n+1]), rpi)), inv(Q(factorial(big(n)))))
     end
