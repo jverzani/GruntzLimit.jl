@@ -326,9 +326,15 @@ function dropzeros(a::PS)
     i == 1 ? a : PS(Dict{Ex,Sum}(k => a.c[k] for k in ks[i:end]), a.prec)
 end
 
+# The precision of the series is doubled from 4 up to LEADTERM_MAXP. The limits in the
+# tests and benchmarks need at most 16; the cost grows about tenfold with each doubling
+# (an unrecognised zero, whose terms cancel to every order, takes 0.2 s at 64 but 20 s
+# at 256), so going further only delays the error.
+const LEADTERM_MAXP = Q(64)
+
 function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom)
     P = Q(4)
-    for _ in 1:8
+    while P <= LEADTERM_MAXP
         try
             ps = series(f, w, logw, P, x)
             ks = sort!(collect(keys(ps.c)))

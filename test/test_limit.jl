@@ -137,6 +137,8 @@
     @test gruntz_limit(-log(2cos(2x + PI) + 2)/2 + log(2cos(2x - PI) + 2)/2, x, 0; dir = :both) == 0
     @test gruntz_limit((cos(x + PI/2) + sin(x))/x^3, x, 0) == 0
     @test gruntz_limit((sin(-x) + sin(x + 3PI))/x, x, 0) == -2
+    # a zero the simplifier does not recognise: an error, not a long search
+    @test_throws GruntzError gruntz_limit((sin(x)^2 + cos(x)^2 - 1)/x^2, x, 0)
 
     # comparable exponentials with an irrational ratio of exponents
     @test gruntz_limit((2^x + 3^x)/3^x, x) == 1
