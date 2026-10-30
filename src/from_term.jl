@@ -135,6 +135,12 @@ function apply_op(op, a::Vector{Sum})
         mkerf(a[1])
     elseif n === :erfc && na == 1                     # erfc(u) = 1 - erf(u)
         subS(oneS(), mkerf(a[1]))
+    elseif n === :gamma && na == 1
+        mkgamma(a[1])
+    elseif n === :factorial && na == 1                # factorial(u) = gamma(u + 1)
+        mkgamma(addS(a[1], oneS()))
+    elseif n in (:loggamma, :lgamma) && na == 1
+        mklog(mkgamma(a[1]))
     elseif n === :abs && na == 1
         mkabs(a[1])
     elseif n === :sign && na == 1

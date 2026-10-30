@@ -4,7 +4,8 @@
 const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log => log,
                                   :sin => sin, :cos => cos, :atan => atan, :abs => abs,
                                   :sqrt => sqrt, :floor => floor, :sign => sign,
-                                  :erf => SpecialFunctions.erf, :erfs => SpecialFunctions.erfcx)
+                                  :erf => SpecialFunctions.erf, :erfs => SpecialFunctions.erfcx,
+                                  :gamma => SpecialFunctions.gamma)
 default_build(op, args...) = op(args...)
 
 # Build `op(args...)` for constant arguments WITHOUT evaluating it, for callable

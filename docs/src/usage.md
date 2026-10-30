@@ -239,7 +239,11 @@ The operations understood are
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
 * hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
 * inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`;
-* the error function `erf` and `erfc`, as in SpecialFunctions.jl.
+* the error function `erf` and `erfc`, as in SpecialFunctions.jl;
+* `gamma`, `loggamma` and `factorial`, for an argument that tends to `+∞` (by Stirling's
+  series) or is constant. `gamma(x + k)`, with `k` an integer, is reduced to
+  `x (x + 1) ⋯ (x + k - 1) gamma(x)`, so that ratios such as `factorial(n + 1)/factorial(n)`
+  cancel.
 
 Inside the package, most of these are rewritten in terms of `sin`, `cos`, `atan`, `erf`, `exp` and `log`.
 An answer involving them is correct, but it may be written differently from the input.
@@ -272,7 +276,7 @@ Anything else gives a
 
 ```@example expr
 try
-    gruntz_limit(:(gamma(x)), :x)
+    gruntz_limit(:(zeta(x)), :x)
 catch err
     err
 end
