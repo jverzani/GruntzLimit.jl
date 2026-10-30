@@ -179,4 +179,6 @@
 
     # bounded oscillation has no limit
     @test_throws GruntzError gruntz_limit(sin(x), x)
+    @test gruntz_limit(sin(x)/x, x) == 0
+    @test gruntz_limit(x + cos(x), x) == Inf
 end

@@ -420,7 +420,20 @@ catch err
 end
 ```
 
-or one-sided limits that disagree, with `dir = :both`:
+An oscillating subexpression does not prevent a limit, when bounds decide it: a bounded
+factor times something that tends to 0, a bounded term next to one that tends to ±∞, or
+something that tends to ±∞ times a factor bounded away from 0:
+
+```@example sym
+gruntz_limit(sin(x)/x, x), gruntz_limit(x + cos(x), x), gruntz_limit(x*(2 + sin(x)), x)
+```
+
+A term that dominates a bounded one is kept (`x + 2cos(x)` behaves as `x`), so
+`x/(x + 2cos(x))` tends to 1. When the bounds do not decide, the error is of kind `:fail`
+(`sin(x)^2 + cos(x)^2`: `sin` and `cos` are bounded independently), and of kind
+`:nolimit` only where the limit is known not to exist, as for `sin(x)`.
+
+Or one-sided limits that disagree, with `dir = :both`:
 
 ```@example sym
 try
