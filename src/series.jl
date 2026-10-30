@@ -327,8 +327,8 @@ function specialPS(h::Symbol, a::PS, logw::Sum, P::Q)
     end
     if iszero(c0)
         h === :sinint && return polyPS(u, k -> isodd(k) ? Q((-1)^((k - 1) ÷ 2)) // (k * factorial(big(k))) : Q(0), 1, P)
-        ser = polyPS(u, k -> iseven(k) ? Q((-1)^(k ÷ 2)) // (k * factorial(big(k))) : Q(0), 2, P)
-        return addPS(addPS(ser, logPS(a, logw, P)), constPS(EULER))
+        tail = polyPS(u, k -> iseven(k) ? Q((-1)^(k ÷ 2)) // (k * factorial(big(k))) : Q(0), 2, P)
+        return addPS(addPS(tail, logPS(a, logw, P)), constPS(EULER))
     end
     trig = h === :sinint ? mksin : mkcos
     ic = powS(c0, Q(-1))
