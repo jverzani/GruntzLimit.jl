@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=3595b5a9">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=c9105170">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -396,7 +396,9 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl;</p>
 </li>
-<li><p><code class="md-code-inline">gamma</code>, <code class="md-code-inline">loggamma</code> and <code class="md-code-inline">factorial</code>, for an argument that tends to <code class="md-code-inline">+∞</code> (by Stirling&#39;s series) or is constant. <code class="md-code-inline">gamma(x + k)</code>, with <code class="md-code-inline">k</code> an integer, is reduced to <code class="md-code-inline">x (x + 1) ⋯ (x + k - 1) gamma(x)</code>, so that ratios such as <code class="md-code-inline">factorial(n + 1)/factorial(n)</code> cancel.</p>
+<li><p><code class="md-code-inline">gamma</code>, <code class="md-code-inline">loggamma</code> and <code class="md-code-inline">factorial</code>, for an argument that tends to <code class="md-code-inline">+∞</code> (by Stirling&#39;s series) or is constant. <code class="md-code-inline">gamma(x + k)</code>, with <code class="md-code-inline">k</code> an integer, is reduced to <code class="md-code-inline">x (x + 1) ⋯ (x + k - 1) gamma(x)</code>, so that ratios such as <code class="md-code-inline">factorial(n + 1)/factorial(n)</code> cancel;</p>
+</li>
+<li><p><code class="md-code-inline">sinint</code>, <code class="md-code-inline">cosint</code> and <code class="md-code-inline">erfi</code>, as in SpecialFunctions.jl, for an argument that tends to <code class="md-code-inline">±∞</code> (<code class="md-code-inline">+∞</code> for <code class="md-code-inline">cosint</code>) or is constant. With their asymptotic expansions, as <code class="md-code-inline">sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)</code>, so that <code class="md-code-inline">sinint(x)</code> tends to <code class="md-code-inline">π/2</code> while <code class="md-code-inline">x*(π/2 - sinint(x))</code> has no limit.</p>
 </li>
 </ul>
 <p>Inside the package, most of these are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">erf</code>, <code class="md-code-inline">exp</code> and <code class="md-code-inline">log</code>. An answer involving them is correct, but it may be written differently from the input. For example, <span class="md-math md-math-inline">\(\arcsin(1/2)\)</span> comes back in terms of <code class="md-code-inline">atan</code>:</p>
@@ -680,6 +682,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=3595b5a9"></script>
+  <script src="../assets/materialdocs.js?v=c9105170"></script>
 </body>
 </html>
