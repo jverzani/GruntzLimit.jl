@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=4ab811e0">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=3595b5a9">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -394,7 +394,9 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>;</p>
 </li>
-<li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl.</p>
+<li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl;</p>
+</li>
+<li><p><code class="md-code-inline">gamma</code>, <code class="md-code-inline">loggamma</code> and <code class="md-code-inline">factorial</code>, for an argument that tends to <code class="md-code-inline">+∞</code> (by Stirling&#39;s series) or is constant. <code class="md-code-inline">gamma(x + k)</code>, with <code class="md-code-inline">k</code> an integer, is reduced to <code class="md-code-inline">x (x + 1) ⋯ (x + k - 1) gamma(x)</code>, so that ratios such as <code class="md-code-inline">factorial(n + 1)/factorial(n)</code> cancel.</p>
 </li>
 </ul>
 <p>Inside the package, most of these are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">erf</code>, <code class="md-code-inline">exp</code> and <code class="md-code-inline">log</code>. An answer involving them is correct, but it may be written differently from the input. For example, <span class="md-math md-math-inline">\(\arcsin(1/2)\)</span> comes back in terms of <code class="md-code-inline">atan</code>:</p>
@@ -437,12 +439,12 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">try
-    gruntz_limit(:(gamma(x)), :x)
+    gruntz_limit(:(zeta(x)), :x)
 catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;unsupported function/operator `gamma` with 1 argument(s)&quot;, :fail)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;unsupported function/operator `zeta` with 1 argument(s)&quot;, :fail)</code></pre>
 </div>
 <h2 id="Parameters-and-cases" class="md-heading">Parameters and cases<a href="#Parameters-and-cases" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>A parameter is taken to be a real number of unknown sign. <code class="md-code-inline">gruntz_limit</code> answers when the limit does not depend on the sign, as for</p>
@@ -678,6 +680,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=4ab811e0"></script>
+  <script src="../assets/materialdocs.js?v=3595b5a9"></script>
 </body>
 </html>
