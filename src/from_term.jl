@@ -141,6 +141,10 @@ function apply_op(op, a::Vector{Sum})
         mkgamma(addS(a[1], oneS()))
     elseif n in (:loggamma, :lgamma) && na == 1
         mklog(mkgamma(a[1]))
+    elseif n in (:sinint, :erfi, :dawson) && na == 1
+        mkodd(n, a[1])
+    elseif n === :cosint && na == 1
+        mkcosint(a[1])
     elseif n === :abs && na == 1
         mkabs(a[1])
     elseif n === :sign && na == 1

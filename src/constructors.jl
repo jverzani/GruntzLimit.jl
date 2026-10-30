@@ -174,6 +174,22 @@ function mkerf(s::Sum)
 end
 mkerfs(s::Sum) = atomS(funatom(:erfs, Sum[s]))
 
+# Odd functions, as erf: sinint, erfi and dawson. cosint is not (complex for a
+# negative argument). For u -> +oo, sinint(u) = π/2 - fsi(u) cos(u) - gsi(u) sin(u),
+# cosint(u) = fsi(u) sin(u) - gsi(u) cos(u), and erfi(u) = 2/sqrt(π) exp(u^2) dawson(u),
+# fsi, gsi and dawson having asymptotic series (see `resolve_piecewise`); fsi and gsi
+# are never built from the input.
+function mkodd(h::Symbol, s::Sum)
+    isempty(s.t) && return zeroS()
+    length(s.t) == 1 && first(s.t).second < 0 && return negS(mkodd(h, negS(s)))
+    atomS(funatom(h, Sum[s]))
+end
+function mkcosint(s::Sum)
+    isempty(s.t) && throw(GruntzError("cosint has a singularity at 0", :undefined))
+    atomS(funatom(:cosint, Sum[s]))
+end
+mkaux(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
+
 # gamma. Of a positive integer, evaluated; a pole is an error. An argument with the
 # limit variable is shifted by an integer to u + r, 0 <= r < 1, the first monomial of
 # u with a positive coefficient: gamma(u + r + n) = (u + r)(u + r + 1)...(u + r + n - 1)
@@ -250,6 +266,9 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :erfs ? mkerfs(a[1]) :
     h === :gamma ? mkgamma(a[1]) :
     h === :lgrem ? mklgrem(a[1]) :
+    h in (:sinint, :erfi, :dawson) ? mkodd(h, a[1]) :
+    h === :cosint ? mkcosint(a[1]) :
+    h in (:fsi, :gsi) ? mkaux(h, a[1]) :
     h === :abs ? mkabs(a[1]) :
     h === :floor ? mkfloor(a[1]) :
     h === :sign ? mksign(a[1]) :

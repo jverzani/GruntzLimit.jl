@@ -185,8 +185,10 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma)) || return nothing
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi)) ||
+            return nothing
         u = subs_atoms(a.args[1]::Sum, res)
+        a.head in (:sinint, :cosint, :erfi) && return resolve_infinite(a.head, u, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :erf && return resolve_erf(u, x)
@@ -220,6 +222,29 @@ function resolve_gamma(u::Sum, x::Atom)
     half = Q(1) // 2
     l2pi = mklog(scaleS(atomS(PI_ATOM), Q(2)))
     mkexp(addS(subS(mulS(subS(u, constS(half)), mklog(u)), u), addS(scaleS(l2pi, half), mklgrem(u))))
+end
+
+# sinint, cosint and erfi of an argument that tends to ±oo, rewritten with their
+# auxiliary functions (see `mkodd`); sinint and erfi are odd. The oscillating sin and
+# cos are left to `bounded_limit`. Other arguments are supported only when constant.
+function resolve_infinite(h::Symbol, u::Sum, x::Atom)
+    rebuild() = h === :cosint ? mkcosint(u) : mkodd(h, u)
+    hasleaf(u, x.key) || return rebuild()
+    L = limitinf(u, x)
+    L isa Infinity || throw(GruntzError("$h is supported only for an argument that tends to ±oo, or is constant"))
+    σ = signof(L)
+    h === :cosint && σ < 0 && throw(GruntzError("cosint of a negative number is not real", :undefined))
+    v = scaleS(u, Q(σ))                     # v -> +oo
+    if h === :erfi                          # erfi(u) = 2/sqrt(π) exp(u^2) dawson(u)
+        k = scaleS(powS(atomS(PI_ATOM), -Q(1) // 2), Q(2 * σ))
+        return mulS(k, mulS(mkexp(mulS(u, u)), mkaux(:dawson, v)))
+    end
+    f, g = mkaux(:fsi, v), mkaux(:gsi, v)
+    if h === :sinint
+        s = subS(scaleS(atomS(PI_ATOM), Q(1) // 2), addS(mulS(f, mkcos(v)), mulS(g, mksin(v))))
+        return scaleS(s, Q(σ))
+    end
+    subS(mulS(f, mksin(v)), mulS(g, mkcos(v)))
 end
 
 # floor(u) for x -> +oo, u tending to a finite L: floor(L) when L is not an integer;

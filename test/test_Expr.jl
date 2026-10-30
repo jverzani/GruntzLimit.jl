@@ -407,6 +407,39 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws GruntzError gruntz_limit(:(gamma(-x)), :x)
     end
 
+    @testset "sinint, cosint and erfi" begin
+        nolimit(f, args...) = try
+            gruntz_limit(f, args...); false
+        catch err
+            err isa GruntzError && err.kind === :nolimit
+        end
+        @test eval(gruntz_limit(:(sinint(x)), :x)) ≈ π/2
+        @test eval(gruntz_limit(:(sinint(x)), :x, -Inf)) ≈ -π/2
+        @test eval(gruntz_limit(:(sinint(-x)), :x)) ≈ -π/2
+        @test eval(gruntz_limit(:(sinint(2x + 1)), :x)) ≈ π/2
+        @test eval(gruntz_limit(:(sinint(1/x)), :x, 0; dir = :+)) ≈ π/2
+        @test eval(gruntz_limit(:(sinint(log(x))), :x)) ≈ π/2
+        @test eval(gruntz_limit(:(sinint(exp(x))), :x)) ≈ π/2
+        @test gruntz_limit(:(sinint(x) - sinint(x + 1)), :x) == 0
+        @test gruntz_limit(:(sinint(x)/x), :x) == 0
+        @test gruntz_limit(:(cosint(x)), :x) == 0
+        @test gruntz_limit(:(cosint(x)*log(x)), :x) == 0
+        # the remainders oscillate: π/2 - sinint(x) ~ cos(x)/x, cosint(x) ~ sin(x)/x
+        @test nolimit(:(x*(π/2 - sinint(x))), :x)
+        @test nolimit(:(x*cosint(x)), :x)
+        @test nolimit(:(x^2*(π/2 - sinint(x) - cos(x)/x)), :x)     # ~ sin(x)
+        # erfi(x) ~ exp(x^2)/(x sqrt(π))
+        @test gruntz_limit(:(erfi(x)), :x) == Inf
+        @test gruntz_limit(:(erfi(x)), :x, -Inf) == -Inf
+        @test eval(gruntz_limit(:(erfi(x)*x*exp(-x^2)), :x)) ≈ 1/sqrt(π)
+        @test gruntz_limit(:(erfi(x)/exp(x^2)), :x) == 0
+        # constants; not supported: a finite limit of the argument; cosint at -oo is complex
+        @test gruntz_limit(:(sinint(2) + 1/x), :x) == :(sinint(2))
+        @test_throws GruntzError gruntz_limit(:(sinint(x)), :x, 1)
+        @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, -Inf)
+        @test_throws GruntzError gruntz_limit(:(cosint(0) + x), :x, 1)
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf

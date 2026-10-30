@@ -26,6 +26,14 @@ function leaf_big(h)
     throw(FreeSymbol(h))
 end
 
+# functions that SpecialFunctions evaluates in Float64 only; fsi and gsi are the
+# auxiliary functions of sinint and cosint
+fsi(t) = SpecialFunctions.cosint(t) * sin(t) - (SpecialFunctions.sinint(t) - π / 2) * cos(t)
+gsi(t) = -SpecialFunctions.cosint(t) * cos(t) - (SpecialFunctions.sinint(t) - π / 2) * sin(t)
+const F64_FUNS = Dict{Symbol,Function}(:sinint => SpecialFunctions.sinint, :cosint => SpecialFunctions.cosint,
+                                       :erfi => SpecialFunctions.erfi, :dawson => SpecialFunctions.dawson,
+                                       :fsi => fsi, :gsi => gsi)
+
 function numval(a::Atom)
     if a.kind === :leaf
         return leaf_big(a.head)
@@ -36,6 +44,7 @@ function numval(a::Atom)
     a.head === :exp ? exp(v) : a.head === :log ? log(v) : a.head === :sin ? sin(v) :
     a.head === :atan ? atan(v) : a.head === :erf ? SpecialFunctions.erf(v) :
     a.head === :erfs ? SpecialFunctions.erfcx(v) : a.head === :gamma ? SpecialFunctions.gamma(v) :
+    a.head in keys(F64_FUNS) ? BigFloat(F64_FUNS[a.head](Float64(v))) :
     a.head === :lgrem ? SpecialFunctions.loggamma(v) - ((v - 1 / 2) * log(v) - v + log(2 * big(π)) / 2) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) :
     a.head === :sign ? (abs(v) < big"1e-60" ? zero(v) : sign(v)) :   # zero as `csign` decides
     a.head === :cos ? cos(v) : throw(GruntzError("cannot evaluate $(a.head)"))

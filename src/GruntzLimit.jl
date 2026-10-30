@@ -40,8 +40,9 @@ Operations understood (given as `Function`s; `Symbol` names are accepted too):
 `+ - * / ^ inv sqrt cbrt exp log abs sign floor ceil`, `sin cos tan sec csc cot`, their inverses
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
 their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
-SpecialFunctions.jl), and `gamma loggamma factorial` for an argument that tends to `+∞`
-or is constant. Limits that do not
+SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
+or is constant, and `sinint cosint erfi` for an argument that tends to `±∞` or is
+constant. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 
 Design: terms are converted to an internal canonical form (sums of monomials with

@@ -277,6 +277,28 @@ function lgremPS(a::PS, P::Q)
     polyPS(powPS(a, Q(-1), P), coef, 1, P)
 end
 
+# The auxiliary functions of sinint and cosint, and dawson, for v -> +oo as w -> 0:
+#   fsi(v) ~ sum_k (-1)^k (2k)! v^(-2k-1),  gsi(v) ~ sum_k (-1)^k (2k+1)! v^(-2k-2),
+#   dawson(v) ~ sum_k (2k-1)!! / 2^(k+1) v^(-2k-1),
+# asymptotic series truncated as erfs's is.
+function auxPS(h::Symbol, a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 ||
+        throw(GruntzError("$h: the argument does not tend to infinity in the expansion variable"))
+    function coef(j)
+        if h === :gsi
+            (j < 2 || isodd(j)) && return Q(0)
+            k = (j - 2) ÷ 2
+            return Q((-1)^k * factorial(big(2k + 1)))
+        end
+        iseven(j) && return Q(0)
+        k = (j - 1) ÷ 2
+        h === :fsi && return Q((-1)^k * factorial(big(2k)))
+        prod(Q(2i - 1) for i in 1:k; init = Q(1)) / Q(2)^(k + 1)
+    end
+    polyPS(powPS(a, Q(-1), P), coef, 1, P)
+end
+
 function logPS(a::PS, logw::Sum, P::Q)
     v, c0, r = split_lead(a)
     L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
@@ -295,6 +317,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :erf ? erfPS(arg, P) :
     h === :erfs ? erfsPS(arg, P) :
     h === :lgrem ? lgremPS(arg, P) :
+    h in (:fsi, :gsi, :dawson) ? auxPS(h, arg, P) :
     h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
 end
 

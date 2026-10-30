@@ -243,7 +243,11 @@ The operations understood are
 * `gamma`, `loggamma` and `factorial`, for an argument that tends to `+∞` (by Stirling's
   series) or is constant. `gamma(x + k)`, with `k` an integer, is reduced to
   `x (x + 1) ⋯ (x + k - 1) gamma(x)`, so that ratios such as `factorial(n + 1)/factorial(n)`
-  cancel.
+  cancel;
+* `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl, for an argument that tends to
+  `±∞` (`+∞` for `cosint`) or is constant. With their asymptotic expansions, as
+  `sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)`, so that `sinint(x)` tends to `π/2` while
+  `x*(π/2 - sinint(x))` has no limit.
 
 Inside the package, most of these are rewritten in terms of `sin`, `cos`, `atan`, `erf`, `exp` and `log`.
 An answer involving them is correct, but it may be written differently from the input.
