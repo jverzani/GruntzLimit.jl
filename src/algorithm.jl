@@ -185,9 +185,10 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf)) || return nothing
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma)) || return nothing
         u = subs_atoms(a.args[1]::Sum, res)
         a.head === :floor && return resolve_floor(u, x)
+        a.head === :gamma && return resolve_gamma(u, x)
         a.head === :erf && return resolve_erf(u, x)
         sg = hasleaf(u, x.key) ? sgn(u, x) : try
             csign(u)
@@ -206,6 +207,19 @@ function resolve_erf(u::Sum, x::Atom)
     L isa Infinity || return mkerf(u)
     σ = Q(signof(L))
     scaleS(subS(oneS(), mulS(mkexp(negS(mulS(u, u))), mkerfs(scaleS(u, σ)))), σ)
+end
+
+# gamma(u), for u -> +oo, by Stirling's formula: exp((u - 1/2) log(u) - u + log(2π)/2 +
+# lgrem(u)), lgrem having an asymptotic series in 1/u (see `lgremPS`). At other points
+# gamma is not supported, unless its argument is a constant.
+function resolve_gamma(u::Sum, x::Atom)
+    hasleaf(u, x.key) || return mkgamma(u)
+    L = limitinf(u, x)
+    (L isa Infinity && signof(L) > 0) ||
+        throw(GruntzError("gamma is supported only for an argument that tends to +oo, or is constant"))
+    half = Q(1) // 2
+    l2pi = mklog(scaleS(atomS(PI_ATOM), Q(2)))
+    mkexp(addS(subS(mulS(subS(u, constS(half)), mklog(u)), u), addS(scaleS(l2pi, half), mklgrem(u))))
 end
 
 # floor(u) for x -> +oo, u tending to a finite L: floor(L) when L is not an integer;

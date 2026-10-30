@@ -85,9 +85,13 @@ end
 
 # The sign of an atom with parameters, from the context (linear reasoning only):
 # ±1 or nothing. log(s) has the sign of s - 1, sign(s) that of s; abs is taken to be positive (a zero
-# argument is split off as a case of its own). erf(s) has the sign of s, erfs is positive.
+# argument is split off as a case of its own). erf(s) has the sign of s, erfs is positive,
+# as are lgrem (its argument tends to +oo) and gamma of a positive number.
 function atom_sign(a::Atom)
-    a.kind === :fun && a.head in (:exp, :abs, :erfs) && return 1
+    a.kind === :fun && a.head in (:exp, :abs, :erfs, :lgrem) && return 1
+    if a.kind === :fun && a.head === :gamma
+        return possible_signs(a.args[1]::Sum; facts = false) == [1] ? 1 : nothing
+    end
     s = a.kind === :leaf ? atomS(a) :
         a.kind === :base ? a.args[1]::Sum :
         a.kind === :fun && a.head === :log ? subS(a.args[1]::Sum, oneS()) :

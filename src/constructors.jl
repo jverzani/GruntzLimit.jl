@@ -174,6 +174,35 @@ function mkerf(s::Sum)
 end
 mkerfs(s::Sum) = atomS(funatom(:erfs, Sum[s]))
 
+# gamma. Of a positive integer, evaluated; a pole is an error. An argument with the
+# limit variable is shifted by an integer to u + r, 0 <= r < 1, the first monomial of
+# u with a positive coefficient: gamma(u + r + n) = (u + r)(u + r + 1)...(u + r + n - 1)
+# gamma(u + r), so that ratios such as gamma(x + 2)/gamma(x) cancel to polynomials
+# before any asymptotic expansion. lgrem(u) is the remainder of Stirling's series,
+# log(gamma(u)) - (u - 1/2) log(u) + u - log(2π)/2, for u -> +oo (see
+# `resolve_gamma`); it is never built from the input.
+const MAX_GAMMA_SHIFT = 64
+function mkgamma(s::Sum)
+    r = ratconst(s)
+    if r !== nothing && isinteger(r)
+        r <= 0 && throw(GruntzError("gamma has a pole at $(r)", :undefined))
+        r <= 1000 && return constS(factorial(big(numerator(r)) - 1))
+    end
+    c = get(s.t, ONEMONO, zero(Q))
+    n = floor(BigInt, c)
+    u = Sum(Dict{Mono,Q}(m => v for (m, v) in s.t if m != ONEMONO))
+    (iszero(n) || isempty(u.t) || abs(n) > MAX_GAMMA_SHIFT || !hasleaf(u, CONTEXT[].x.key)) &&
+        return atomS(funatom(:gamma, Sum[s]))
+    b = addS(u, constS(c - n))
+    g = atomS(funatom(:gamma, Sum[b]))
+    if n > 0
+        foldl((acc, j) -> mulS(acc, addS(b, constS(j))), 0:Int(n)-1; init = g)
+    else
+        foldl((acc, j) -> mulS(acc, powS(subS(b, constS(j)), Q(-1))), 1:Int(-n); init = g)
+    end
+end
+mklgrem(s::Sum) = atomS(funatom(:lgrem, Sum[s]))
+
 # abs: |c*m| = |c| * abs(m); sign-normalised so abs(u) and abs(-u) coincide.
 # It is eliminated before the limit is computed (see `resolve_piecewise`).
 function mkabs(s::Sum)
@@ -219,6 +248,8 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :atan ? mkatan(a[1]) :
     h === :erf ? mkerf(a[1]) :
     h === :erfs ? mkerfs(a[1]) :
+    h === :gamma ? mkgamma(a[1]) :
+    h === :lgrem ? mklgrem(a[1]) :
     h === :abs ? mkabs(a[1]) :
     h === :floor ? mkfloor(a[1]) :
     h === :sign ? mksign(a[1]) :

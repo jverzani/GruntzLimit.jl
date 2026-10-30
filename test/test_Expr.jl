@@ -378,6 +378,35 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test failed(:(exp(x*sin(x))), :x)
     end
 
+    @testset "gamma and factorial" begin
+        # x^x/x!, c^x/x!, and ratio tests a(n+1)/a(n)
+        @test gruntz_limit(:(x^x/factorial(x)), :x) == Inf
+        @test gruntz_limit(:(x^x/gamma(x + 1)), :x) == Inf
+        @test gruntz_limit(:((1 + a)^x/factorial(x)), :x; signs = Dict(:a => :positive)) == 0
+        @test gruntz_limit(:(factorial(x + 1)/factorial(x)/(x + 1)), :x) == 1
+        @test eval(gruntz_limit(:((factorial(x + 1)/(x + 1)^(x + 1))/(factorial(x)/x^x)), :x)) ≈ exp(-1)
+        @test gruntz_limit(:((a^(2x + 3)/factorial(2x + 3))/(a^(2x + 1)/factorial(2x + 1))), :x) == 0
+        # Stirling's formula, and its next term
+        @test gruntz_limit(:(factorial(x)/(sqrt(2*π*x)*(x/ℯ)^x)), :x) == 1
+        @test gruntz_limit(:(x*(factorial(x)/(sqrt(2*π*x)*(x/ℯ)^x) - 1)), :x) == 1//12
+        @test eval(gruntz_limit(:(gamma(x)*exp(x)/x^(x - 1//2)), :x)) ≈ sqrt(2π)
+        @test eval(gruntz_limit(:(loggamma(x) - (x - 1//2)*log(x) + x), :x)) ≈ log(2π)/2
+        @test gruntz_limit(:(log(gamma(x))/(x*log(x))), :x) == 1
+        @test gruntz_limit(:(gamma(x + 1//2)/(gamma(x)*sqrt(x))), :x) == 1
+        @test gruntz_limit(:(gamma(x)/gamma(x + 1//3)*x^(1//3)), :x) == 1
+        @test gruntz_limit(:(gamma(log(x))/x), :x) == Inf
+        @test gruntz_limit(:(exp(x)/gamma(x)), :x) == 0
+        @test gruntz_limit(:(factorial(x)/exp(x^2)), :x) == 0
+        @test gruntz_limit(:(sin(x)/factorial(x)), :x) == 0
+        @test gruntz_limit(:(x*gamma(1/x)), :x, 0; dir = :+) == Inf
+        # constant arguments
+        @test gruntz_limit(:(factorial(5) + 1/x), :x) == 120
+        @test_throws GruntzError gruntz_limit(:(gamma(0) + x), :x, 1)
+        # not supported: an argument with a finite limit, or one that tends to -oo
+        @test_throws GruntzError gruntz_limit(:(gamma(x)), :x, 2)
+        @test_throws GruntzError gruntz_limit(:(gamma(-x)), :x)
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf
@@ -437,7 +466,7 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
     @testset "errors" begin
         @test_throws GruntzError gruntz_limit(:(sin(x)), :x)
         @test_throws GruntzError gruntz_limit(:(sin(1/x)), :x, 0)
-        @test_throws GruntzError gruntz_limit(:(gamma(x)), :x)
+        @test_throws GruntzError gruntz_limit(:(zeta(x)), :x)
         @test_throws GruntzError gruntz_limit(:(log(x)), :x, -1)
         @test_throws GruntzError gruntz_limit(:(sqrt(-1 - x^2)), :x)
         @test_throws GruntzError gruntz_limit(:(1/x), :x, 0; dir = :sideways)

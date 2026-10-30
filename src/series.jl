@@ -253,6 +253,30 @@ function erfsPS(a::PS, P::Q)
     polyPS(u, tcoef, 0, P)
 end
 
+# Bernoulli numbers B_0, B_1, ..., as needed
+const BERNOULLI = Q[1]
+function bernoulli(n::Int)
+    while length(BERNOULLI) <= n
+        m = length(BERNOULLI)
+        push!(BERNOULLI, -sum(binomial(big(m + 1), j) * BERNOULLI[j+1] for j in 0:m-1) / (m + 1))
+    end
+    BERNOULLI[n+1]
+end
+
+# lgrem(v), the remainder of Stirling's series, for v -> +oo as w -> 0: the asymptotic
+# series sum_{k>=1} B_2k / (2k (2k - 1)) v^(1 - 2k), truncated as erfs's is.
+function lgremPS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 ||
+        throw(GruntzError("gamma: the argument does not tend to infinity in the expansion variable"))
+    function coef(j)
+        iseven(j) && return Q(0)
+        k = (j + 1) ÷ 2
+        bernoulli(2k) / (2k * (2k - 1))
+    end
+    polyPS(powPS(a, Q(-1), P), coef, 1, P)
+end
+
 function logPS(a::PS, logw::Sum, P::Q)
     v, c0, r = split_lead(a)
     L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
@@ -270,6 +294,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :atan ? atanPS(arg, x, P) :
     h === :erf ? erfPS(arg, P) :
     h === :erfs ? erfsPS(arg, P) :
+    h === :lgrem ? lgremPS(arg, P) :
     h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
 end
 
