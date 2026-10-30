@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=c53797c4">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=4ab811e0">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -620,9 +620,18 @@ catch err
     err
 end</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;argument of exp/sin/cos diverges (oscillation or essential singularity)&quot;, :fail)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">GruntzError(&quot;the limit does not exist: the expression oscillates&quot;, :nolimit)</code></pre>
 </div>
-<p>or one-sided limits that disagree, with <code class="md-code-inline">dir = :both</code>:</p>
+<p>An oscillating subexpression does not prevent a limit, when bounds decide it: a bounded factor times something that tends to 0, a bounded term next to one that tends to ±∞, or something that tends to ±∞ times a factor bounded away from 0:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">gruntz_limit(sin(x)/x, x), gruntz_limit(x + cos(x), x), gruntz_limit(x*(2 + sin(x)), x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">(0, Inf, Inf)</code></pre>
+</div>
+<p>A term that dominates a bounded one is kept (<code class="md-code-inline">x + 2cos(x)</code> behaves as <code class="md-code-inline">x</code>), so <code class="md-code-inline">x/(x + 2cos(x))</code> tends to 1. When the bounds do not decide, the error is of kind <code class="md-code-inline">:fail</code> (<code class="md-code-inline">sin(x)^2 + cos(x)^2</code>: <code class="md-code-inline">sin</code> and <code class="md-code-inline">cos</code> are bounded independently), and of kind <code class="md-code-inline">:nolimit</code> only where the limit is known not to exist, as for <code class="md-code-inline">sin(x)</code>.</p>
+<p>Or one-sided limits that disagree, with <code class="md-code-inline">dir = :both</code>:</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -669,6 +678,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=c53797c4"></script>
+  <script src="../assets/materialdocs.js?v=4ab811e0"></script>
 </body>
 </html>
