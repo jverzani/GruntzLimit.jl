@@ -433,11 +433,30 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(erfi(x)), :x, -Inf) == -Inf
         @test eval(gruntz_limit(:(erfi(x)*x*exp(-x^2)), :x)) ≈ 1/sqrt(π)
         @test gruntz_limit(:(erfi(x)/exp(x^2)), :x) == 0
-        # constants; not supported: a finite limit of the argument; cosint at -oo is complex
+        # constants; cosint of a negative number is complex, and has a singularity at 0
         @test gruntz_limit(:(sinint(2) + 1/x), :x) == :(sinint(2))
-        @test_throws GruntzError gruntz_limit(:(sinint(x)), :x, 1)
         @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, -Inf)
         @test_throws GruntzError gruntz_limit(:(cosint(0) + x), :x, 1)
+        @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, 0; dir = :-)
+        @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, -1)
+        # at finite points, by Taylor's series
+        @test gruntz_limit(:(sinint(x)), :x, 0) == 0
+        @test gruntz_limit(:(sinint(x)/x), :x, 0; dir = :both) == 1
+        @test gruntz_limit(:((sinint(x) - x)/x^3), :x, 0; dir = :both) == -1//18
+        @test gruntz_limit(:(sinint(sin(x))/x), :x, 0; dir = :both) == 1
+        @test gruntz_limit(:(sinint(a*x)/x), :x, 0; dir = :both) == :a
+        @test gruntz_limit(:(sinint(x)), :x, 1) == :(sinint(1))
+        @test eval(gruntz_limit(:((sinint(x) - sinint(1))/(x - 1)), :x, 1; dir = :both)) ≈ sin(1)
+        @test eval(gruntz_limit(:((sinint(x) - sinint(1) - sin(1)*(x - 1))/(x - 1)^2), :x, 1; dir = :both)) ≈
+              (cos(1) - sin(1))/2
+        @test eval(gruntz_limit(:(cosint(x) - log(x)), :x, 0)) ≈ Base.MathConstants.eulergamma
+        @test gruntz_limit(:((cosint(x) - log(x) - $(Base.MathConstants.eulergamma))/x^2), :x, 0) == -1//4
+        @test gruntz_limit(:(cosint(x)), :x, 0) == -Inf
+        @test gruntz_limit(:(x*cosint(x)), :x, 0) == 0
+        @test eval(gruntz_limit(:((cosint(x) - cosint(2))/(x - 2)), :x, 2; dir = :both)) ≈ cos(2)/2
+        @test eval(gruntz_limit(:(erfi(x)/x), :x, 0; dir = :both)) ≈ 2/sqrt(π)
+        @test eval(gruntz_limit(:((erfi(x) - 2x/sqrt(π))/x^3), :x, 0; dir = :both)) ≈ 2/(3sqrt(π))
+        @test eval(gruntz_limit(:((erfi(x) - erfi(1))/(x - 1)), :x, 1; dir = :both)) ≈ 2ℯ/sqrt(π)
     end
 
     @testset "constants pi, π and ℯ" begin

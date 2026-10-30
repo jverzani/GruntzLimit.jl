@@ -244,8 +244,9 @@ The operations understood are
   series) or is constant. `gamma(x + k)`, with `k` an integer, is reduced to
   `x (x + 1) ⋯ (x + k - 1) gamma(x)`, so that ratios such as `factorial(n + 1)/factorial(n)`
   cancel;
-* `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl, for an argument that tends to
-  `±∞` (`+∞` for `cosint`) or is constant. With their asymptotic expansions, as
+* `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl (`cosint` for a positive
+  argument, or one that tends to 0 from above). At finite points by their Taylor series
+  (`cosint(u) = γ + log(u) + …` near 0), and at `±∞` with their asymptotic expansions, as
   `sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)`, so that `sinint(x)` tends to `π/2` while
   `x*(π/2 - sinint(x))` has no limit.
 

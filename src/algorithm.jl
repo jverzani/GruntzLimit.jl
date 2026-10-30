@@ -226,12 +226,21 @@ end
 
 # sinint, cosint and erfi of an argument that tends to ±oo, rewritten with their
 # auxiliary functions (see `mkodd`); sinint and erfi are odd. The oscillating sin and
-# cos are left to `bounded_limit`. Other arguments are supported only when constant.
+# cos are left to `bounded_limit`. An argument with a finite limit is expanded by
+# Taylor's series (see `specialPS`); for cosint it must tend to a positive number, or to
+# 0 from above.
 function resolve_infinite(h::Symbol, u::Sum, x::Atom)
     rebuild() = h === :cosint ? mkcosint(u) : mkodd(h, u)
     hasleaf(u, x.key) || return rebuild()
     L = limitinf(u, x)
-    L isa Infinity || throw(GruntzError("$h is supported only for an argument that tends to ±oo, or is constant"))
+    if !(L isa Infinity)
+        if h === :cosint
+            s = csign(L)
+            s == 0 && (s = sgn(u, x))
+            s > 0 || throw(GruntzError("cosint of a negative number is not real", :undefined))
+        end
+        return rebuild()
+    end
     σ = signof(L)
     h === :cosint && σ < 0 && throw(GruntzError("cosint of a negative number is not real", :undefined))
     v = scaleS(u, Q(σ))                     # v -> +oo
