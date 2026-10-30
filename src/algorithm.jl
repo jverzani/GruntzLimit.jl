@@ -237,4 +237,14 @@ function resolve_floor(u::Sum, x::Atom)
     constS(sgn(d, x) > 0 ? r : r - 1)
 end
 
-limit_pos(e::Sum, x::Atom) = limitinf(resolve_piecewise(e, x), x)
+# An oscillating subexpression (sin(x)) stops Gruntz's algorithm; the limit is then
+# decided by bounds where it can be (see `bounded_limit`)
+function limit_pos(e::Sum, x::Atom)
+    e = resolve_piecewise(e, x)
+    try
+        limitinf(e, x)
+    catch err
+        (err isa GruntzError && err.kind === :fail && err.msg == OSC_MSG) || rethrow()
+        bounded_limit(e, x)
+    end
+end

@@ -151,10 +151,12 @@ function powPS(a::PS, q::Q, P::Q)
     shiftPS(scalePS(T, powS(c0, q)), v * q)
 end
 
+const OSC_MSG = "argument of exp/sin/cos diverges (oscillation or essential singularity)"
+
 function const_and_rest(a::PS)
     all(b -> EX0 < b, a.prec.bs) || throw(NeedMorePrecision())
     any(k -> k < EX0, keys(a.c)) &&
-        throw(GruntzError("argument of exp/sin/cos diverges (oscillation or essential singularity)"))
+        throw(GruntzError(OSC_MSG))
     c0 = get(a.c, EX0, zeroS())
     c0, trunc_ps(Dict{Ex,Sum}(k => v for (k, v) in a.c if k != EX0), a.prec)
 end

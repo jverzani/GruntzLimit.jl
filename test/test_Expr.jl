@@ -319,8 +319,63 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(:(x^(a - 2)), :x)
         @test cs[end].second == Inf
         @test length(filter(p -> p.second == 0, cs)) == 1
-        # a GruntzError for a case that could not be computed
-        @test only(gruntz_cases(:(x^a * sin(1/x)), :x, 0))[2] isa GruntzError
+        # bounded oscillation in a case
+        @test shown(gruntz_cases(:(x^a * sin(1/x)), :x, 0)) == Set(["a <= 0" => :nolimit, "a > 0" => 0])
+        @test shown(gruntz_cases(:(x^a * sin(x)), :x)) == Set(["a < 0" => 0, "a >= 0" => :nolimit])
+        # a GruntzError for a case that could not be computed: x^a -> oo, 1 - cos(1/x) touches 0
+        cs = gruntz_cases(:(x^a * (1 - cos(1/x))), :x, 0)
+        @test cs(:a => -1) isa GruntzError && cs(:a => 0) == :nolimit && cs(:a => 1) == 0
+    end
+
+    @testset "bounded oscillation" begin
+        nolimit(f, args...; kw...) = try
+            gruntz_limit(f, args...; kw...); false
+        catch err
+            err isa GruntzError && err.kind === :nolimit
+        end
+        failed(f, args...; kw...) = try
+            gruntz_limit(f, args...; kw...); false
+        catch err
+            err isa GruntzError && err.kind === :fail
+        end
+        # bounded × (-> 0), bounded + (-> ±oo), (-> ±oo) × (bounded, of one sign)
+        @test gruntz_limit(:(sin(x)/x), :x) == 0
+        @test gruntz_limit(:(sin(x)/x), :x, -Inf) == 0
+        @test gruntz_limit(:((1 - cos(x))/x^2), :x) == 0
+        @test gruntz_limit(:(sin(x) + x), :x) == Inf
+        @test gruntz_limit(:(x*(2 + sin(x))), :x) == Inf
+        @test gruntz_limit(:(-x*(2 + sin(x))), :x) == -Inf
+        @test gruntz_limit(:(exp(-x)*sin(exp(x))), :x) == 0
+        @test gruntz_limit(:(cos(x)/x + 3), :x) == 3
+        @test gruntz_limit(:(sin(sin(x))/x), :x) == 0
+        @test gruntz_limit(:(sin(x + exp(-x))/x), :x) == 0
+        @test gruntz_limit(:(sin(a*x)/x), :x) == 0
+        @test gruntz_limit(:(sqrt(1 - cos(x))/x), :x) == 0
+        # a dominant term with a bounded one: x + 2cos(x) ~ x
+        @test gruntz_limit(:(2*exp(-sin(x))/(x + 2*cos(x))), :x) == 0
+        @test gruntz_limit(:(x/(x + 2cos(x))), :x) == 1
+        @test gruntz_limit(:((x + sin(x))/(x - cos(x))), :x) == 1
+        @test gruntz_limit(:(x^2 + x*sin(x)), :x) == Inf
+        @test gruntz_limit(:(log(2 + sin(x))/x), :x) == 0
+        @test gruntz_limit(:(log(x + sin(x))/log(x)), :x) == 1
+        # at finite points
+        @test gruntz_limit(:((h/2 + h^2*sin(π/h))/h), :h, 0; dir = :both) == 1//2
+        @test gruntz_limit(:(x^2*sin(1/x)/x), :x, 0; dir = :both) == 0
+        # no limit
+        @test nolimit(:(sin(x)), :x)
+        @test nolimit(:(x*sin(x)), :x)
+        @test nolimit(:(exp(sin(x))), :x)
+        @test nolimit(:(sin(1/x)), :x, 0)
+        @test nolimit(:(sin(1/x)/x), :x, 0)
+        # Gruntz's counterexample to l'Hôpital's rule: the ratio is exp(-sin(x))
+        @test nolimit(:((sin(2x)/2 + x)/(exp(sin(x))*(cos(x)*sin(x) + x))), :x)
+        # undecided: an error, never a wrong answer
+        @test failed(:(tan(x)), :x)
+        @test failed(:(1/sin(x)), :x)
+        @test failed(:(sin(x)^2 + cos(x)^2), :x)                # sin and cos taken as independent
+        @test failed(:(x*(1 - cos(x)) + sqrt(x)), :x)           # -> oo: 1 - cos(x) only touches 0
+        @test failed(:(x + x*sin(x)), :x)
+        @test failed(:(exp(x*sin(x))), :x)
     end
 
     @testset "constants pi, π and ℯ" begin
