@@ -86,15 +86,22 @@ lim(R::OscRater, s::Sum) = limitinf(s, R.x)
 
 function rate(R::OscRater, s::Sum)::Rated
     hasosc(R, s) || return Rated(s, nothing)
-    P0 = zeroS()
-    cands = Rated[]
+    # terms are grouped by their oscillating factors, whose coefficients are summed
+    # exactly: (x^2 f(x) - x) cos(x), not x^2 f(x) cos(x) - x cos(x) bounded apart
+    groups = Dict{Mono,Sum}()
     for (m, c) in s.t
-        if any(p -> hasosc(R, p.first), m.fs)
-            push!(cands, rate_mono(R, m, c))
-        else
-            P0 = addS(P0, monoS(m, c))
-        end
+        mo = Mono(filter(p -> hasosc(R, p.first), m.fs))
+        k = monoS(Mono(filter(p -> !hasosc(R, p.first), m.fs)), c)
+        groups[mo] = addS(get(groups, mo, zeroS()), k)
     end
+    P0 = get(groups, ONEMONO, zeroS())
+    cands = Rated[]
+    for (mo, k) in groups
+        (mo == ONEMONO || iszero(k)) && continue
+        r = rate_mono(R, mo, Q(1))
+        push!(cands, Rated(mulS(k, r.P), r.iv))
+    end
+    sort!(cands; by = r -> skey(r.P))       # a deterministic order
     iszero(P0) || pushfirst!(cands, Rated(P0, nothing))
     length(cands) == 1 && return cands[1]
     # the dominant term D; the others are c D (1 + o(1)) with c finite
