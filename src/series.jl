@@ -299,6 +299,54 @@ function auxPS(h::Symbol, a::PS, P::Q)
     polyPS(powPS(a, Q(-1), P), coef, 1, P)
 end
 
+# sinint, cosint and erfi of a bounded argument c + u, u -> 0, by Taylor's series, with
+#   Si' = sin(t)/t, Ci' = cos(t)/t: (sin(t)/t)^(m) = sum_j C(m, j) sin(t + jπ/2) (-1)^(m-j) (m-j)! t^(j-m-1),
+#   erfi' = 2/sqrt(π) exp(t^2): (exp(t^2))^(m) = P_m(t) exp(t^2), P_0 = 1, P_(m+1) = P_m' + 2t P_m.
+# At c = 0, Si(u) = sum_k (-1)^k u^(2k+1) / ((2k+1) (2k+1)!) and
+# Ci(u) = γ + log(u) + sum_(k>=1) (-1)^k u^(2k) / (2k (2k)!). An argument that tends to
+# ±oo was rewritten with fsi, gsi or dawson.
+const EULER = atomS(leafatom(Base.MathConstants.eulergamma))   # as `from_number` makes it
+function specialPS(h::Symbol, a::PS, logw::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: $h of an unbounded argument"))
+    c0, u = const_and_rest(a)
+    if h === :erfi
+        k = scaleS(mulS(mkexp(mulS(c0, c0)), powS(atomS(PI_ATOM), -Q(1) // 2)), Q(2))
+        deriv(p) = Q[(i - 1) * p[i] for i in 2:length(p)]
+        polyadd(p, q) = (n = max(length(p), length(q)); Q[get(p, i, 0) + get(q, i, 0) for i in 1:n])
+        peval(p) = foldr((ci, acc) -> addS(constS(ci), mulS(c0, acc)), p; init = zeroS())
+        Ps = [Q[1]]
+        function ecoef(n)
+            n == 0 && return Q(0)
+            while length(Ps) < n
+                push!(Ps, polyadd(deriv(Ps[end]), [Q(0); 2 .* Ps[end]]))
+            end
+            scaleS(mulS(k, peval(Ps[n])), inv(Q(factorial(big(n)))))
+        end
+        return addPS(polyPS(u, ecoef, 1, P), constPS(mkodd(:erfi, c0)))
+    end
+    if iszero(c0)
+        h === :sinint && return polyPS(u, k -> isodd(k) ? Q((-1)^((k - 1) ÷ 2)) // (k * factorial(big(k))) : Q(0), 1, P)
+        ser = polyPS(u, k -> iseven(k) ? Q((-1)^(k ÷ 2)) // (k * factorial(big(k))) : Q(0), 2, P)
+        return addPS(addPS(ser, logPS(a, logw, P)), constPS(EULER))
+    end
+    trig = h === :sinint ? mksin : mkcos
+    ic = powS(c0, Q(-1))
+    function tcoef(n)
+        n == 0 && return Q(0)
+        m = n - 1
+        d = zeroS()
+        for j in 0:m
+            t = trig(addS(c0, scaleS(atomS(PI_ATOM), Q(j) // 2)))
+            d = addS(d, scaleS(mulS(t, powS(ic, Q(m - j + 1))),
+                               Q(binomial(big(m), j) * (-1)^(m - j) * factorial(big(m - j)))))
+        end
+        scaleS(d, inv(Q(factorial(big(n)))))
+    end
+    c = h === :sinint ? mkodd(:sinint, c0) : mkcosint(c0)
+    addPS(polyPS(u, tcoef, 1, P), constPS(c))
+end
+
 function logPS(a::PS, logw::Sum, P::Q)
     v, c0, r = split_lead(a)
     L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
@@ -318,6 +366,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :erfs ? erfsPS(arg, P) :
     h === :lgrem ? lgremPS(arg, P) :
     h in (:fsi, :gsi, :dawson) ? auxPS(h, arg, P) :
+    h in (:sinint, :cosint, :erfi) ? specialPS(h, arg, logw, P) :
     h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
 end
 
