@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=ae36826f">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=2d9bd380">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -380,7 +380,7 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 <h2 id="Supported-functions" class="md-heading">Supported functions<a href="#Supported-functions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>The operations understood are</p>
 <ul class="md-list-tight">
-<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code>;</p>
+<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code>, and <code class="md-code-inline">min</code>, <code class="md-code-inline">max</code> of any number of arguments. A power <code class="md-code-inline">c^u</code> of a negative constant <code class="md-code-inline">c</code> is real only for an integer <code class="md-code-inline">u</code>: where <code class="md-code-inline">u</code> tends to <code class="md-code-inline">±∞</code> it is taken as a sequence is, so <code class="md-code-inline">(-1)^x</code> has no limit and <code class="md-code-inline">(-1/2)^x</code> tends to 0;</p>
 </li>
 <li><p><code class="md-code-inline">floor</code> and <code class="md-code-inline">ceil</code>, when their argument has a finite limit;</p>
 </li>
@@ -394,7 +394,9 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>;</p>
 </li>
-<li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl;</p>
+<li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl, and <code class="md-code-inline">erf(u, v) = erf(v) - erf(u)</code>;</p>
+</li>
+<li><p><code class="md-code-inline">lambertw</code>, the principal branch of Lambert&#39;s W function (also written <code class="md-code-inline">lambertw(u, 0)</code>), for an argument that tends to <code class="md-code-inline">+∞</code> (<code class="md-code-inline">W(u) = log(u) - log(log(u)) + …</code>) or to a limit above the branch point <code class="md-code-inline">-1/e</code>. An answer such as <code class="md-code-inline">lambertw(1)</code> is built with the <code class="md-code-inline">lambertw</code> of the input&#39;s package;</p>
 </li>
 <li><p><code class="md-code-inline">gamma</code>, <code class="md-code-inline">loggamma</code> and <code class="md-code-inline">factorial</code>, for an argument that tends to <code class="md-code-inline">+∞</code> (by Stirling&#39;s series) or is constant. <code class="md-code-inline">gamma(x + k)</code>, with <code class="md-code-inline">k</code> an integer, is reduced to <code class="md-code-inline">x (x + 1) ⋯ (x + k - 1) gamma(x)</code>, so that ratios such as <code class="md-code-inline">factorial(n + 1)/factorial(n)</code> cancel;</p>
 </li>
@@ -682,6 +684,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=ae36826f"></script>
+  <script src="../assets/materialdocs.js?v=2d9bd380"></script>
 </body>
 </html>
