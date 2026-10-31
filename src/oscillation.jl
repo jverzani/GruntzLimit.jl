@@ -183,31 +183,22 @@ function diverges(R::OscRater, u::Sum)
     lim(R, r.P) isa Infinity && (r.iv === nothing || onesigned(r.iv))
 end
 
-# exp(U0 + Σ P_j (β_j + o(1))), U0 the terms free of oscillation: each P_j tends to a
-# finite limit L_j, and the sum to the interval Σ L_j [lo_j, hi_j]
+# exp(U0 + O), U0 the terms free of oscillation and O = P (β + o(1)) the others, rated
+# together (so that they may cancel): P tends to a finite limit L, and O to the
+# interval L [lo, hi]
 function rate_exp(R::OscRater, u::Sum)
-    U0 = zeroS()
-    lo = hi = 0.0
-    nb, exact, any_iv = 0, true, false
+    U0, O = zeroS(), zeroS()
     for (m, c) in u.t
-        if !any(p -> hasosc(R, p.first), m.fs)
-            U0 = addS(U0, monoS(m, c))
-            continue
-        end
-        r = rate_mono(R, m, c)
-        L = lim(R, r.P)
-        L isa Infinity && oscfail()
-        numzero(L, R.x) && continue
-        v = float_or_nothing(L)
-        v === nothing && oscfail()
-        a, b = r.iv === nothing ? (1.0, 1.0) : (r.iv.lo, r.iv.hi)
-        lo += min(v * a, v * b)
-        hi += max(v * a, v * b)
-        any_iv = true
-        r.iv === nothing || (nb += 1; exact &= r.iv.exact)
+        any(p -> hasosc(R, p.first), m.fs) ? (O = addS(O, monoS(m, c))) : (U0 = addS(U0, monoS(m, c)))
     end
-    any_iv || return Rated(mkexp(U0), nothing)
-    Rated(mkexp(U0), widen(exp(lo), exp(hi), exact && nb <= 1))
+    r = rate(R, O)
+    L = lim(R, r.P)
+    L isa Infinity && oscfail()
+    numzero(L, R.x) && return Rated(mkexp(U0), nothing)
+    v = float_or_nothing(L)
+    v === nothing && oscfail()
+    a, b = r.iv === nothing ? (1.0, 1.0) : (r.iv.lo, r.iv.hi)
+    Rated(mkexp(U0), widen(exp(min(v * a, v * b)), exp(max(v * a, v * b)), r.iv === nothing || r.iv.exact))
 end
 
 # log(P (β + o(1))) = log(P) + log(β) + o(1)

@@ -185,9 +185,11 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw)) ||
             return nothing
         u = subs_atoms(a.args[1]::Sum, res)
+        a.head === :altsign && return resolve_altsign(u, x)
+        a.head === :lambertw && return resolve_lambertw(u, x)
         a.head in (:sinint, :cosint, :erfi) && return resolve_infinite(a.head, u, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
@@ -209,6 +211,29 @@ function resolve_erf(u::Sum, x::Atom)
     L isa Infinity || return mkerf(u)
     σ = Q(signof(L))
     scaleS(subS(oneS(), mulS(mkexp(negS(mulS(u, u))), mkerfs(scaleS(u, σ)))), σ)
+end
+
+# (-1)^u: for u -> ±oo the sign of a sequence, cos(π u), which oscillates; otherwise
+# not real
+function resolve_altsign(u::Sum, x::Atom)
+    hasleaf(u, x.key) && limitinf(u, x) isa Infinity && return mkcos(mulS(atomS(PI_ATOM), u))
+    throw(GruntzError("power of a negative number with a non-integer exponent", :undefined))
+end
+
+# lambertw(u). For u -> +oo, wexp(log(u)): W(u) ~ log(u) has its asymptotic series in
+# log(u) and log(log(u)), which is computed when log(u) tends to infinity in the expansion
+# variable (see `wexpPS`). Otherwise u must tend to a limit above the branch point -1/e.
+function resolve_lambertw(u::Sum, x::Atom)
+    hasleaf(u, x.key) || return mklambertw(u)
+    L = limitinf(u, x)
+    if L isa Infinity
+        signof(L) > 0 || throw(GruntzError("lambertw of a number below -1/e is not real", :undefined))
+        return mkwexp(mklog(u))
+    end
+    s = csign(addS(L, mkexp(constS(Q(-1)))))
+    s == 0 && throw(GruntzError("lambertw at its branch point -1/e is not supported"))
+    s < 0 && throw(GruntzError("lambertw of a number below -1/e is not real", :undefined))
+    mklambertw(u)
 end
 
 # gamma(u), for u -> +oo, by Stirling's formula: exp((u - 1/2) log(u) - u + log(2π)/2 +
@@ -293,6 +318,66 @@ function limit_pos(e::Sum, x::Atom)
         limitinf(e, x)
     catch err
         (err isa GruntzError && err.kind === :fail && err.msg == OSC_MSG) || rethrow()
-        bounded_limit(e, x)
+        bounded_limit(merge_trig(e, x), x)
     end
+end
+
+# Oscillating sin(u) and cos(u) whose arguments differ by a quantity with a finite limit
+# are written with one argument v, by sin(v + d) = sin(v) cos(d) + cos(v) sin(d) and
+# cos(v + d) = cos(v) cos(d) - sin(v) sin(d), d = u - v (and likewise for u = -v + d),
+# so that cancellations show: sin(x + 1/x) - sin(x) = sin(x) (cos(1/x) - 1) +
+# cos(x) sin(1/x), each term a bounded factor times one that tends to 0.
+function merge_trig(e::Sum, x::Atom)
+    args = Dict{String,Sum}()
+    function collect!(s::Sum)
+        for m in keys(s.t), (a, _) in m.fs
+            (a.kind === :leaf || !hasleaf(a, x.key)) && continue
+            foreach(u -> collect!(u::Sum), a.args)
+            a.kind === :fun && a.head in (:sin, :cos) || continue
+            u = a.args[1]::Sum
+            haskey(args, skey(u)) && continue
+            L = try
+                limitinf(u, x)
+            catch err
+                err isa GruntzError || rethrow()
+                nothing
+            end
+            L isa Infinity && (args[skey(u)] = u)
+        end
+    end
+    collect!(e)
+    length(args) < 2 && return e
+    finite(d) = try
+        !(limitinf(d, x) isa Infinity)
+    catch err
+        err isa GruntzError || rethrow()
+        false
+    end
+    reps = Sum[]                 # one argument v for each class, shortest first
+    rep = Dict{String,Tuple{Sum,Int,Sum}}()  # key of u => (v, ±1, d) with u = ±v + d
+    for u in sort!(collect(values(args)); by = u -> (length(skey(u)), skey(u)))
+        found = false
+        for v in reps
+            for s in (1, -1)
+                d = subS(u, scaleS(v, Q(s)))
+                if finite(d)
+                    rep[skey(u)] = (v, s, d)
+                    found = true
+                    break
+                end
+            end
+            found && break
+        end
+        found || push!(reps, u)
+    end
+    isempty(rep) && return e
+    function f(a::Atom)
+        (a.kind === :fun && a.head in (:sin, :cos)) || return nothing
+        r = get(rep, skey(a.args[1]::Sum), nothing)
+        r === nothing && return nothing
+        v, s, d = r
+        sv, cv, sd, cd = scaleS(mksin(v), Q(s)), mkcos(v), mksin(d), mkcos(d)   # sin(±v), cos(±v)
+        a.head === :sin ? addS(mulS(sv, cd), mulS(cv, sd)) : subS(mulS(cv, cd), mulS(sv, sd))
+    end
+    subs_atoms(e, f)
 end

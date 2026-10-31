@@ -192,7 +192,7 @@ function gruntz_cases(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = 
     xa = leafatom(x)
     ctx, sub = signs_context(signs, xa)
     bd = Builder(build === nothing ? auto_build(f, x) : build,
-                 lift === nothing ? auto_lift(f, x) : lift)
+                 lift === nothing ? auto_lift(f, x) : lift, input_ops(f))
     tree = solve_cases(() -> limit_value(f, xa, x0, dir), ctx, sub, xa, 0, Ref(0))
     merged = with_context(() -> merge_cases(flatten_cases(tree, Tuple{Sum,Symbol}[], [])), ctx, sub, false, xa)
     cases = with_context(ctx, sub, false, xa) do

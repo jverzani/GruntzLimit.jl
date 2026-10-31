@@ -232,14 +232,21 @@ gruntz_limit(:((1 + 1/x)^x), :x; build = (op, args...) -> op(args...))
 
 The operations understood are
 
-* arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`, `sign`;
+* arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`, `sign`, and `min`, `max`
+  of any number of arguments. A power `c^u` of a negative constant `c` is real only for an
+  integer `u`: where `u` tends to `±∞` it is taken as a sequence is, so `(-1)^x` has no limit
+  and `(-1/2)^x` tends to 0;
 * `floor` and `ceil`, when their argument has a finite limit;
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
 * hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
 * inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`;
-* the error function `erf` and `erfc`, as in SpecialFunctions.jl;
+* the error function `erf` and `erfc`, as in SpecialFunctions.jl, and `erf(u, v) = erf(v) - erf(u)`;
+* `lambertw`, the principal branch of Lambert's W function (also written `lambertw(u, 0)`),
+  for an argument that tends to `+∞` (`W(u) = log(u) - log(log(u)) + …`) or to a limit above
+  the branch point `-1/e`. An answer such as `lambertw(1)` is built with the `lambertw` of
+  the input's package;
 * `gamma`, `loggamma` and `factorial`, for an argument that tends to `+∞` (by Stirling's
   series) or is constant. `gamma(x + k)`, with `k` an integer, is reduced to
   `x (x + 1) ⋯ (x + k - 1) gamma(x)`, so that ratios such as `factorial(n + 1)/factorial(n)`

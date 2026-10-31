@@ -459,6 +459,94 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:((erfi(x) - erfi(1))/(x - 1)), :x, 1; dir = :both)) ≈ 2ℯ/sqrt(π)
     end
 
+    @testset "min and max" begin
+        @test gruntz_limit(:(min(x, x^2, x^3)), :x, 0; dir = :+) == 0
+        @test gruntz_limit(:(min(x, x^2)), :x, 0) == 0
+        @test gruntz_limit(:(max(x, sin(x))), :x, 0; dir = :both) == 0
+        @test gruntz_limit(:(min(exp(x), exp(2x))), :x) == Inf
+        @test gruntz_limit(:(min(x, x^2, x^3)), :x) == Inf
+        @test gruntz_limit(:(min(x, 1/x)), :x) == 0
+        @test gruntz_limit(:(max(x, x^2)/x), :x, 0; dir = :+) == 1
+        @test gruntz_limit(:(min(x, x^2)/x^2), :x, 0; dir = :+) == 1
+        @test gruntz_limit(:(min(x, x^2)/x), :x, 0; dir = :-) == 1
+        @test gruntz_limit(:(max(x^2, x^3)/x^3), :x) == 1
+        @test gruntz_limit(:(max(-x, 1 - x)), :x) == -Inf
+        @test_throws GruntzError gruntz_limit(:(min(x, x^2)/x), :x, 0; dir = :both)
+    end
+
+    @testset "lambertw" begin
+        @test gruntz_limit(:(exp(lambertw(x))), :x) == Inf
+        @test gruntz_limit(:(lambertw(x)/log(x)), :x) == 1
+        @test gruntz_limit(:(lambertw(x) - log(x) + log(log(x))), :x) == 0
+        @test gruntz_limit(:((lambertw(x) - log(x) + log(log(x)))*log(x)/log(log(x))), :x) == 1
+        @test gruntz_limit(:(exp(lambertw(x))*lambertw(x)/x), :x) == 1
+        @test gruntz_limit(:(lambertw(exp(x))/x), :x) == 1
+        @test gruntz_limit(:(lambertw(x*exp(x))/x), :x) == 1
+        @test gruntz_limit(:(lambertw(x^2)/lambertw(x)), :x) == 2
+        @test gruntz_limit(:(lambertw(x)/x), :x, 0; dir = :both) == 1
+        @test gruntz_limit(:((lambertw(x) - x)/x^2), :x, 0; dir = :both) == -1
+        @test gruntz_limit(:(lambertw(1/x)), :x, 0; dir = :+) == Inf
+        @test gruntz_limit(:(lambertw(x)), :x, 1) == :(lambertw(1))
+        @test gruntz_limit(:(lambertw(x, 0)), :x, 1) == :(lambertw(1))
+        @test gruntz_limit(:(lambertw(2) + 1/x), :x) == :(lambertw(2))
+        @test gruntz_limit(:(lambertw(x)), :x, :(exp(1))) == 1
+        # the derivative W/(x (1 + W)) at 1
+        r = gruntz_limit(:((lambertw(x) - lambertw(1))/(x - 1)), :x, 1; dir = :both)
+        W1 = 0.5671432904097838                                 # W(1), the omega constant
+        @test eval(:(let lambertw = _ -> $W1; $r end)) ≈ W1/(1 + W1)
+        @test_throws GruntzError gruntz_limit(:(lambertw(x)), :x, -Inf)
+        @test_throws GruntzError gruntz_limit(:(lambertw(x)), :x, -1)
+    end
+
+    @testset "erf with two arguments" begin
+        @test eval(gruntz_limit(:(exp(x)*erf(exp(-x), 2exp(-x))), :x)) ≈ 2/sqrt(π)
+        @test gruntz_limit(:(erf(-x, x)), :x) == 2
+        @test eval(gruntz_limit(:(erf(x, 2x)/x), :x, 0; dir = :both)) ≈ 2/sqrt(π)
+    end
+
+    @testset "oscillating differences" begin
+        nolimit(f, args...) = try
+            gruntz_limit(f, args...); false
+        catch err
+            err isa GruntzError && err.kind === :nolimit
+        end
+        @test gruntz_limit(:(sin(x + 1/x) - sin(x)), :x) == 0
+        @test gruntz_limit(:(cos(x + 1/x) - cos(x)), :x) == 0
+        @test gruntz_limit(:(sin(-x + 1/x) + sin(x)), :x) == 0
+        @test gruntz_limit(:(sin(x + exp(-x)) - sin(x)), :x) == 0
+        @test gruntz_limit(:(sin(sqrt(x^2 + 1)) - sin(x)), :x) == 0
+        @test gruntz_limit(:(sin(x^2 + 1/x) - sin(x^2)), :x) == 0
+        @test gruntz_limit(:(sin(x + 1/x)^2 - sin(x)^2), :x) == 0
+        @test gruntz_limit(:(exp(sin(x + 1/x) - sin(x))), :x) == 1
+        @test gruntz_limit(:(x*(sin(x + 1/x) - sin(x)) - cos(x)), :x) == 0
+        # x (sin(x + 1/x) - sin(x)) ~ cos(x)
+        @test nolimit(:(x*(sin(x + 1/x) - sin(x))), :x)
+        @test nolimit(:(x*(cos(x + 1/x) - cos(x))), :x)
+        @test nolimit(:(x^2*(sin(x + 1/x) - sin(x) - cos(x)/x)), :x)     # ~ -sin(x)/2
+    end
+
+    @testset "powers of a negative number" begin
+        nolimit(f, args...) = try
+            gruntz_limit(f, args...); false
+        catch err
+            err isa GruntzError && err.kind === :nolimit
+        end
+        undefined(f, args...) = try
+            gruntz_limit(f, args...); false
+        catch err
+            err isa GruntzError && err.kind === :undefined
+        end
+        # (-1)^x as the sign of a sequence when x -> ±oo
+        @test nolimit(:((-1)^x), :x)
+        @test nolimit(:((-1)^x * 2^x), :x)
+        @test nolimit(:((-1)^x * x^2), :x)
+        @test gruntz_limit(:((-1)^x * (1//2)^x), :x) == 0
+        @test gruntz_limit(:((-1//2)^x), :x) == 0
+        @test gruntz_limit(:((-1)^x/x), :x) == 0
+        @test gruntz_limit(:((-2)^x), :x, -Inf) == 0
+        @test undefined(:((-1)^x), :x, 0)
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf

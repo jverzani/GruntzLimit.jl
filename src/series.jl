@@ -347,6 +347,90 @@ function specialPS(h::Symbol, a::PS, logw::Sum, P::Q)
     addPS(polyPS(u, tcoef, 1, P), constPS(c))
 end
 
+# lambertw(c + u), u -> 0. At c = 0, W(u) = sum_(n>=1) (-n)^(n-1) u^n / n!. Otherwise by
+# Taylor's series, from z (1 + W) W' = W: with W(c + h) = sum_n a_n h^n and
+# b_n = sum_(k=0..n) (δ_k0 + a_k) (n - k + 1) a_(n-k+1), c b_n + b_(n-1) = a_n. An
+# argument that tends to +oo was rewritten with wexp.
+function lambertwPS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: lambertw of an unbounded argument"))
+    c0, u = const_and_rest(a)
+    isempty(c0.t) && return polyPS(u, n -> n == 0 ? Q(0) : Q(big(-n)^(n - 1)) // factorial(big(n)), 1, P)
+    W0 = mklambertw(c0)
+    ic, iw = powS(c0, Q(-1)), powS(addS(oneS(), W0), Q(-1))
+    A, B = Sum[W0], Sum[]
+    function coef(n)
+        while length(A) <= n
+            m = length(A) - 1                # a_0..a_m known: b_m, then a_(m+1)
+            push!(B, mulS(subS(A[m+1], m == 0 ? zeroS() : B[m]), ic))
+            s = B[m+1]
+            for k in 1:m
+                s = subS(s, scaleS(mulS(A[k+1], A[m-k+2]), Q(m - k + 1)))
+            end
+            push!(A, scaleS(mulS(s, iw), inv(Q(m + 1))))
+        end
+        A[n+1]
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(W0))
+end
+
+# wexp(L) = W(exp(L)), the solution F of F + log(F) = L. For L tending to infinity as
+# w -> 0, the asymptotic series (de Bruijn; Corless et al. 1996)
+#   F = L - l + sum_(k>=1) L^(-k) sum_(m=1..k) c_(k-m,m) l^m,  l = log(L),
+#   c_(j,m) = (-1)^j [j+m, j+1] / m!  ([n, k] the unsigned Stirling numbers of the first kind),
+# its terms of order k a power w^(k v) (times powers of log(w)), truncated as a convergent
+# series would be. Otherwise L = c + u, c a constant for w, and F(c + u) by Taylor's
+# series, from (1 + F) F' = F: (1 + a_0) (n + 1) a_(n+1) = a_n - sum_(k=1..n) a_k (n - k + 1) a_(n-k+1).
+const STIRLING1 = Dict{Tuple{Int,Int},BigInt}()
+function stirling1(n::Int, k::Int)
+    (n == k) && return big(1)
+    (k == 0 || k > n) && return big(0)
+    get!(STIRLING1, (n, k)) do
+        (n - 1) * stirling1(n - 1, k) + stirling1(n - 1, k - 1)
+    end
+end
+function wexpPS(a::PS, logw::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    if sign(val(a)) < 0
+        Li = powPS(a, Q(-1), P)
+        l = logPS(a, logw, P)
+        v = val(Li)
+        K = israt(v) ? Int(ceil(BigInt, P / v.q)) : 4
+        acc = addPS(a, scalePS(l, negS(oneS())))
+        israt(v) || (acc = PS(acc.c, pmin(acc.prec, Prec(v * Q(K + 1)))))
+        acc = PS(acc.c, pmin(acc.prec, Prec(Ex(P))))
+        Lk = onePS()
+        for k in 1:K
+            Lk = mulPS(Lk, Li)
+            poly = PS(Dict{Ex,Sum}(), HUGE_P)       # sum_m c_(k-m,m) l^m
+            lm = onePS()
+            for m in 1:k
+                lm = mulPS(lm, l)
+                c = Q((-1)^(k - m) * stirling1(k, k - m + 1)) // factorial(big(m))
+                poly = addPS(poly, scalePS(lm, constS(c)))
+            end
+            acc = addPS(acc, mulPS(Lk, poly))
+        end
+        return acc
+    end
+    c0, u = const_and_rest(a)
+    F0 = mkwexp(c0)
+    iw = powS(addS(oneS(), F0), Q(-1))
+    A = Sum[F0]
+    function coef(n)
+        while length(A) <= n
+            m = length(A) - 1
+            s = A[m+1]
+            for k in 1:m
+                s = subS(s, scaleS(mulS(A[k+1], A[m-k+2]), Q(m - k + 1)))
+            end
+            push!(A, scaleS(mulS(s, iw), inv(Q(m + 1))))
+        end
+        A[n+1]
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(F0))
+end
+
 function logPS(a::PS, logw::Sum, P::Q)
     v, c0, r = split_lead(a)
     L = polyPS(r, k -> Q((-1)^(k + 1)) // k, 1, P)
@@ -365,6 +449,8 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :erf ? erfPS(arg, P) :
     h === :erfs ? erfsPS(arg, P) :
     h === :lgrem ? lgremPS(arg, P) :
+    h === :lambertw ? lambertwPS(arg, P) :
+    h === :wexp ? wexpPS(arg, logw, P) :
     h in (:fsi, :gsi, :dawson) ? auxPS(h, arg, P) :
     h in (:sinint, :cosint, :erfi) ? specialPS(h, arg, logw, P) :
     h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
