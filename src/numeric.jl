@@ -47,6 +47,7 @@ function numval(a::Atom)
     a.head in keys(F64_FUNS) ? BigFloat(F64_FUNS[a.head](Float64(v))) :
     a.head === :lgrem ? SpecialFunctions.loggamma(v) - ((v - 1 / 2) * log(v) - v + log(2 * big(π)) / 2) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) :
     a.head === :sign ? (abs(v) < big"1e-60" ? zero(v) : sign(v)) :   # zero as `csign` decides
+    a.head === :lambertw ? lambertw_big(v) : a.head === :wexp ? wexp_big(v) :
     a.head === :cos ? cos(v) : throw(GruntzError("cannot evaluate $(a.head)"))
 end
 function numval(s::Sum)
@@ -80,4 +81,32 @@ function numval_or_nothing(a::Atom)
         err isa Union{FreeSymbol,DomainError} || rethrow()
         nothing
     end
+end
+
+# The principal branch of Lambert's W, for v >= -1/e, by Halley's iteration
+function lambertw_big(v::BigFloat)
+    v < -exp(big(-1)) && throw(DomainError(v, "lambertw of a number below -1/e"))
+    iszero(v) && return v
+    d = 1 + exp(big(1)) * v
+    d < 10eps(BigFloat) && return big(-1)
+    w = v < -big"0.25" ? sqrt(2d) - 1 : v < 3 ? log1p(v) : log(v) - log(log(v))
+    for _ in 1:200
+        e = exp(w)
+        f = w * e - v
+        wn = w - f / (e * (w + 1) - (w + 2) * f / (2w + 2))
+        abs(wn - w) <= eps(BigFloat) * (1 + abs(wn)) && return wn
+        w = wn
+    end
+    w
+end
+# W(exp(L)), by Newton's iteration on F + log(F) = L for large L
+function wexp_big(L::BigFloat)
+    L < 2 && return lambertw_big(exp(L))
+    F = L - log(L)
+    for _ in 1:200
+        Fn = F - (F + log(F) - L) / (1 + 1 / F)
+        abs(Fn - F) <= eps(BigFloat) * (1 + abs(Fn)) && return Fn
+        F = Fn
+    end
+    F
 end

@@ -110,11 +110,37 @@ end
 
 # `build(op, args...)` constructs a compound term; `lift(v)` turns plain Julia
 # numbers (and π) into the symbolic package's own number type.
+# `ops` holds functions taken from the input that the package does not supply (lambertw).
 struct Builder
     build::Any
     lift::Any
+    ops::Dict{Symbol,Any}
 end
-mk(bd::Builder, name::Symbol, args) = bd.build(OPS[name], args...)
+Builder(build, lift) = Builder(build, lift, Dict{Symbol,Any}())
+mk(bd::Builder, name::Symbol, args) = bd.build(get(() -> OPS[name], bd.ops, name), args...)
+
+# A placeholder for the Lambert W function, named so that `Expr` results print it: results
+# are built with the function found in the input (see `input_ops`).
+function lambertw end
+OPS[:lambertw] = lambertw
+
+# the functions of the input that the package does not supply, by name
+function input_ops(f)
+    ops = Dict{Symbol,Any}()
+    function walk(t)
+        safe_iscall(t) || return
+        op = op_or_name(t)
+        if op isa Function && nameof(op) === :lambertw
+            ops[:lambertw] = op
+        elseif op === :lambertw && !(t isa Expr)     # SymEngine gives no operation: its module's
+            m = parentmodule(typeof(t))
+            isdefined(m, :lambertw) && getfield(m, :lambertw) isa Function && (ops[:lambertw] = getfield(m, :lambertw))
+        end
+        foreach(walk, arguments(t))
+    end
+    walk(f)
+    ops
+end
 
 fitint(n::BigInt) = typemin(Int) <= n <= typemax(Int) ? Int(n) : n
 function num(c::Q)
@@ -126,6 +152,7 @@ end
 atom_term(b, a::Atom) =
     a.kind === :leaf ? (a.head isa AbstractIrrational ? b.lift(a.head) : a.head) :
     a.kind === :base ? to_term(b, a.args[1]::Sum) :
+    a.head === :wexp ? mk(b, :lambertw, Any[mk(b, :exp, Any[to_term(b, a.args[1]::Sum)])]) :
     mk(b, a.head, Any[to_term(b, a.args[1]::Sum)])
 
 function mono_term(b, m::Mono, c::Q)

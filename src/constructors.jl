@@ -219,6 +219,19 @@ function mkgamma(s::Sum)
 end
 mklgrem(s::Sum) = atomS(funatom(:lgrem, Sum[s]))
 
+# lambertw, the principal branch W of the inverse of w exp(w), real for u >= -1/e. Of
+# r exp(r), r rational, evaluated (W(0) = 0, W(e) = 1). wexp(L) = W(exp(L)), for
+# L -> +oo, is never built from the input (see `resolve_lambertw`).
+function mklambertw(s::Sum)
+    isempty(s.t) && return zeroS()
+    if length(s.t) == 1
+        r = first(s.t).second
+        skey(s) == skey(scaleS(mkexp(constS(r)), r)) && return constS(r)
+    end
+    atomS(funatom(:lambertw, Sum[s]))
+end
+mkwexp(s::Sum) = atomS(funatom(:wexp, Sum[s]))
+
 # abs: |c*m| = |c| * abs(m); sign-normalised so abs(u) and abs(-u) coincide.
 # It is eliminated before the limit is computed (see `resolve_piecewise`).
 function mkabs(s::Sum)
@@ -266,19 +279,43 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :erfs ? mkerfs(a[1]) :
     h === :gamma ? mkgamma(a[1]) :
     h === :lgrem ? mklgrem(a[1]) :
+    h === :lambertw ? mklambertw(a[1]) :
+    h === :wexp ? mkwexp(a[1]) :
     h in (:sinint, :erfi, :dawson) ? mkodd(h, a[1]) :
     h === :cosint ? mkcosint(a[1]) :
     h in (:fsi, :gsi) ? mkaux(h, a[1]) :
     h === :abs ? mkabs(a[1]) :
     h === :floor ? mkfloor(a[1]) :
     h === :sign ? mksign(a[1]) :
+    h === :altsign ? mkaltsign(a[1]) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 
 function mkpow(a::Sum, b::Sum)
     r = ratconst(b)
-    r !== nothing ? powS(a, r) : mkexp(mulS(b, mklog(a)))
+    r !== nothing && return powS(a, r)
+    negconst(a) && hasleaf(b, CONTEXT[].x.key) && return mulS(mkpow(negS(a), b), mkaltsign(b))
+    mkexp(mulS(b, mklog(a)))
 end
+
+# a constant (free of x and of parameters) that is negative
+function negconst(a::Sum)
+    r = ratconst(a)
+    r !== nothing && return r < 0
+    hasleaf(a, CONTEXT[].x.key) && return false
+    v = try
+        numval(a)
+    catch err
+        err isa FreeSymbol || rethrow()
+        return false
+    end
+    v < 0
+end
+
+# altsign(u) = (-1)^u, for u with the limit variable: real only for an integer u. For
+# u -> ±oo it is taken to be the sign of a sequence, cos(π u), which oscillates (see
+# `resolve_piecewise`); otherwise it is undefined.
+mkaltsign(s::Sum) = atomS(funatom(:altsign, Sum[s]))
 
 # --- substitution --------------------------------------------------------------
 function subs_atoms(s::Sum, f)::Sum

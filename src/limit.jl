@@ -125,7 +125,7 @@ function gruntz_limit(f, x, x0 = Inf; dir::Symbol = :+, build = nothing, lift = 
     xa = leafatom(x)
     ctx, sub = signs_context(signs, xa)
     bd = Builder(build === nothing ? auto_build(f, x) : build,
-                 lift === nothing ? auto_lift(f, x) : lift)
+                 lift === nothing ? auto_lift(f, x) : lift, input_ops(f))
     L = with_context(ctx, sub, false, xa) do
         try
             limit_value(f, xa, x0, dir)

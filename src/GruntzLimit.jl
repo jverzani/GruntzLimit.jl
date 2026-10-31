@@ -41,7 +41,10 @@ Operations understood (given as `Function`s; `Symbol` names are accepted too):
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
 their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
 SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
-or is constant, and `sinint cosint erfi` (`cosint` for a positive argument). Limits that do not
+or is constant, `sinint cosint erfi` (`cosint` for a positive argument), `lambertw` (the
+principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
+number of arguments). A power `c^u` of a negative constant `c` is taken, where `u` tends
+to `±∞`, as a sequence's: `(-1)^u` oscillates. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 
 Design: terms are converted to an internal canonical form (sums of monomials with

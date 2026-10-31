@@ -133,8 +133,15 @@ function apply_op(op, a::Vector{Sum})
         mkatan(a[1])
     elseif n === :erf && na == 1
         mkerf(a[1])
+    elseif n === :erf && na == 2                      # erf(u, v) = erf(v) - erf(u)
+        subS(mkerf(a[2]), mkerf(a[1]))
     elseif n === :erfc && na == 1                     # erfc(u) = 1 - erf(u)
         subS(oneS(), mkerf(a[1]))
+    elseif n in (:min, :max) && na >= 1               # max(u, v) = (u + v + |u - v|)/2
+        s = n === :max ? 1 : -1
+        foldl((u, v) -> scaleS(addS(addS(u, v), scaleS(mkabs(subS(u, v)), Q(s))), half), a)
+    elseif n === :lambertw && (na == 1 || (na == 2 && ratconst(a[2]) == 0))   # the principal branch
+        mklambertw(a[1])
     elseif n === :gamma && na == 1
         mkgamma(a[1])
     elseif n === :factorial && na == 1                # factorial(u) = gamma(u + 1)
