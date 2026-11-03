@@ -148,9 +148,27 @@ end
 
 # the limit, an infinite one with its sign decided
 function limit_value(f, xa::Atom, x0, dir::Symbol)
-    L = _limit(with(() -> from_term(f), DEFER_DOMAIN => true), xa, x0, dir)
+    if has_complex(f)                    # the real and imaginary parts (see complex.jl)
+        z = with(() -> from_term_c(f), DEFER_DOMAIN => true)
+        isrealC(z) || return complex_limit(_limit(z.re, xa, x0, dir), _limit(z.im, xa, x0, dir), xa)
+        e = z.re
+    else
+        e = with(() -> from_term(f), DEFER_DOMAIN => true)
+    end
+    L = _limit(e, xa, x0, dir)
     L isa Infinity && signof(L)
     L
+end
+
+# re + i im from the limits of the parts
+function complex_limit(re, im_, xa::Atom)
+    if im_ isa Sum && numzero(im_, xa)
+        re isa Infinity && signof(re)
+        return re
+    end
+    (re isa Infinity || im_ isa Infinity) &&
+        throw(GruntzError("the limit is infinite, in a direction of the complex plane"))
+    addS(re, mulS(atomS(IM_ATOM), im_))
 end
 
 function user_value(bd::Builder, L)
@@ -160,5 +178,12 @@ function user_value(bd::Builder, L)
     end
     r = ratconst(L)
     r !== nothing && return num(r)
+    if hasatom(L, IM_ATOM.key)           # re + i im, as a Complex when both are rational
+        isim(m) = any(p -> p.first == IM_ATOM, m.fs)
+        re = Sum(Dict{Mono,Q}(m => c for (m, c) in L.t if !isim(m)))
+        ims = Sum(Dict{Mono,Q}(Mono(filter(p -> p.first != IM_ATOM, m.fs)) => c for (m, c) in L.t if isim(m)))
+        rr, ri = ratconst(re), ratconst(ims)
+        (rr !== nothing && ri !== nothing) && return bd.lift(Complex(num(rr), num(ri)))
+    end
     to_term(bd, L)
 end

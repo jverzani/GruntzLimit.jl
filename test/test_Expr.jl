@@ -547,6 +547,98 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test undefined(:((-1)^x), :x, 0)
     end
 
+    @testset "even powers of a negative quantity" begin
+        # sqrt(u^2) = |u|: u = log(x) is negative for x < 1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 1; dir = :-) == -1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 1; dir = :+) == 1
+        @test gruntz_limit(:(1/(x*sqrt(log(x)^2))), :x, 1; dir = :-) == Inf
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 1//2) == -1
+        @test gruntz_limit(:((log(x)^2)^(1//2)/log(x)), :x, 1//2) == -1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 0) == -1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x) == 1
+        @test gruntz_limit(:(sqrt(log(x)^2)), :x, 1//2) == :(log(2))
+        @test gruntz_limit(:(sqrt(sin(x)^2)/sin(x)), :x, 0; dir = :-) == -1
+        @test gruntz_limit(:(sqrt(atan(x)^2)/atan(x)), :x, -Inf) == -1
+        @test gruntz_limit(:((x - 1)*sqrt(1/(x - 1)^2)), :x, 1; dir = :-) == -1
+        @test gruntz_limit(:(sqrt(log(x)^4)/log(x)^2), :x, 1//2) == 1
+        # fractional powers and logs of a positive -log(x), for x < 1
+        @test gruntz_limit(:(log(-log(x))), :x, 1//2) == :(log(log(2)))
+        @test gruntz_limit(:(sqrt(-log(x))), :x, 1//2) == :(sqrt(log(2)))
+        @test eval(gruntz_limit(:((log(x)^2)^(1//3)), :x, 1//2)) ≈ log(2)^(2/3)
+        # abs of an oscillating quantity is bounded
+        @test gruntz_limit(:(sqrt(sin(x)^2)/x), :x) == 0
+        @test gruntz_limit(:(abs(sin(x))/x), :x) == 0
+        @test gruntz_limit(:(x*(2 + abs(sin(x)))), :x) == Inf
+        @test_throws GruntzError gruntz_limit(:(abs(cos(x))), :x)
+    end
+
+    @testset "expinti and besselk" begin
+        # Ei(u) ~ exp(u)/u (1 + 1/u + 2/u^2 + ...) at ±oo
+        @test gruntz_limit(:(expinti(-x)*exp(x)), :x) == 0
+        @test gruntz_limit(:(expinti(x)*exp(-x)), :x) == 0
+        @test gruntz_limit(:(expinti(x)*exp(-x)), :x, -Inf) == 0
+        @test gruntz_limit(:(x*exp(-x)*expinti(x)), :x) == 1
+        @test gruntz_limit(:(x*exp(x)*expinti(-x)), :x) == -1
+        @test gruntz_limit(:(x*(x*exp(-x)*expinti(x) - 1)), :x) == 1
+        @test gruntz_limit(:(expinti(x)), :x) == Inf
+        # at finite points: Ei(u) = γ + log|u| + ... near 0
+        @test eval(gruntz_limit(:(expinti(x) - log(x)), :x, 0)) ≈ Base.MathConstants.eulergamma
+        @test eval(gruntz_limit(:(expinti(x) - log(-x)), :x, 0; dir = :-)) ≈ Base.MathConstants.eulergamma
+        @test gruntz_limit(:(expinti(x)), :x, 0) == -Inf
+        @test gruntz_limit(:((expinti(x) - expinti(1))/(x - 1)), :x, 1; dir = :both) == :(exp(1))
+        @test gruntz_limit(:(expinti(x)), :x, 2) == :(expinti(2))
+        # besselk(ν, u): by continuity (Taylor's series) at u > 0, Hankel's expansion at +oo
+        @test gruntz_limit(:(besselk(1, cos(x))), :x, 0) == :(besselk(1, 1))
+        @test gruntz_limit(:((besselk(0, x) - besselk(0, 1))/(x - 1)), :x, 1; dir = :both) == :(-1 * besselk(1, 1))
+        @test eval(gruntz_limit(:(besselk(1, x)*exp(x)*sqrt(x)), :x)) ≈ sqrt(π/2)
+        @test gruntz_limit(:(besselk(2, x)/besselk(1, x)), :x) == 1
+        @test gruntz_limit(:(x*(besselk(1, x)/besselk(0, x) - 1)), :x) == 1//2
+        @test_throws GruntzError gruntz_limit(:(besselk(1, x)), :x, 0)
+        @test_throws GruntzError gruntz_limit(:(besselk(a, x)), :x)
+    end
+
+    @testset "complex values" begin
+        @test gruntz_limit(:(exp(-(2 + 3im)*x)), :x) == 0
+        @test gruntz_limit(:(exp(-$(2 + 3im)*x)), :x) == 0          # a Complex in the Expr
+        @test gruntz_limit(:(-exp(-(2 + 3im)*x)/(2 + 3im)), :x, 0) == -2//13 + 3//13*im
+        @test gruntz_limit(:(sqrt(2 + im*x)), :x, 0) == :(sqrt(2))
+        @test gruntz_limit(:((exp(im*x) - 1)/x), :x, 0) === 0 + 1im
+        @test gruntz_limit(:(sin(im*x)/x), :x, 0) == im
+        @test gruntz_limit(:(exp(im*x) + exp(-im*x)), :x, 0) == 2
+        @test gruntz_limit(:(real(exp(im*x))), :x, 0) == 1
+        @test gruntz_limit(:(exp(im*x)/x), :x) == 0
+        @test eval(gruntz_limit(:((1 + im/x)^x), :x)) ≈ exp(im)
+        @test gruntz_limit(:((x + im)/(x - im)), :x) == 1
+        # i written as (-1)^(1/2), as SymJ does
+        @test gruntz_limit(:(exp(-(2 + 3*(-1)^(1//2))*x)), :x) == 0
+        @test gruntz_limit(:((exp((-1)^(1//2)*x) - 1)/x), :x, 0) == im
+        # principal branch: the sides of the cut along the negative reals
+        @test gruntz_limit(:(sqrt(-1 + im*x)), :x, 0; dir = :+) == im
+        @test gruntz_limit(:(sqrt(-1 + im*x)), :x, 0; dir = :-) == -im
+        @test_throws GruntzError gruntz_limit(:(sqrt(-1 + im*x)), :x, 0; dir = :both)
+        @test eval(gruntz_limit(:(log(-1 + im*x)), :x, 0)) ≈ im*π
+        # parameters
+        @test gruntz_limit(:(exp(-(a + im*b)*x)), :x; signs = Dict(:a => :positive)) == 0
+        cs = gruntz_cases(:(exp(-(a + im)*x)), :x)
+        @test cs(:a => 1) == 0 && cs(:a => -1) === :nolimit
+        # no limit, or not finite
+        @test_throws GruntzError gruntz_limit(:(exp(im*x)), :x)
+        @test_throws GruntzError gruntz_limit(:(im/x), :x, 0)
+        @test_throws GruntzError gruntz_limit(:(erf(im*x)), :x, 0)
+    end
+
+    @testset "fractional powers of w" begin
+        # exp(-x/100) is w^(1/100) for w = exp(-x): the series are taken in w^(1/100)
+        # (these did not finish in minutes)
+        @test eval(gruntz_limit(:(x/((x - 6)*sinh(tanh(3x/100)) + tanh(x) - 1//2)), :x)) ≈ 1/sinh(1)
+        @test eval(gruntz_limit(:(x/((x - 6)*sinh(tanh(0.03x)) + tanh(x) - 0.5)), :x)) ≈ 1/sinh(1)
+        @test eval(gruntz_limit(:(sinh(tanh(x/100))), :x)) ≈ sinh(1)
+        @test gruntz_limit(:(x*sinh(tanh(x/100)) - x), :x) == Inf
+        # terms of a higher order in w are still reached
+        @test gruntz_limit(:(exp(2x)*(tanh(x) - 1) + tanh(x/50)), :x) == -1
+        @test gruntz_limit(:(exp(2x)*(tanh(x) - 1 + exp(-x/50)) - exp(2x - x/50)), :x) == -2
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf

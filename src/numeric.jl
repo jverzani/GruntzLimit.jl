@@ -32,7 +32,8 @@ fsi(t) = SpecialFunctions.cosint(t) * sin(t) - (SpecialFunctions.sinint(t) - π 
 gsi(t) = -SpecialFunctions.cosint(t) * cos(t) - (SpecialFunctions.sinint(t) - π / 2) * sin(t)
 const F64_FUNS = Dict{Symbol,Function}(:sinint => SpecialFunctions.sinint, :cosint => SpecialFunctions.cosint,
                                        :erfi => SpecialFunctions.erfi, :dawson => SpecialFunctions.dawson,
-                                       :fsi => fsi, :gsi => gsi)
+                                       :fsi => fsi, :gsi => gsi, :expinti => SpecialFunctions.expinti,
+                                       :eiaux => t -> exp(-t) * SpecialFunctions.expinti(t))
 
 function numval(a::Atom)
     if a.kind === :leaf
@@ -41,6 +42,11 @@ function numval(a::Atom)
         return numval(a.args[1]::Sum)
     end
     v = numval(a.args[1]::Sum)
+    if a.head in (:besselk, :kaux)
+        ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
+        k = SpecialFunctions.besselk(ν, t)
+        return BigFloat(a.head === :besselk ? k : k / (sqrt(π / (2t)) * exp(-t)))
+    end
     a.head === :exp ? exp(v) : a.head === :log ? log(v) : a.head === :sin ? sin(v) :
     a.head === :atan ? atan(v) : a.head === :erf ? SpecialFunctions.erf(v) :
     a.head === :erfs ? SpecialFunctions.erfcx(v) : a.head === :gamma ? SpecialFunctions.gamma(v) :

@@ -174,7 +174,38 @@ function mrv_leadterm(e::Sum, x::Atom)
         v
     end
     f = subs_atoms(e, rewrite)
-    leadterm(f, WLEAF, scaleS(g1, Q(-σ)), x)   # log(w) = -σ g1
+    logw = scaleS(g1, Q(-σ))                   # log(w) = -σ g1
+    # Expanded in w^g, g the gcd of the exponents of w, every exponent is an integer:
+    # exp(-x/40) is exp(x)^(-1/40), so w = exp(-x) occurs as w^(1/40), and a series in
+    # w to order P would need 40 P terms in each nested function (sinh(tanh(x/40)))
+    g = wgcd(f)
+    if g !== nothing && !isone(g)
+        f = subs_atoms(f, a -> a == WLEAF ? powS(wS, inv(g)) : nothing)
+        logw = scaleS(logw, g)
+    end
+    # the same precision in the original w
+    maxP = g === nothing ? LEADTERM_MAXP : max(LEADTERM_MAXP, LEADTERM_MAXP / g)
+    leadterm(f, WLEAF, logw, x; maxP)
+end
+
+# The gcd of the exponents of w in s (in atoms too), or nothing when there is none, or
+# when w^r with an irrational r occurs (see `wpowatom`)
+function wgcd(s::Sum)
+    g = Ref{Union{Nothing,Q}}(nothing)
+    irr = Ref(false)
+    function walk(s::Sum)
+        for m in keys(s.t), (a, e) in m.fs
+            if a == WLEAF
+                g[] = g[] === nothing ? abs(e) : gcd(g[], e)
+            elseif iswleaf(a)
+                irr[] = true
+            elseif a.kind !== :leaf
+                foreach(u -> walk(u::Sum), a.args)
+            end
+        end
+    end
+    walk(s)
+    irr[] ? nothing : g[]
 end
 
 # At x -> +oo every expression handled here has an eventual constant sign, so
@@ -185,16 +216,25 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk)) ||
             return nothing
+        a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
         a.head === :altsign && return resolve_altsign(u, x)
         a.head === :lambertw && return resolve_lambertw(u, x)
         a.head in (:sinint, :cosint, :erfi) && return resolve_infinite(a.head, u, x)
+        a.head === :expinti && return resolve_expinti(u, x)
+        a.head === :besselk && return resolve_besselk(u, a.args[2]::Sum, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :erf && return resolve_erf(u, x)
-        sg = hasleaf(u, x.key) ? sgn(u, x) : try
+        sg = hasleaf(u, x.key) ? try
+            sgn(u, x)
+        catch err
+            # an oscillating argument (abs(sin(x))) is left to `bounded_limit`
+            (err isa GruntzError && err.msg == OSC_MSG && a.head === :abs) || rethrow()
+            nothing
+        end : try
             csign(u)
         catch err
             err isa NeedSign ? nothing : rethrow()
@@ -279,6 +319,29 @@ function resolve_infinite(h::Symbol, u::Sum, x::Atom)
         return scaleS(s, Q(σ))
     end
     subS(mulS(f, mksin(v)), mulS(g, mkcos(v)))
+end
+
+# expinti(u): for u -> ±oo, exp(u) eiaux(u); at finite points by Taylor's series (see
+# `specialPS`)
+function resolve_expinti(u::Sum, x::Atom)
+    hasleaf(u, x.key) && limitinf(u, x) isa Infinity && return mulS(mkexp(u), mkaux(:eiaux, u))
+    mkexpinti(u)
+end
+
+# besselk(ν, u): for u -> +oo, sqrt(π/(2u)) exp(-u) kaux(u); at a positive finite limit by
+# Taylor's series (see `besselkPS`). Not real for u < 0; the singularity at 0 is not
+# supported.
+function resolve_besselk(u::Sum, ν::Sum, x::Atom)
+    L = hasleaf(u, x.key) ? limitinf(u, x) : u
+    if L isa Infinity
+        signof(L) > 0 || throw(GruntzError("besselk of a negative number is not real", :undefined))
+        k = powS(mulS(scaleS(atomS(PI_ATOM), Q(1) // 2), powS(u, Q(-1))), Q(1) // 2)
+        return mulS(mulS(k, mkexp(negS(u))), mkkaux(u, ν))
+    end
+    s = csign(L)
+    s == 0 && throw(GruntzError("besselk at 0 is not supported"))
+    s < 0 && throw(GruntzError("besselk of a negative number is not real", :undefined))
+    mkbesselk(ν, u)
 end
 
 # floor(u) for x -> +oo, u tending to a finite L: floor(L) when L is not an integer;

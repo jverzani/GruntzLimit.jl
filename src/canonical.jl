@@ -153,6 +153,61 @@ function ratpow(c::Q, e::Q)
     (rn // rd)^p
 end
 
+# (a^e)^q for a fractional q is a^(e q) only for a > 0; for an even e it is |a|^(e q),
+# which is (-a)^(e q) where a < 0 (sqrt(log(x)^2) = -log(x) for x < 1). Factors of x
+# are decided here, by their sign as x -> +oo: monomials in x are kept unevaluated while
+# the input is converted (see DEFER_DOMAIN) and built after `_limit`'s substitution, so
+# x is then the variable that tends to +oo. When that sign cannot be decided the factor
+# becomes abs(a), resolved later (see `resolve_piecewise`).
+function evenpow_signs(m::Mono, q::Q)
+    any(p -> _maybe_negative(p...), m.fs) || return Q(1), powMono(m, q)
+    k, mm = Q(1), ONEMONO
+    for (a, e) in m.fs
+        eq = e * q
+        b = a
+        if _maybe_negative(a, e)
+            σ = varsign(a)
+            if σ == 0
+                b = funatom(:abs, Sum[atomS(a)])
+            elseif σ < 0
+                if isone(denominator(eq))
+                    isodd(numerator(eq)) && (k = -k)       # (-a)^n = (-1)^n a^n
+                else
+                    b = baseatom(negatom(a))
+                end
+            end
+        end
+        mm = mulMono(mm, Mono(Pair{Atom,Q}[b => eq]))
+    end
+    k, mm
+end
+# an even power of an atom of x that may be negative
+_maybe_negative(a::Atom, e::Q) = isone(denominator(e)) && iseven(numerator(e)) && signable(a)
+# an atom of x (not of the expansion variable w) that may be negative: not x, exp or abs
+signable(a::Atom) = a.kind !== :leaf && !(a.kind === :fun && a.head in (:exp, :abs)) &&
+    hasleaf(a, CONTEXT[].x.key) && !hasw(a)
+# the eventual sign of such an atom as x -> +oo; 0 when it cannot be decided
+function varsign(a::Atom)
+    try
+        sgn(atomS(a), CONTEXT[].x)
+    catch err
+        err isa Union{GruntzError,NeedMorePrecision} || rethrow()
+        0
+    end
+end
+
+# c^q = (c^(1/k))^(k q) for the largest k dividing q's denominator with c a perfect
+# k-th power: 4^(1/4) = 2^(1/2)
+function rootreduce(c::Q, q::Q)
+    d = Int(denominator(q))
+    for k in d-1:-1:2
+        d % k == 0 || continue
+        rn, rd = iroot(numerator(c), k), iroot(denominator(c), k)
+        (rn === nothing || rd === nothing) || return rn // rd, q * k
+    end
+    c, q
+end
+
 function powS(s::Sum, q::Q)
     iszero(q) && return oneS()
     if isempty(s.t)
@@ -167,23 +222,34 @@ function powS(s::Sum, q::Q)
         end
         if !isone(denominator(q)) && needs_signs(m, c)
             pf = positive_factors(m, c)
+            # in the expansion variable w the sign is checked by the series
+            pf === nothing && any(p -> hasw(p.first), m.fs) &&
+                return monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))
             if pf !== nothing                    # otherwise ratpow raises the error
                 c2, kept, negs, grp = pf
                 mm = powMono(kept, q)            # (a^e)^q = ((-a)^e)^q, for a < 0
+                k = Q(1)
                 for (a, e) in negs
-                    mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(negatom(a)) => e * q]))
+                    eq = e * q
+                    if isone(denominator(eq))    # (-a)^n = (-1)^n a^n
+                        isodd(numerator(eq)) && (k = -k)
+                        mm = mulMono(mm, Mono(Pair{Atom,Q}[a => eq]))
+                    else
+                        mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(negatom(a)) => eq]))
+                    end
                 end
                 grp === nothing || (mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(grp) => q])))
-                return mulS(powS(constS(c2), q), monoS(mm, Q(1)))
+                return mulS(powS(constS(c2), q), monoS(mm, k))
             end
         end
-        mm = powMono(m, q)
+        k, mm = isone(denominator(q)) ? (Q(1), powMono(m, q)) : evenpow_signs(m, q)
         r = ratpow(c, q)
         if r === nothing
+            c, q = rootreduce(c, q)
             mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(constS(c)) => q]))
             r = Q(1)
         end
-        return monoS(mm, r)
+        return monoS(mm, k * r)
     end
     if isone(denominator(q)) && 0 < q <= 8
         res = s
