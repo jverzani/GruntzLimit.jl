@@ -196,6 +196,18 @@ function varsign(a::Atom)
     end
 end
 
+# c^q = (c^(1/k))^(k q) for the largest k dividing q's denominator with c a perfect
+# k-th power: 4^(1/4) = 2^(1/2)
+function rootreduce(c::Q, q::Q)
+    d = Int(denominator(q))
+    for k in d-1:-1:2
+        d % k == 0 || continue
+        rn, rd = iroot(numerator(c), k), iroot(denominator(c), k)
+        (rn === nothing || rd === nothing) || return rn // rd, q * k
+    end
+    c, q
+end
+
 function powS(s::Sum, q::Q)
     iszero(q) && return oneS()
     if isempty(s.t)
@@ -233,6 +245,7 @@ function powS(s::Sum, q::Q)
         k, mm = isone(denominator(q)) ? (Q(1), powMono(m, q)) : evenpow_signs(m, q)
         r = ratpow(c, q)
         if r === nothing
+            c, q = rootreduce(c, q)
             mm = mulMono(mm, Mono(Pair{Atom,Q}[baseatom(constS(c)) => q]))
             r = Q(1)
         end

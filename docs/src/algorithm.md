@@ -82,7 +82,9 @@ TermInterface's `maketerm` so that it stays exact.
 ## Limitations
 
 * Only the functions listed in [Supported functions](@ref) are understood.
-* The limit point is real, and so are all values; complex numbers are rejected.
+* The limit point and the variable are real. A complex expression is split into real and
+  imaginary parts (see [Supported functions](@ref)); only some functions are understood for
+  a complex argument.
 * The sign of a constant is decided numerically (in `BigFloat`), and a constant that is zero
   to that precision is taken to be zero. Sines and cosines of rational multiples of ``\pi``
   with denominators 1, 2, 3, 4 and 6 are evaluated exactly.

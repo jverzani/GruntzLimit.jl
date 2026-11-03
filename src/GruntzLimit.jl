@@ -43,7 +43,8 @@ their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
 SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
 or is constant, `sinint cosint erfi` (`cosint` for a positive argument), `lambertw` (the
 principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
-number of arguments). A power `c^u` of a negative constant `c` is taken, where `u` tends
+number of arguments). Complex expressions (with `im`) are split into real and imaginary
+parts, for arithmetic, `exp`, `log`, powers, `sin`, `cos` and functions written with them. A power `c^u` of a negative constant `c` is taken, where `u` tends
 to `±∞`, as a sequence's: `(-1)^u` oscillates. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 
@@ -106,6 +107,7 @@ include("series.jl")
 include("algorithm.jl")
 include("oscillation.jl")
 include("from_term.jl")
+include("complex.jl")
 include("to_term.jl")
 include("limit.jl")
 include("cases.jl")

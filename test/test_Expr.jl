@@ -572,6 +572,36 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws GruntzError gruntz_limit(:(abs(cos(x))), :x)
     end
 
+    @testset "complex values" begin
+        @test gruntz_limit(:(exp(-(2 + 3im)*x)), :x) == 0
+        @test gruntz_limit(:(exp(-$(2 + 3im)*x)), :x) == 0          # a Complex in the Expr
+        @test gruntz_limit(:(-exp(-(2 + 3im)*x)/(2 + 3im)), :x, 0) == -2//13 + 3//13*im
+        @test gruntz_limit(:(sqrt(2 + im*x)), :x, 0) == :(sqrt(2))
+        @test gruntz_limit(:((exp(im*x) - 1)/x), :x, 0) === 0 + 1im
+        @test gruntz_limit(:(sin(im*x)/x), :x, 0) == im
+        @test gruntz_limit(:(exp(im*x) + exp(-im*x)), :x, 0) == 2
+        @test gruntz_limit(:(real(exp(im*x))), :x, 0) == 1
+        @test gruntz_limit(:(exp(im*x)/x), :x) == 0
+        @test eval(gruntz_limit(:((1 + im/x)^x), :x)) ≈ exp(im)
+        @test gruntz_limit(:((x + im)/(x - im)), :x) == 1
+        # i written as (-1)^(1/2), as SymJ does
+        @test gruntz_limit(:(exp(-(2 + 3*(-1)^(1//2))*x)), :x) == 0
+        @test gruntz_limit(:((exp((-1)^(1//2)*x) - 1)/x), :x, 0) == im
+        # principal branch: the sides of the cut along the negative reals
+        @test gruntz_limit(:(sqrt(-1 + im*x)), :x, 0; dir = :+) == im
+        @test gruntz_limit(:(sqrt(-1 + im*x)), :x, 0; dir = :-) == -im
+        @test_throws GruntzError gruntz_limit(:(sqrt(-1 + im*x)), :x, 0; dir = :both)
+        @test eval(gruntz_limit(:(log(-1 + im*x)), :x, 0)) ≈ im*π
+        # parameters
+        @test gruntz_limit(:(exp(-(a + im*b)*x)), :x; signs = Dict(:a => :positive)) == 0
+        cs = gruntz_cases(:(exp(-(a + im)*x)), :x)
+        @test cs(:a => 1) == 0 && cs(:a => -1) === :nolimit
+        # no limit, or not finite
+        @test_throws GruntzError gruntz_limit(:(exp(im*x)), :x)
+        @test_throws GruntzError gruntz_limit(:(im/x), :x, 0)
+        @test_throws GruntzError gruntz_limit(:(erf(im*x)), :x, 0)
+    end
+
     @testset "fractional powers of w" begin
         # exp(-x/100) is w^(1/100) for w = exp(-x): the series are taken in w^(1/100)
         # (these did not finish in minutes)

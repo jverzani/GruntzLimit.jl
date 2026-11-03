@@ -290,6 +290,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :floor ? mkfloor(a[1]) :
     h === :sign ? mksign(a[1]) :
     h === :altsign ? mkaltsign(a[1]) :
+    h === :carg ? mkcarg(a[1], a[2]) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 

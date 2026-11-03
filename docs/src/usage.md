@@ -255,7 +255,15 @@ The operations understood are
   argument, or one that tends to 0 from above). At finite points by their Taylor series
   (`cosint(u) = γ + log(u) + …` near 0), and at `±∞` with their asymptotic expansions, as
   `sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)`, so that `sinint(x)` tends to `π/2` while
-  `x*(π/2 - sinint(x))` has no limit.
+  `x*(π/2 - sinint(x))` has no limit;
+* complex values: an expression with the imaginary unit (`im`, or a complex number) is split
+  into its real and imaginary parts, whose limits are taken separately. Arithmetic, `exp`,
+  `log`, powers, `sin`, `cos` and the functions written with them (`tan`, `sinh`, ...),
+  `abs`, `real`, `imag`, `conj` and `angle` are understood for complex arguments (`log`
+  and fractional powers on their principal branch, so `sqrt(-1 + im*x)` tends to `im`
+  from the right and to `-im` from the left); other functions only for real ones. So
+  `exp(-(2 + 3im)*x)` tends to 0 at `+∞` and `sqrt(2 + im*x)` to `sqrt(2)` at 0. A
+  rational answer comes back as a `Complex`. The limit point and the variable are real.
 
 Inside the package, most of these are rewritten in terms of `sin`, `cos`, `atan`, `erf`, `exp` and `log`.
 An answer involving them is correct, but it may be written differently from the input.

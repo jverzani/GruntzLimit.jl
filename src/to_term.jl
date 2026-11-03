@@ -150,7 +150,7 @@ function num(c::Q)
 end
 
 atom_term(b, a::Atom) =
-    a.kind === :leaf ? (a.head isa AbstractIrrational ? b.lift(a.head) : a.head) :
+    a.kind === :leaf ? (a.head isa Union{AbstractIrrational,Complex} ? b.lift(a.head) : a.head) :
     a.kind === :base ? to_term(b, a.args[1]::Sum) :
     a.head === :wexp ? mk(b, :lambertw, Any[mk(b, :exp, Any[to_term(b, a.args[1]::Sum)])]) :
     mk(b, a.head, Any[to_term(b, a.args[1]::Sum)])

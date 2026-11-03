@@ -11,7 +11,8 @@ function from_number(t)
         isfinite(t) || throw(GruntzError("non-finite number in expression"))
         return constS(rationalize(BigInt, t))
     end
-    t isa Complex && throw(GruntzError("complex numbers are not supported"))
+    t isa Complex && (iszero(imag(t)) ? (return from_number(real(t))) :
+                      throw(GruntzError("complex numbers are not supported here")))
     leafS(t)                    # symbolic wrapper types (e.g. Num) that are leaves
 end
 
@@ -48,6 +49,7 @@ function leaf_number(t)
         return v === nothing ? nothing : from_number(v)
     end
     t isa Symbol && return nothing      # an `Expr` variable
+    complex_leaf(t) === nothing || throw(GruntzError("complex numbers are not supported here"))
     s = string(t)
     m = match(r"^\((.*)\)$", s)
     m === nothing || (s = m.captures[1])

@@ -48,4 +48,10 @@ PI = SymbolicUtils.maketerm(typeof(x), identity, Any[π], nothing)
         @test_throws GruntzError gruntz_limit(sin(1/x), x, 0)
         @test_throws GruntzError gruntz_limit(asin(x), x, 1; dir = :+)
     end
+
+    @testset "complex values" begin
+        @test gruntz_limit(exp(-(2 + 3im)*x), x) == 0
+        @test gruntz_limit((exp(im*x) - 1)/x, x, 0) == im
+        @test isequal(gruntz_limit(sqrt(2 + im*x), x, 0), sqrt(ONE*2))
+    end
 end
