@@ -256,6 +256,12 @@ The operations understood are
   (`cosint(u) = γ + log(u) + …` near 0), and at `±∞` with their asymptotic expansions, as
   `sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)`, so that `sinint(x)` tends to `π/2` while
   `x*(π/2 - sinint(x))` has no limit;
+* `expinti`, the exponential integral Ei, as in SpecialFunctions.jl: at `±∞` by
+  `Ei(u) = exp(u)/u (1 + 1/u + 2/u^2 + …)`, and at finite points by its Taylor series
+  (`Ei(u) = γ + log|u| + …` near 0);
+* `besselk(ν, u)`, for a rational order `ν`: at `+∞` by Hankel's expansion
+  `K_ν(u) = sqrt(π/(2u)) exp(-u) (1 + (4ν^2 - 1)/(8u) + …)`, and by its Taylor series where
+  `u` tends to a positive number. The singularity at 0 is not supported;
 * complex values: an expression with the imaginary unit (`im`, or a complex number) is split
   into its real and imaginary parts, whose limits are taken separately. Arithmetic, `exp`,
   `log`, powers, `sin`, `cos` and the functions written with them (`tan`, `sinh`, ...),

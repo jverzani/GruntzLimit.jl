@@ -572,6 +572,31 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws GruntzError gruntz_limit(:(abs(cos(x))), :x)
     end
 
+    @testset "expinti and besselk" begin
+        # Ei(u) ~ exp(u)/u (1 + 1/u + 2/u^2 + ...) at ±oo
+        @test gruntz_limit(:(expinti(-x)*exp(x)), :x) == 0
+        @test gruntz_limit(:(expinti(x)*exp(-x)), :x) == 0
+        @test gruntz_limit(:(expinti(x)*exp(-x)), :x, -Inf) == 0
+        @test gruntz_limit(:(x*exp(-x)*expinti(x)), :x) == 1
+        @test gruntz_limit(:(x*exp(x)*expinti(-x)), :x) == -1
+        @test gruntz_limit(:(x*(x*exp(-x)*expinti(x) - 1)), :x) == 1
+        @test gruntz_limit(:(expinti(x)), :x) == Inf
+        # at finite points: Ei(u) = γ + log|u| + ... near 0
+        @test eval(gruntz_limit(:(expinti(x) - log(x)), :x, 0)) ≈ Base.MathConstants.eulergamma
+        @test eval(gruntz_limit(:(expinti(x) - log(-x)), :x, 0; dir = :-)) ≈ Base.MathConstants.eulergamma
+        @test gruntz_limit(:(expinti(x)), :x, 0) == -Inf
+        @test gruntz_limit(:((expinti(x) - expinti(1))/(x - 1)), :x, 1; dir = :both) == :(exp(1))
+        @test gruntz_limit(:(expinti(x)), :x, 2) == :(expinti(2))
+        # besselk(ν, u): by continuity (Taylor's series) at u > 0, Hankel's expansion at +oo
+        @test gruntz_limit(:(besselk(1, cos(x))), :x, 0) == :(besselk(1, 1))
+        @test gruntz_limit(:((besselk(0, x) - besselk(0, 1))/(x - 1)), :x, 1; dir = :both) == :(-1 * besselk(1, 1))
+        @test eval(gruntz_limit(:(besselk(1, x)*exp(x)*sqrt(x)), :x)) ≈ sqrt(π/2)
+        @test gruntz_limit(:(besselk(2, x)/besselk(1, x)), :x) == 1
+        @test gruntz_limit(:(x*(besselk(1, x)/besselk(0, x) - 1)), :x) == 1//2
+        @test_throws GruntzError gruntz_limit(:(besselk(1, x)), :x, 0)
+        @test_throws GruntzError gruntz_limit(:(besselk(a, x)), :x)
+    end
+
     @testset "complex values" begin
         @test gruntz_limit(:(exp(-(2 + 3im)*x)), :x) == 0
         @test gruntz_limit(:(exp(-$(2 + 3im)*x)), :x) == 0          # a Complex in the Expr

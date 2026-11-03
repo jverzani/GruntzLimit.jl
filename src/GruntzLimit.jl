@@ -41,7 +41,8 @@ Operations understood (given as `Function`s; `Symbol` names are accepted too):
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
 their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
 SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
-or is constant, `sinint cosint erfi` (`cosint` for a positive argument), `lambertw` (the
+or is constant, `sinint cosint erfi` (`cosint` for a positive argument), `expinti`,
+`besselk(ν, u)` (rational ν, `u` tending to `+∞` or a positive number), `lambertw` (the
 principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
 number of arguments). Complex expressions (with `im`) are split into real and imaginary
 parts, for arithmetic, `exp`, `log`, powers, `sin`, `cos` and functions written with them. A power `c^u` of a negative constant `c` is taken, where `u` tends

@@ -192,6 +192,23 @@ function mkcosint(s::Sum)
 end
 mkaux(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
 
+# The exponential integral Ei (SpecialFunctions' expinti), singular at 0. For u -> ±oo,
+# Ei(u) = exp(u) eiaux(u), eiaux(u) ~ sum_k k!/u^(k+1) (see `resolve_piecewise`).
+function mkexpinti(s::Sum)
+    isempty(s.t) && throw(GruntzError("expinti has a singularity at 0", :undefined))
+    atomS(funatom(:expinti, Sum[s]))
+end
+
+# The modified Bessel function besselk(ν, u), for a rational order ν, stored with the
+# argument first: funatom(:besselk, [u, ν]). K_(-ν) = K_ν. For u -> +oo,
+# K_ν(u) = sqrt(π/(2u)) exp(-u) kaux_ν(u), kaux having Hankel's asymptotic series.
+function mkbesselk(ν::Sum, s::Sum)
+    r = ratconst(ν)
+    r === nothing && throw(GruntzError("besselk is supported only for a rational order"))
+    atomS(funatom(:besselk, Sum[s, constS(abs(r))]))
+end
+mkkaux(s::Sum, ν::Sum) = atomS(funatom(:kaux, Sum[s, ν]))
+
 # gamma. Of a positive integer, evaluated; a pole is an error. An argument with the
 # limit variable is shifted by an integer to u + r, 0 <= r < 1, the first monomial of
 # u with a positive coefficient: gamma(u + r + n) = (u + r)(u + r + 1)...(u + r + n - 1)
@@ -291,6 +308,10 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :sign ? mksign(a[1]) :
     h === :altsign ? mkaltsign(a[1]) :
     h === :carg ? mkcarg(a[1], a[2]) :
+    h === :expinti ? mkexpinti(a[1]) :
+    h === :eiaux ? mkaux(h, a[1]) :
+    h === :besselk ? mkbesselk(a[2], a[1]) :
+    h === :kaux ? mkkaux(a[1], a[2]) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 

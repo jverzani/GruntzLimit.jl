@@ -216,13 +216,15 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk)) ||
             return nothing
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
         a.head === :altsign && return resolve_altsign(u, x)
         a.head === :lambertw && return resolve_lambertw(u, x)
         a.head in (:sinint, :cosint, :erfi) && return resolve_infinite(a.head, u, x)
+        a.head === :expinti && return resolve_expinti(u, x)
+        a.head === :besselk && return resolve_besselk(u, a.args[2]::Sum, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :erf && return resolve_erf(u, x)
@@ -317,6 +319,29 @@ function resolve_infinite(h::Symbol, u::Sum, x::Atom)
         return scaleS(s, Q(σ))
     end
     subS(mulS(f, mksin(v)), mulS(g, mkcos(v)))
+end
+
+# expinti(u): for u -> ±oo, exp(u) eiaux(u); at finite points by Taylor's series (see
+# `specialPS`)
+function resolve_expinti(u::Sum, x::Atom)
+    hasleaf(u, x.key) && limitinf(u, x) isa Infinity && return mulS(mkexp(u), mkaux(:eiaux, u))
+    mkexpinti(u)
+end
+
+# besselk(ν, u): for u -> +oo, sqrt(π/(2u)) exp(-u) kaux(u); at a positive finite limit by
+# Taylor's series (see `besselkPS`). Not real for u < 0; the singularity at 0 is not
+# supported.
+function resolve_besselk(u::Sum, ν::Sum, x::Atom)
+    L = hasleaf(u, x.key) ? limitinf(u, x) : u
+    if L isa Infinity
+        signof(L) > 0 || throw(GruntzError("besselk of a negative number is not real", :undefined))
+        k = powS(mulS(scaleS(atomS(PI_ATOM), Q(1) // 2), powS(u, Q(-1))), Q(1) // 2)
+        return mulS(mulS(k, mkexp(negS(u))), mkkaux(u, ν))
+    end
+    s = csign(L)
+    s == 0 && throw(GruntzError("besselk at 0 is not supported"))
+    s < 0 && throw(GruntzError("besselk of a negative number is not real", :undefined))
+    mkbesselk(ν, u)
 end
 
 # floor(u) for x -> +oo, u tending to a finite L: floor(L) when L is not an integer;

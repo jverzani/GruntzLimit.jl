@@ -154,6 +154,10 @@ function apply_op(op, a::Vector{Sum})
         mkodd(n, a[1])
     elseif n === :cosint && na == 1
         mkcosint(a[1])
+    elseif n === :expinti && na == 1
+        mkexpinti(a[1])
+    elseif n === :besselk && na == 2
+        mkbesselk(a[1], a[2])
     elseif n === :abs && na == 1
         mkabs(a[1])
     elseif n === :sign && na == 1

@@ -7,7 +7,8 @@ const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log =
                                   :erf => SpecialFunctions.erf, :erfs => SpecialFunctions.erfcx,
                                   :gamma => SpecialFunctions.gamma, :sinint => SpecialFunctions.sinint,
                                   :cosint => SpecialFunctions.cosint, :erfi => SpecialFunctions.erfi,
-                                  :dawson => SpecialFunctions.dawson)
+                                  :dawson => SpecialFunctions.dawson,
+                                  :expinti => SpecialFunctions.expinti, :besselk => SpecialFunctions.besselk)
 default_build(op, args...) = op(args...)
 
 # Build `op(args...)` for constant arguments WITHOUT evaluating it, for callable
@@ -153,6 +154,7 @@ atom_term(b, a::Atom) =
     a.kind === :leaf ? (a.head isa Union{AbstractIrrational,Complex} ? b.lift(a.head) : a.head) :
     a.kind === :base ? to_term(b, a.args[1]::Sum) :
     a.head === :wexp ? mk(b, :lambertw, Any[mk(b, :exp, Any[to_term(b, a.args[1]::Sum)])]) :
+    a.head === :besselk ? mk(b, :besselk, Any[to_term(b, a.args[2]::Sum), to_term(b, a.args[1]::Sum)]) :
     mk(b, a.head, Any[to_term(b, a.args[1]::Sum)])
 
 function mono_term(b, m::Mono, c::Q)

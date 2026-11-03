@@ -279,7 +279,8 @@ end
 
 # The auxiliary functions of sinint and cosint, and dawson, for v -> +oo as w -> 0:
 #   fsi(v) ~ sum_k (-1)^k (2k)! v^(-2k-1),  gsi(v) ~ sum_k (-1)^k (2k+1)! v^(-2k-2),
-#   dawson(v) ~ sum_k (2k-1)!! / 2^(k+1) v^(-2k-1),
+#   dawson(v) ~ sum_k (2k-1)!! / 2^(k+1) v^(-2k-1),  eiaux(v) ~ sum_k k! v^(-k-1) (also for
+#   v -> -oo),
 # asymptotic series truncated as erfs's is.
 function auxPS(h::Symbol, a::PS, P::Q)
     isempty(a.c) && throw(NeedMorePrecision())
@@ -291,6 +292,7 @@ function auxPS(h::Symbol, a::PS, P::Q)
             k = (j - 2) ÷ 2
             return Q((-1)^k * factorial(big(2k + 1)))
         end
+        h === :eiaux && return j >= 1 ? Q(factorial(big(j - 1))) : Q(0)
         iseven(j) && return Q(0)
         k = (j - 1) ÷ 2
         h === :fsi && return Q((-1)^k * factorial(big(2k)))
@@ -325,6 +327,7 @@ function specialPS(h::Symbol, a::PS, logw::Sum, P::Q)
         end
         return addPS(polyPS(u, ecoef, 1, P), constPS(mkodd(:erfi, c0)))
     end
+    h === :expinti && return expintiPS(a, c0, u, logw, P)
     if iszero(c0)
         h === :sinint && return polyPS(u, k -> isodd(k) ? Q((-1)^((k - 1) ÷ 2)) // (k * factorial(big(k))) : Q(0), 1, P)
         tail = polyPS(u, k -> iseven(k) ? Q((-1)^(k ÷ 2)) // (k * factorial(big(k))) : Q(0), 2, P)
@@ -345,6 +348,57 @@ function specialPS(h::Symbol, a::PS, logw::Sum, P::Q)
     end
     c = h === :sinint ? mkodd(:sinint, c0) : mkcosint(c0)
     addPS(polyPS(u, tcoef, 1, P), constPS(c))
+end
+
+# Ei(c + u), u -> 0. At c = 0, Ei(u) = γ + log|u| + sum_(k>=1) u^k / (k k!); otherwise by
+# Taylor's series with Ei' = exp(t)/t: (exp(t)/t)^(m) = exp(t) sum_j C(m, j) (-1)^j j! t^(-j-1).
+function expintiPS(a::PS, c0::Sum, u::PS, logw::Sum, P::Q)
+    if iszero(c0)
+        _, lc, _ = split_lead(a)
+        s = sgn(lc, CONTEXT[].x)                 # log|u|
+        tail = polyPS(u, k -> k == 0 ? Q(0) : inv(Q(k * factorial(big(k)))), 1, P)
+        return addPS(addPS(tail, logPS(scalePS(a, constS(s)), logw, P)), constPS(EULER))
+    end
+    ec, ic = mkexp(c0), powS(c0, Q(-1))
+    function coef(n)
+        n == 0 && return Q(0)
+        m = n - 1
+        d = zeroS()
+        for j in 0:m
+            d = addS(d, scaleS(powS(ic, Q(j + 1)), Q(binomial(big(m), j) * (-1)^j * factorial(big(j)))))
+        end
+        scaleS(mulS(ec, d), inv(Q(factorial(big(n)))))
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(mkexpinti(c0)))
+end
+
+# besselk(ν, c + u), u -> 0, c > 0, by Taylor's series:
+#   K_ν^(n) = (-1/2)^n sum_j C(n, j) K_(ν-n+2j),  K_(-μ) = K_μ
+function besselkPS(a::PS, ν::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: besselk of an unbounded argument"))
+    c0, u = const_and_rest(a)
+    nu = ratconst(ν)::Q
+    function coef(n)
+        n == 0 && return Q(0)
+        d = zeroS()
+        for j in 0:n
+            d = addS(d, scaleS(mkbesselk(constS(nu - n + 2j), c0), Q(binomial(big(n), j))))
+        end
+        scaleS(d, (-Q(1) // 2)^n / factorial(big(n)))
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(mkbesselk(ν, c0)))
+end
+
+# kaux_ν(v) ~ sum_k a_k(ν) v^(-k), a_k = prod_(j=1..k) (4ν^2 - (2j-1)^2) / (k! 8^k), for
+# v -> +oo (Hankel's expansion); a finite series for a half-integer ν
+function kauxPS(a::PS, ν::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 ||
+        throw(GruntzError("kaux: the argument does not tend to infinity in the expansion variable"))
+    nu = ratconst(ν)::Q
+    coef(k) = prod((4nu^2 - Q(2j - 1)^2 for j in 1:k); init = Q(1)) / (factorial(big(k)) * Q(8)^k)
+    polyPS(powPS(a, Q(-1), P), coef, 0, P)
 end
 
 # lambertw(c + u), u -> 0. At c = 0, W(u) = sum_(n>=1) (-n)^(n-1) u^n / n!. Otherwise by
@@ -451,8 +505,10 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :lgrem ? lgremPS(arg, P) :
     h === :lambertw ? lambertwPS(arg, P) :
     h === :wexp ? wexpPS(arg, logw, P) :
-    h in (:fsi, :gsi, :dawson) ? auxPS(h, arg, P) :
-    h in (:sinint, :cosint, :erfi) ? specialPS(h, arg, logw, P) :
+    h in (:fsi, :gsi, :dawson, :eiaux) ? auxPS(h, arg, P) :
+    h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
+    h === :besselk ? besselkPS(arg, a.args[2]::Sum, P) :
+    h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
     h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
 end
 
