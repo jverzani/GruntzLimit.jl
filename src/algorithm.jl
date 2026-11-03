@@ -174,7 +174,38 @@ function mrv_leadterm(e::Sum, x::Atom)
         v
     end
     f = subs_atoms(e, rewrite)
-    leadterm(f, WLEAF, scaleS(g1, Q(-σ)), x)   # log(w) = -σ g1
+    logw = scaleS(g1, Q(-σ))                   # log(w) = -σ g1
+    # Expanded in w^g, g the gcd of the exponents of w, every exponent is an integer:
+    # exp(-x/40) is exp(x)^(-1/40), so w = exp(-x) occurs as w^(1/40), and a series in
+    # w to order P would need 40 P terms in each nested function (sinh(tanh(x/40)))
+    g = wgcd(f)
+    if g !== nothing && !isone(g)
+        f = subs_atoms(f, a -> a == WLEAF ? powS(wS, inv(g)) : nothing)
+        logw = scaleS(logw, g)
+    end
+    # the same precision in the original w
+    maxP = g === nothing ? LEADTERM_MAXP : max(LEADTERM_MAXP, LEADTERM_MAXP / g)
+    leadterm(f, WLEAF, logw, x; maxP)
+end
+
+# The gcd of the exponents of w in s (in atoms too), or nothing when there is none, or
+# when w^r with an irrational r occurs (see `wpowatom`)
+function wgcd(s::Sum)
+    g = Ref{Union{Nothing,Q}}(nothing)
+    irr = Ref(false)
+    function walk(s::Sum)
+        for m in keys(s.t), (a, e) in m.fs
+            if a == WLEAF
+                g[] = g[] === nothing ? abs(e) : gcd(g[], e)
+            elseif iswleaf(a)
+                irr[] = true
+            elseif a.kind !== :leaf
+                foreach(u -> walk(u::Sum), a.args)
+            end
+        end
+    end
+    walk(s)
+    irr[] ? nothing : g[]
 end
 
 # At x -> +oo every expression handled here has an eventual constant sign, so

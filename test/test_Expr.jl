@@ -572,6 +572,18 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws GruntzError gruntz_limit(:(abs(cos(x))), :x)
     end
 
+    @testset "fractional powers of w" begin
+        # exp(-x/100) is w^(1/100) for w = exp(-x): the series are taken in w^(1/100)
+        # (these did not finish in minutes)
+        @test eval(gruntz_limit(:(x/((x - 6)*sinh(tanh(3x/100)) + tanh(x) - 1//2)), :x)) ≈ 1/sinh(1)
+        @test eval(gruntz_limit(:(x/((x - 6)*sinh(tanh(0.03x)) + tanh(x) - 0.5)), :x)) ≈ 1/sinh(1)
+        @test eval(gruntz_limit(:(sinh(tanh(x/100))), :x)) ≈ sinh(1)
+        @test gruntz_limit(:(x*sinh(tanh(x/100)) - x), :x) == Inf
+        # terms of a higher order in w are still reached
+        @test gruntz_limit(:(exp(2x)*(tanh(x) - 1) + tanh(x/50)), :x) == -1
+        @test gruntz_limit(:(exp(2x)*(tanh(x) - 1 + exp(-x/50)) - exp(2x - x/50)), :x) == -2
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf

@@ -517,9 +517,9 @@ end
 # at 256), so going further only delays the error.
 const LEADTERM_MAXP = Q(64)
 
-function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom)
+function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom; maxP::Q = LEADTERM_MAXP)
     P = Q(4)
-    while P <= LEADTERM_MAXP
+    while P <= maxP
         try
             ps = series(f, w, logw, P, x)
             ks = sort!(collect(keys(ps.c)))
