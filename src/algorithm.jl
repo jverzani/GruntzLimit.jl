@@ -194,7 +194,13 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :erf && return resolve_erf(u, x)
-        sg = hasleaf(u, x.key) ? sgn(u, x) : try
+        sg = hasleaf(u, x.key) ? try
+            sgn(u, x)
+        catch err
+            # an oscillating argument (abs(sin(x))) is left to `bounded_limit`
+            (err isa GruntzError && err.msg == OSC_MSG && a.head === :abs) || rethrow()
+            nothing
+        end : try
             csign(u)
         catch err
             err isa NeedSign ? nothing : rethrow()

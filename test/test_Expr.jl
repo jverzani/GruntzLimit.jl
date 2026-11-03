@@ -547,6 +547,31 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test undefined(:((-1)^x), :x, 0)
     end
 
+    @testset "even powers of a negative quantity" begin
+        # sqrt(u^2) = |u|: u = log(x) is negative for x < 1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 1; dir = :-) == -1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 1; dir = :+) == 1
+        @test gruntz_limit(:(1/(x*sqrt(log(x)^2))), :x, 1; dir = :-) == Inf
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 1//2) == -1
+        @test gruntz_limit(:((log(x)^2)^(1//2)/log(x)), :x, 1//2) == -1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x, 0) == -1
+        @test gruntz_limit(:(sqrt(log(x)^2)/log(x)), :x) == 1
+        @test gruntz_limit(:(sqrt(log(x)^2)), :x, 1//2) == :(log(2))
+        @test gruntz_limit(:(sqrt(sin(x)^2)/sin(x)), :x, 0; dir = :-) == -1
+        @test gruntz_limit(:(sqrt(atan(x)^2)/atan(x)), :x, -Inf) == -1
+        @test gruntz_limit(:((x - 1)*sqrt(1/(x - 1)^2)), :x, 1; dir = :-) == -1
+        @test gruntz_limit(:(sqrt(log(x)^4)/log(x)^2), :x, 1//2) == 1
+        # fractional powers and logs of a positive -log(x), for x < 1
+        @test gruntz_limit(:(log(-log(x))), :x, 1//2) == :(log(log(2)))
+        @test gruntz_limit(:(sqrt(-log(x))), :x, 1//2) == :(sqrt(log(2)))
+        @test eval(gruntz_limit(:((log(x)^2)^(1//3)), :x, 1//2)) ≈ log(2)^(2/3)
+        # abs of an oscillating quantity is bounded
+        @test gruntz_limit(:(sqrt(sin(x)^2)/x), :x) == 0
+        @test gruntz_limit(:(abs(sin(x))/x), :x) == 0
+        @test gruntz_limit(:(x*(2 + abs(sin(x)))), :x) == Inf
+        @test_throws GruntzError gruntz_limit(:(abs(cos(x))), :x)
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf

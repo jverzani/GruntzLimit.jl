@@ -77,6 +77,8 @@ function mklog(s::Sum)
         negs, grp = Pair{Atom,Q}[], nothing
         if needs_signs(m, c)
             pf = positive_factors(m, c)
+            # in the expansion variable w the sign is checked by the series (`logPS`)
+            pf === nothing && any(p -> hasw(p.first), m.fs) && return atomS(funatom(:log, Sum[s]))
             pf === nothing && throw(GruntzError("log of a negative number", :undefined))
             c, m, negs, grp = pf
         end

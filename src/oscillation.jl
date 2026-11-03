@@ -172,6 +172,7 @@ function rate_atom(R::OscRater, a::Atom)::Rated
         a.head in (:sin, :cos) && return Rated(oneS(), Iv(-1.0, 1.0, diverges(R, u)))
         a.head === :exp && return rate_exp(R, u)
         a.head === :log && return rate_log(R, u)
+        a.head === :abs && return rate_abs(R, u)
         oscfail()
     end
 end
@@ -216,6 +217,16 @@ function rate_log(R::OscRater, u::Sum)
     v = float_or_nothing(L)
     v === nothing && oscfail()
     Rated(oneS(), widen(v + log(iv.lo), v + log(iv.hi), iv.exact))
+end
+
+# |P (β + o(1))| = |P| (|β| + o(1)), P of eventual sign
+function rate_abs(R::OscRater, u::Sum)
+    r = rate(R, u)
+    P = scaleS(r.P, Q(sgn(r.P, R.x)))
+    iv = r.iv
+    iv === nothing && return Rated(P, nothing)
+    lo, hi = iv.lo >= 0 ? (iv.lo, iv.hi) : iv.hi <= 0 ? (-iv.hi, -iv.lo) : (0.0, max(-iv.lo, iv.hi))
+    Rated(P, Iv(lo, hi, iv.exact))
 end
 
 # The limit of e, x -> +oo, where Gruntz's algorithm met an oscillating subexpression

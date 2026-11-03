@@ -251,7 +251,9 @@ hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
 # c*m, for log and fractional powers, which are taken factor by factor, as a product
 # of positive factors: (|c|, kept, negs, grp). `kept` are the factors taken as they
 # are: of x, numbers, fractional powers, and parameters known to be positive. `negs`
-# are those known to be negative, with an integer exponent: each is taken as -a. The
+# are those known to be negative, with an integer exponent: each is taken as -a. Atoms
+# of x such as log(x), once x is the variable that tends to +oo (see DEFER_DOMAIN), are
+# put in one or the other by their eventual sign (see `varsign`). The
 # others, of undecided sign, are taken as they are outside case splitting when the
 # product is positive (parameters are generic); otherwise they are grouped, with the
 # sign, as the one positive constant `grp` (log(-a*b), a < 0 < b undecided...).
@@ -260,11 +262,16 @@ function positive_factors(m::Mono, c::Q)
     kept, negs, und = Pair{Atom,Q}[], Pair{Atom,Q}[], Pair{Atom,Q}[]
     σ = c < 0 ? -1 : 1
     for (a, e) in m.fs
-        if hasvar(a) || numval_or_nothing(a) !== nothing || !isone(denominator(e))
+        if hasvar(a) && !(isone(denominator(e)) && signable(a) && !_defer_domain(m))
             push!(kept, a => e)
             continue
         end
-        sa = atom_sign(a)
+        if !hasvar(a) && (numval_or_nothing(a) !== nothing || !isone(denominator(e)))
+            push!(kept, a => e)
+            continue
+        end
+        sa = hasvar(a) ? varsign(a) : atom_sign(a)
+        sa == 0 && hasvar(a) && (sa = 1)
         if sa == 1
             push!(kept, a => e)
         elseif sa == -1

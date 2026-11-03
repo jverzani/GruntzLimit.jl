@@ -14,4 +14,9 @@ ONE, PI = one(x), SymEngine.PI
     @test gruntz_limit(exp(W(x)), x) == Inf
     @test gruntz_limit(W(x)/log(x), x) == 1
     @test gruntz_limit(W(x), x, 1) == W(ONE)
+
+    # sqrt(u^2) = |u| (SymPy #27551)
+    @test gruntz_limit(sqrt(log(x)^2)/log(x), x, 1; dir = :-) == -1
+    @test gruntz_limit(1/(x*sqrt(log(x)^2)), x, 1; dir = :-) == Inf
+    @test gruntz_limit(sqrt(log(x)^2)/log(x), x, 1//2) == -1
 end
