@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=2d9bd380">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=6b4c9684">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -400,7 +400,13 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p><code class="md-code-inline">gamma</code>, <code class="md-code-inline">loggamma</code> and <code class="md-code-inline">factorial</code>, for an argument that tends to <code class="md-code-inline">+∞</code> (by Stirling&#39;s series) or is constant. <code class="md-code-inline">gamma(x + k)</code>, with <code class="md-code-inline">k</code> an integer, is reduced to <code class="md-code-inline">x (x + 1) ⋯ (x + k - 1) gamma(x)</code>, so that ratios such as <code class="md-code-inline">factorial(n + 1)/factorial(n)</code> cancel;</p>
 </li>
-<li><p><code class="md-code-inline">sinint</code>, <code class="md-code-inline">cosint</code> and <code class="md-code-inline">erfi</code>, as in SpecialFunctions.jl (<code class="md-code-inline">cosint</code> for a positive argument, or one that tends to 0 from above). At finite points by their Taylor series (<code class="md-code-inline">cosint(u) = γ + log(u) + …</code> near 0), and at <code class="md-code-inline">±∞</code> with their asymptotic expansions, as <code class="md-code-inline">sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)</code>, so that <code class="md-code-inline">sinint(x)</code> tends to <code class="md-code-inline">π/2</code> while <code class="md-code-inline">x*(π/2 - sinint(x))</code> has no limit.</p>
+<li><p><code class="md-code-inline">sinint</code>, <code class="md-code-inline">cosint</code> and <code class="md-code-inline">erfi</code>, as in SpecialFunctions.jl (<code class="md-code-inline">cosint</code> for a positive argument, or one that tends to 0 from above). At finite points by their Taylor series (<code class="md-code-inline">cosint(u) = γ + log(u) + …</code> near 0), and at <code class="md-code-inline">±∞</code> with their asymptotic expansions, as <code class="md-code-inline">sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)</code>, so that <code class="md-code-inline">sinint(x)</code> tends to <code class="md-code-inline">π/2</code> while <code class="md-code-inline">x*(π/2 - sinint(x))</code> has no limit;</p>
+</li>
+<li><p><code class="md-code-inline">expinti</code>, the exponential integral Ei, as in SpecialFunctions.jl: at <code class="md-code-inline">±∞</code> by <code class="md-code-inline">Ei(u) = exp(u)/u (1 + 1/u + 2/u^2 + …)</code>, and at finite points by its Taylor series (<code class="md-code-inline">Ei(u) = γ + log|u| + …</code> near 0);</p>
+</li>
+<li><p><code class="md-code-inline">besselk(ν, u)</code>, for a rational order <code class="md-code-inline">ν</code>: at <code class="md-code-inline">+∞</code> by Hankel&#39;s expansion <code class="md-code-inline">K_ν(u) = sqrt(π/(2u)) exp(-u) (1 + (4ν^2 - 1)/(8u) + …)</code>, and by its Taylor series where <code class="md-code-inline">u</code> tends to a positive number. The singularity at 0 is not supported;</p>
+</li>
+<li><p>complex values: an expression with the imaginary unit (<code class="md-code-inline">im</code>, or a complex number) is split into its real and imaginary parts, whose limits are taken separately. Arithmetic, <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code>, powers, <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code> and the functions written with them (<code class="md-code-inline">tan</code>, <code class="md-code-inline">sinh</code>, ...), <code class="md-code-inline">abs</code>, <code class="md-code-inline">real</code>, <code class="md-code-inline">imag</code>, <code class="md-code-inline">conj</code> and <code class="md-code-inline">angle</code> are understood for complex arguments (<code class="md-code-inline">log</code> and fractional powers on their principal branch, so <code class="md-code-inline">sqrt(-1 + im*x)</code> tends to <code class="md-code-inline">im</code> from the right and to <code class="md-code-inline">-im</code> from the left); other functions only for real ones. So <code class="md-code-inline">exp(-(2 + 3im)*x)</code> tends to 0 at <code class="md-code-inline">+∞</code> and <code class="md-code-inline">sqrt(2 + im*x)</code> to <code class="md-code-inline">sqrt(2)</code> at 0. A rational answer comes back as a <code class="md-code-inline">Complex</code>. The limit point and the variable are real.</p>
 </li>
 </ul>
 <p>Inside the package, most of these are rewritten in terms of <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">erf</code>, <code class="md-code-inline">exp</code> and <code class="md-code-inline">log</code>. An answer involving them is correct, but it may be written differently from the input. For example, <span class="md-math md-math-inline">\(\arcsin(1/2)\)</span> comes back in terms of <code class="md-code-inline">atan</code>:</p>
@@ -684,6 +690,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=2d9bd380"></script>
+  <script src="../assets/materialdocs.js?v=6b4c9684"></script>
 </body>
 </html>
