@@ -24,4 +24,10 @@ ONE, PI = one(x), SymEngine.PI
     @test gruntz_limit(sqrt(log(x)^2)/log(x), x, 1; dir = :-) == -1
     @test gruntz_limit(1/(x*sqrt(log(x)^2)), x, 1; dir = :-) == Inf
     @test gruntz_limit(sqrt(log(x)^2)/log(x), x, 1//2) == -1
+
+    # abs of a power of a negative quantity (SymPy #25681, #26513)
+    @test gruntz_limit(x/abs(sqrt(x^2 - 1)), x, -1; dir = :+) == -Inf
+    @test gruntz_limit(x/abs(sqrt(x^2 - 1)), x, 1; dir = :-) == Inf
+    @test_throws GruntzError gruntz_limit((-x/(x + 1))^x, x)
+    @test gruntz_limit(abs(cos(x)*exp(-x)), x) == 0
 end

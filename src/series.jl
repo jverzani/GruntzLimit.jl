@@ -509,7 +509,18 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
     h === :besselk ? besselkPS(arg, a.args[2]::Sum, P) :
     h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
-    h === :sin ? trigPS(arg, P)[1] : trigPS(arg, P)[2]
+    h === :sin ? trigPS(arg, P)[1] :
+    h === :cos ? trigPS(arg, P)[2] :
+    h in (:abs, :sign) ? signPS(h, arg, x) :
+    throw(GruntzError("no series for `$h`"))
+end
+
+# abs(u) = σ u and sign(u) = σ, σ the eventual sign of u's leading coefficient. An
+# oscillating one (abs(cos(x) exp(-x))) stops the algorithm (see `bounded_limit`).
+function signPS(h::Symbol, a::PS, x::Atom)
+    _, c0, _ = split_lead(a)
+    σ = Q(sgn(c0, x))
+    h === :abs ? scalePS(a, constS(σ)) : constPS(constS(σ))
 end
 
 function series(s::Sum, w::Atom, logw::Sum, P::Q, x::Atom)::PS

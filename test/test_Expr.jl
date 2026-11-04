@@ -639,6 +639,26 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(exp(2x)*(tanh(x) - 1 + exp(-x/50)) - exp(2x - x/50)), :x) == -2
     end
 
+    @testset "abs of a power of a negative quantity" begin
+        # |sqrt(u)| = sqrt(|u|), u < 0 included (SymPy #25681)
+        @test gruntz_limit(:(x/abs(sqrt(x^2 - 1))), :x, -1; dir = :+) == -Inf
+        @test gruntz_limit(:(x/abs(sqrt(x^2 - 1))), :x, -1; dir = :-) == -Inf
+        @test gruntz_limit(:(x/abs(sqrt(x^2 - 1))), :x, 1; dir = :-) == Inf
+        @test gruntz_limit(:(x/abs(sqrt(x^2 - 1))), :x, 1; dir = :+) == Inf
+        @test gruntz_limit(:(abs(sqrt(-x))), :x, 0; dir = :+) == 0
+        @test eval(gruntz_limit(:(abs(x^(1//2) - 2)*abs((x - 4)^(3//2))), :x, 1)) ≈ 3*sqrt(3)
+        # |b^n| = |b|^n; b^n for b < 0 oscillates (SymPy #26513)
+        @test eval(gruntz_limit(:(abs((-x/(x + 1))^x)), :x)) ≈ exp(-1)
+        @test eval(gruntz_limit(:(abs(-2*(-x/(x + 1))^x)), :x)) ≈ 2exp(-1)
+        @test_throws "oscillates" gruntz_limit(:((-x/(x + 1))^x), :x)
+        @test_throws "oscillates" gruntz_limit(:((-x)^x/x^x), :x)
+        # abs of an oscillating factor in the expansion variable
+        @test gruntz_limit(:(abs((-2)^x/3^x)), :x) == 0
+        @test gruntz_limit(:(abs(cos(x)*exp(-x))), :x) == 0
+        @test gruntz_limit(:(abs((x - exp(x))*exp(-x))), :x) == 1
+        @test_throws "oscillates" gruntz_limit(:(abs(cos(x)*exp(-x))*exp(x)), :x)
+    end
+
     @testset "constants pi, π and ℯ" begin
         # bare symbols are constants, not free parameters, so their sign is known
         @test gruntz_limit(:(exp(pi*x)), :x) == Inf
