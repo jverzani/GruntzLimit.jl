@@ -72,12 +72,54 @@ const EXPR_CONSTANTS = Dict{Symbol,Any}(:pi => π, :π => π, :ℯ => ℯ)
 function from_term(t)::Sum
     if safe_iscall(t)
         args = arguments(t)
-        isempty(args) || return apply_op(op_or_name(t), Sum[from_term(a) for a in args])
+        if !isempty(args)
+            length(args) == 1 && opname(op_or_name(t)) === :abs && has_rpow(args[1]) &&
+                return abs_term(args[1])
+            return apply_op(op_or_name(t), Sum[from_term(a) for a in args])
+        end
     end
     t isa Union{Integer,Rational,AbstractFloat,AbstractIrrational,Complex} && return from_number(t)
     t isa Symbol && haskey(EXPR_CONSTANTS, t) && return from_number(EXPR_CONSTANTS[t])
     v = leaf_number(t)
     v === nothing ? leafS(t) : v
+end
+
+opname(op) = op isa Symbol ? op : (op isa Function ? nameof(op) : Symbol(string(op)))
+
+# abs of a power of a real number is the power of its abs, for the principal value of a
+# power of a negative number too: |b^e| = |b|^e for real e (|exp(e (log|b| + iπ))|). So
+# abs(sqrt(x^2 - 1)) is sqrt(abs(x^2 - 1)), real where x^2 - 1 < 0, and
+# abs((-n/(n + 1))^n) is abs(n/(n + 1))^n. The rewrite is made, through products and
+# quotients, for the powers with a fractional or a nonconstant exponent (`has_rpow`).
+function abs_term(t)
+    has_rpow(t) || return mkabs(from_term(t))
+    n, args = opname(op_or_name(t)), arguments(t)
+    if n === :^
+        return mkpow(abs_term(args[1]), from_term(args[2]))
+    elseif n === :sqrt
+        return powS(abs_term(args[1]), Q(1) // 2)
+    elseif n === :cbrt
+        return powS(abs_term(args[1]), Q(1) // 3)
+    elseif n === :*
+        return foldl(mulS, Sum[abs_term(a) for a in args]; init = oneS())
+    elseif n === :/
+        return mulS(abs_term(args[1]), powS(abs_term(args[2]), Q(-1)))
+    elseif n === :- && length(args) == 1
+        return abs_term(args[1])
+    end
+    mkabs(from_term(t))
+end
+function has_rpow(t)
+    safe_iscall(t) || return false
+    args = arguments(t)
+    isempty(args) && return false
+    n = opname(op_or_name(t))
+    n in (:sqrt, :cbrt) && length(args) == 1 && return true
+    if n === :^ && length(args) == 2
+        r = try ratconst(from_term(args[2])) catch err; err isa GruntzError || rethrow(); nothing end
+        return r === nothing || !isinteger(r) || has_rpow(args[1])
+    end
+    (n === :* || (n === :/ && length(args) == 2) || (n === :- && length(args) == 1)) && any(has_rpow, args)
 end
 
 # The operation of a term; when the package gives none (`missing`, as SymEngine does for

@@ -307,6 +307,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :floor ? mkfloor(a[1]) :
     h === :sign ? mksign(a[1]) :
     h === :altsign ? mkaltsign(a[1]) :
+    h === :pow ? mkpow(a[1], a[2]) :
     h === :carg ? mkcarg(a[1], a[2]) :
     h === :expinti ? mkexpinti(a[1]) :
     h === :eiaux ? mkaux(h, a[1]) :
@@ -319,7 +320,27 @@ function mkpow(a::Sum, b::Sum)
     r = ratconst(b)
     r !== nothing && return powS(a, r)
     negconst(a) && hasleaf(b, CONTEXT[].x.key) && return mulS(mkpow(negS(a), b), mkaltsign(b))
+    negbase(a, b) && return mulS(mkpow(negS(a), b), mkaltsign(b))
+    length(a.t) == 1 && hasleaf(b, CONTEXT[].x.key) && _defer_domain(first(a.t).first) &&
+        return atomS(funatom(:pow, Sum[a, b]))          # rebuilt after the substitution
     mkexp(mulS(b, mklog(a)))
+end
+
+# whether the base a of a^b, b with x, is a monomial of x (not of w) that is eventually
+# negative: a^b = (-a)^b (-1)^b, which oscillates (-n/(n + 1))^n) or is not real. Decided
+# once x is the variable that tends to +oo (see DEFER_DOMAIN).
+function negbase(a::Sum, b::Sum)
+    length(a.t) == 1 && hasleaf(b, CONTEXT[].x.key) || return false
+    m, c = first(a.t)
+    (_defer_domain(m) || any(p -> hasw(p.first), m.fs) || !hasleaf(a, CONTEXT[].x.key)) && return false
+    needs_signs(m, c) && positive_factors(m, c) === nothing || return false
+    s = try
+        sgn(a, CONTEXT[].x)
+    catch err
+        err isa Union{GruntzError,NeedMorePrecision} || rethrow()
+        0
+    end
+    s < 0
 end
 
 # a constant (free of x and of parameters) that is negative

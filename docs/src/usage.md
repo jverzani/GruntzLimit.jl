@@ -233,9 +233,12 @@ gruntz_limit(:((1 + 1/x)^x), :x; build = (op, args...) -> op(args...))
 The operations understood are
 
 * arithmetic: `+`, `-`, `*`, `/`, `^`, `inv`, `sqrt`, `cbrt`, `abs`, `sign`, and `min`, `max`
-  of any number of arguments. A power `c^u` of a negative constant `c` is real only for an
-  integer `u`: where `u` tends to `±∞` it is taken as a sequence is, so `(-1)^x` has no limit
-  and `(-1/2)^x` tends to 0;
+  of any number of arguments. A power `c^u` of a negative constant `c`, or of a base such as
+  `-x/(x + 1)` that is negative near the limit point, is real only for an integer `u`: where
+  `u` tends to `±∞` it is taken as a sequence is, so `(-1)^x` and `(-x/(x + 1))^x` have no
+  limit and `(-1/2)^x` tends to 0. The `abs` of a power is the power of the `abs`
+  (`|b^u| = |b|^u`, for a negative `b` too), so `abs((-x/(x + 1))^x)` tends to `1/e` and
+  `abs(sqrt(x^2 - 1))` is real for `|x| < 1`;
 * `floor` and `ceil`, when their argument has a finite limit;
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
