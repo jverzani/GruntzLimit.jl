@@ -271,8 +271,14 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         # a condition linear in a parameter, or exp(u) - 1 = 0, is solved (SymPy #25298):
         # with ρ x = -1, exp(-x - y - ρ x y) = exp(-x)
         f = :(1 - exp(-x) - exp(-y) - exp(-x - y - r*x*y))
-        @test shown(gruntz_cases(f, :y)) == Set(["1 + r * x < 0" => -Inf,
-            "1 + r * x == 0" => "1 + -2 * exp(x) ^ -1", "1 + r * x > 0" => "1 + -1 * exp(x) ^ -1"])
+        # (checked at points: how the cases are grouped depends on the order of hashing,
+        # which differs between Julia versions)
+        at(cs, pts...) = (v = cs[Dict(pts)].second; v isa Expr ? string(v) : v)
+        cs = gruntz_cases(f, :y)
+        @test at(cs, :r => 1, :x => 1) == "1 + -1 * exp(x) ^ -1"
+        @test at(cs, :r => -1//2, :x => 2) == "1 + -2 * exp(x) ^ -1"
+        @test at(cs, :r => -1, :x => 2) == -Inf
+        @test at(cs, :r => 0, :x => -3) == "1 + -1 * exp(x) ^ -1"
         @test gruntz_limit(f, :y; signs = Dict(:x => :positive, :r => :positive)) == :(1 + -1 * exp(x) ^ -1)
         @test shown(gruntz_cases(:(y^(a*b + 1)), :y)) ⊇ Set(["a < 0 && b > 0 && -1 + -1 * a * b == 0" => 1])
         @test gruntz_limit(:(y^(a*b + 1)), :y; signs = Dict(:(a*b + 1) => :zero)) == 1
