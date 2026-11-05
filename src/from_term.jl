@@ -208,6 +208,12 @@ function apply_op(op, a::Vector{Sum})
         mkfloor(a[1])
     elseif n in (:ceil, :ceiling) && na == 1           # SymEngine prints ceil as ceiling
         mkceil(a[1])
+    elseif n === :trunc && na == 1                    # trunc(u) = sign(u) floor(|u|)
+        mktrunc(a[1])
+    elseif n in (:mod, :rem) && na == 2               # mod(u, v) = u - v floor(u/v)
+        ratconst(a[2]) == 0 && throw(GruntzError("$n(u, 0)", :undefined))
+        q = mulS(a[1], powS(a[2], Q(-1)))
+        subS(a[1], mulS(a[2], n === :mod ? mkfloor(q) : mktrunc(q)))   # rem: with trunc
     elseif n === :sin && na == 1
         mksin(a[1])
     elseif n === :cos && na == 1

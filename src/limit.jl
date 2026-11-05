@@ -26,9 +26,10 @@ function signs_context(signs, x::Atom)
     end
     with_context(Cond[], sub, false, x) do
         for c in zs
-            sol = solve_zero(substS(c, sub))
+            sol, nz = solve_zero_cond(substS(c, sub))
             sol === nothing && throw(ArgumentError("cannot solve `$(skey(c)) = 0` for a parameter"))
             add_subst!(sub, sol)
+            nz === nothing || push!(ctx, normcond(nz, :!=))
         end
         ctx = subst_ctx(ctx, sub)
     end

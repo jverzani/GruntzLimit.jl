@@ -30,4 +30,7 @@ ONE, PI = one(x), SymEngine.PI
     @test gruntz_limit(x/abs(sqrt(x^2 - 1)), x, 1; dir = :-) == Inf
     @test_throws GruntzError gruntz_limit((-x/(x + 1))^x, x)
     @test gruntz_limit(abs(cos(x)*exp(-x)), x) == 0
+
+    # a complex base (SymPy #23915)
+    @test gruntz_limit((1//10 + SymEngine.IM/10)^x, x) == 0
 end

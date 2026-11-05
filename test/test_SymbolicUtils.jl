@@ -60,4 +60,9 @@ PI = SymbolicUtils.maketerm(typeof(x), identity, Any[π], nothing)
     @test gruntz_limit(x/abs(sqrt(x^2 - 1)), x, 1; dir = :-) == Inf
     @test_throws GruntzError gruntz_limit((-x/(x + 1))^x, x)
     @test gruntz_limit(abs(cos(x)*exp(-x)), x) == 0
+
+    # mod (SymPy #25230), a complex base (#23915)
+    @test gruntz_limit(mod(x, 3), x, 3; dir = :-) == 3
+    @test gruntz_limit(mod(x, 3), x, 3; dir = :+) == 0
+    @test gruntz_limit((1//10 + im/10)^x, x) == 0
 end

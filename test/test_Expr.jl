@@ -158,6 +158,17 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(floor(x)), :x, π) == 3
         @test gruntz_limit(:(floor(cos(x))), :x, 0) == 0
         @test gruntz_limit(:(floor(1 - exp(-x))), :x) == 0
+        # mod(u, v) = u - v floor(u/v), rem with trunc (SymPy #25230)
+        @test gruntz_limit(:(mod(x, 3)), :x, 3; dir = :-) == 3
+        @test gruntz_limit(:(mod(x, 3)), :x, 3; dir = :+) == 0
+        @test_throws GruntzError gruntz_limit(:(mod(x, 3)), :x, 3; dir = :both)
+        @test gruntz_limit(:(mod(x, -3)), :x, 3; dir = :+) == -3
+        @test gruntz_limit(:(rem(x, 3)), :x, -3; dir = :+) == -3
+        @test gruntz_limit(:(rem(x, 3)), :x, -3; dir = :-) == 0
+        @test gruntz_limit(:(trunc(x)), :x, -1; dir = :+) == 0
+        @test gruntz_limit(:(trunc(x)), :x, -1; dir = :-) == -1
+        @test gruntz_limit(:(trunc(x)), :x, 0) == 0
+        @test_throws GruntzError gruntz_limit(:(mod(x, 0)), :x, 1)
         @test gruntz_limit(:(floor(exp(-x) + 1)), :x) == 1
         # an integer limit recognised numerically, approached from above
         @test gruntz_limit(:(floor(log(8)/log(2) + 1/x)), :x) == 3
@@ -257,6 +268,22 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         shown(cs) = Set((isempty(conds) ? "always" : join(string.(conds), " && ")) =>
                         (v isa Expr ? string(v) : v) for (conds, v) in cs)
         @test shown(gruntz_cases(:(x^(a - 2)), :x)) == Set(["a < 2" => 0, "a == 2" => 1, "a > 2" => Inf])
+        # a condition linear in a parameter, or exp(u) - 1 = 0, is solved (SymPy #25298):
+        # with ρ x = -1, exp(-x - y - ρ x y) = exp(-x)
+        f = :(1 - exp(-x) - exp(-y) - exp(-x - y - r*x*y))
+        @test shown(gruntz_cases(f, :y)) == Set(["1 + r * x < 0" => -Inf,
+            "1 + r * x == 0" => "1 + -2 * exp(x) ^ -1", "1 + r * x > 0" => "1 + -1 * exp(x) ^ -1"])
+        @test gruntz_limit(f, :y; signs = Dict(:x => :positive, :r => :positive)) == :(1 + -1 * exp(x) ^ -1)
+        @test shown(gruntz_cases(:(y^(a*b + 1)), :y)) ⊇ Set(["a < 0 && b > 0 && -1 + -1 * a * b == 0" => 1])
+        @test gruntz_limit(:(y^(a*b + 1)), :y; signs = Dict(:(a*b + 1) => :zero)) == 1
+        @test gruntz_limit(:(exp(y*(exp(a) - 1))), :y; signs = Dict(:(exp(a) - 1) => :zero)) == 1
+        # one that is not solved: the limit under the condition (no error as a value)
+        @test shown(gruntz_cases(:((a^3 + a + 1)*y), :y)) ==
+              Set(["1 + a + a ^ 3 < 0" => -Inf, "1 + a + a ^ 3 == 0" => 0, "1 + a + a ^ 3 > 0" => Inf])
+        @test shown(gruntz_cases(:(exp((a^2*b + a)*y)), :y)) ==
+              Set(["a + a ^ 2 * b < 0" => 0, "a + a ^ 2 * b == 0" => 1, "a + a ^ 2 * b > 0" => Inf])
+        @test shown(gruntz_cases(:(y/(a*b + 1)), :y)) ==
+              Set(["1 + a * b < 0" => -Inf, "1 + a * b == 0" => :undefined, "1 + a * b > 0" => Inf])
         @test shown(gruntz_cases(:(x^a * log(x)), :x, 0)) == Set(["a <= 0" => -Inf, "a > 0" => 0])
         @test shown(gruntz_cases(:(a^x), :x)) ==
               Set(["a <= 0" => :undefined, "a > 0 && a < 1" => 0, "a == 1" => 1, "a > 1" => Inf])
@@ -637,6 +664,26 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         # terms of a higher order in w are still reached
         @test gruntz_limit(:(exp(2x)*(tanh(x) - 1) + tanh(x/50)), :x) == -1
         @test gruntz_limit(:(exp(2x)*(tanh(x) - 1 + exp(-x/50)) - exp(2x - x/50)), :x) == -2
+    end
+
+    @testset "powers of a complex constant" begin
+        # b^x = |b|^x exp(i x arg b) (SymPy #23915)
+        @test gruntz_limit(:((1//10 + im/10)^x), :x) == 0
+        @test gruntz_limit(:((0.1 + 0.1im)^x), :x) == 0
+        @test gruntz_limit(:((1//10 + im/10)^x/x), :x) == 0
+        @test gruntz_limit(:((1 - (1//10 + im/10)^x)/(1 - (1//10 + im/10))), :x) == 45//41 + 5//41*im
+        @test_throws "oscillates" gruntz_limit(:((1 + im)^x), :x)
+        @test_throws "oscillates" gruntz_limit(:(((3 + 4im)/5)^x), :x)
+    end
+
+    @testset "a negative base with a symbolic exponent" begin
+        # (SymPy #24067) x^n for x < 0 is real only for an integer n
+        sg = Dict(:n => :positive)
+        @test gruntz_limit(:(x^n), :x, 0; signs = sg) == 0
+        @test_throws "symbolic exponent" gruntz_limit(:(x^n), :x, 0; dir = :-, signs = sg)
+        @test_throws "symbolic exponent" gruntz_limit(:(x^n), :x, 0; dir = :both, signs = sg)
+        @test gruntz_limit(:((5x)^(n + 2)/x^2), :x, 0; signs = sg) == 0
+        @test_throws "symbolic exponent" gruntz_limit(:((5x)^(n + 2)/x^2), :x, 0; dir = :-, signs = sg)
     end
 
     @testset "abs of a power of a negative quantity" begin
