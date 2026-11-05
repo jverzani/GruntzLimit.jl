@@ -52,20 +52,22 @@ function solve_cases(run, ctx::Vector{Cond}, sub::Dict{String,Sum}, x::Atom, dep
         rels = need.zerotest && c === need.c ?
                [r for (r, ok) in ((:(==), 0 in ps), (:!=, any(!=(0), ps))) if ok] :
                [p < 0 ? :< : p == 0 ? :(==) : :> for p in ps]
-        c, rels, (:(==) in rels ? solve_zero(c) : nothing)
+        c, rels, (:(==) in rels ? solve_zero_cond(c) : (nothing, nothing))
     end
+    zsub, nz = zsub
     length(rels) < 2 && return Leaf(GruntzError("could not split on the sign of $(skey(c))"))
     rs, kids = Symbol[], CaseTree[]
     for rel in rels
         count[] += 1
         if rel === :(==)
             if zsub === nothing
-                push!(rs, rel)
-                push!(kids, Leaf(GruntzError("the condition could not be solved for a parameter")))
-                continue
+                # not solved: the limit is computed with the condition c = 0 in the context
+                sub2, ctx2 = sub, [ctx; normcond(c, rel)]
+            else
+                sub2 = with_context(() -> add_subst!(copy(sub), zsub), ctx, sub, false, x)
+                ctx1 = nz === nothing ? ctx : [ctx; normcond(nz, :!=)]   # p = -B/A needs A ≠ 0
+                ctx2 = with_context(() -> subst_ctx(ctx1, sub2), ctx, sub, false, x)
             end
-            sub2 = with_context(() -> add_subst!(copy(sub), zsub), ctx, sub, false, x)
-            ctx2 = with_context(() -> subst_ctx(ctx, sub2), ctx, sub, false, x)
         else
             sub2, ctx2 = sub, [ctx; normcond(c, rel)]
         end

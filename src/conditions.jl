@@ -346,8 +346,65 @@ end
 param_value(how::Symbol, v::Sum) = how === :id ? v : how === :log ? mkexp(v) : negS(mkexp(v))
 
 # Solves c = 0 for a parameter p, when c = k p + r, k log(p) + r or k log(-p) + r with
-# r free of p, or c = k p^n with n > 0. Returns p's key => its value, or nothing.
-function solve_zero(c::Sum)
+# r free of p, or c = k p^n with n > 0. Also, when c is linear in p with coefficients in
+# the other parameters, c = A p + B, for A or B a nonzero number (x = -1/ρ for
+# 1 + ρ x = 0); and k exp(u) + k0 = 0 as u = log(-k0/k). Returns p's key => its value,
+# or nothing.
+solve_zero(c::Sum) = solve_zero_cond(c)[1]
+
+# The same, with the condition the solution needs (A ≠ 0 for p = -B/A, as a Sum that
+# must be nonzero), or nothing
+function solve_zero_cond(c::Sum)
+    sol = solve_zero_simple(c)
+    sol === nothing || return sol, nothing
+    r = solve_linear(c)
+    r === nothing || return r
+    if length(c.t) == 2                          # k exp(u)^e + k0
+        k0 = ratconst(subS(c, Sum(Dict(m => q for (m, q) in c.t if !isempty(m.fs)))))
+        ms = [(m, q) for (m, q) in c.t if !isempty(m.fs)]
+        if k0 !== nothing && !iszero(k0) && length(ms) == 1
+            m, k = ms[1]
+            if length(m.fs) == 1 && m.fs[1].first.kind === :fun && m.fs[1].first.head === :exp &&
+               -k0 / k > 0
+                a, e = m.fs[1]
+                return solve_zero_cond(subS(scaleS(a.args[1]::Sum, e), lograt(-k0 / k)))
+            end
+        end
+    end
+    nothing, nothing
+end
+
+# c = A p + B, A and B free of the parameter p, A or B a nonzero number
+function solve_linear(c::Sum)
+    ps = Dict{String,Atom}()
+    for m in keys(c.t), (a, _) in m.fs
+        isparam(a) && (ps[a.key] = a)
+    end
+    for k in sort!(collect(keys(ps)))
+        p = ps[k]
+        A, B, ok = zeroS(), zeroS(), true
+        for (m, q) in c.t
+            e = zero(Q)
+            for (a, ea) in m.fs
+                if a == p
+                    e = ea
+                elseif hasleaf(a, k)
+                    ok = false
+                end
+            end
+            (ok && (iszero(e) || isone(e))) || (ok = false; break)
+            rest = monoS(Mono(filter(f -> f.first != p, m.fs)), q)
+            iszero(e) ? (B = addS(B, rest)) : (A = addS(A, rest))
+        end
+        ok && !iszero(A) || continue
+        ra, rb = ratconst(A), ratconst(B)
+        (ra !== nothing || (rb !== nothing && !iszero(rb))) || continue
+        return p.key => negS(mulS(B, powS(A, Q(-1)))), (ra === nothing ? A : nothing)
+    end
+    nothing
+end
+
+function solve_zero_simple(c::Sum)
     for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
         length(m.fs) == 1 || continue
         a, e = m.fs[1]

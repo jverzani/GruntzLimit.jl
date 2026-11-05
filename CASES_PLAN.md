@@ -35,7 +35,8 @@ How it works (src/conditions.jl and src/cases.jl):
   `mklog`, which makes `a^x` `:undefined` for `a <= 0`.
 - `solve_cases` reruns the limit for each possible sign of `split_target(c)`, which splits a
   product one factor at a time and `log(s)` on `s - 1`. The case `c == 0` is solved for a
-  parameter (`solve_zero`: linear, `log(p)`, or `p^n`) and substituted at conversion
+  parameter (`solve_zero`: linear, also with parameter coefficients `A p + B` for a numeric
+  `A` or `B`, adding `A != 0`; `log(p)`; `p^n`; `exp(u) - k`) and substituted at conversion
   (`SUBST`, through `leafS`). The tree is simplified (`c < 0`, `c > 0` alike → `c != 0`; a
   zero case merged into a neighbour, also after substitution). It is then flattened and
   merged pairwise (`merge_cases`: the union described by at most 3 of the cases' conditions;
@@ -51,7 +52,10 @@ Known weaknesses:
 - Merging is pairwise, so `max(a, b)` (problem 11) is correct but listed in 9 cases.
 - FM treats `log(a)` and `a` as unrelated, so a condition such as `a <= b` held as
   `log(b) - log(a) >= 0` does not prune `b > 1` given `a > 1`.
-- A zero case that cannot be solved for a parameter (`a*b == 1`) is "not computed".
+- A zero case that cannot be solved for a parameter (`a^3 + a + 1 == 0`) is computed with
+  the condition in the context: zero tests use it, and a division by such a quantity is
+  `:undefined`. Expressions are not reduced modulo the condition, so a limit that needs that
+  (a^3 replaced by -a - 1) can still fail.
 - `gruntz_limit` still assumes undecided constants are nonzero (generic answers).
 - Square roots of parameters are not checked for `>= 0` (only `log` is).
 
@@ -178,7 +182,5 @@ split would throw an error naming the condition (rebuilt with `build`, not as an
 - Is a return type worth it, or are errors that name the condition, plus `signs` with
   constants as keys, enough in practice?
 - How should conditions be shown for each term type (SymEngine has no relations)?
-- Should "not computed" branches (a zero condition that can not be solved for) be returned,
-  or should the call fail?
 - Parameters are assumed nonzero today. In a case-splitting mode, should `a = 0` become a
   branch wherever that assumption is used (`compare`, the mrv classification)?

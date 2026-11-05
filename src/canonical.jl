@@ -251,6 +251,11 @@ function powS(s::Sum, q::Q)
         end
         return monoS(mm, k * r)
     end
+    # 1/c for a constant c that is 0 in the context (a case c = 0 not solved for a
+    # parameter, see `solve_cases`)
+    q < 0 && CONTEXT[].cases && !any(m -> any(p -> hasvar(p.first), m.fs), keys(s.t)) &&
+        possible_signs(s) == [0] &&
+        throw(GruntzError("division by zero", :undefined))
     if isone(denominator(q)) && 0 < q <= 8
         res = s
         for _ in 2:Int(q)

@@ -66,6 +66,8 @@ Base.:+(p::Prec, d::Ex) = Prec([b + d for b in p.bs])
 Base.:-(p::Prec, d::Ex) = Prec([b - d for b in p.bs])
 addprec(p::Prec, q::Prec) = reduce(pmin, [Prec(b + c) for b in p.bs for c in q.bs])
 const HUGE_P = Prec(HUGE_EX)
+# exact: no bound, or only a shifted HUGE_EX (w^-1 is exact to HUGE - 1)
+isexact(p::Prec) = all(b -> iszero(b.r) && b.q > HUGE / 2, p.bs)
 
 struct PS
     c::Dict{Ex,Sum}   # exponent -> nonzero coefficient (an x-expression)
@@ -110,7 +112,8 @@ binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end
 # A valuation with a parameter (w^a) has no numerical value: a few terms are taken
 # and the precision is that of the first one left out.
 function polyPS(u::PS, coef, kmin::Int, Trel::Q)
-    acc = PS(Dict{Ex,Sum}(), pmin(Prec(Ex(Trel)), u.prec))
+    # u = O(w^p) with no terms: the sum is coef(0) to the order of u (exactly, for u = 0)
+    acc = PS(Dict{Ex,Sum}(), isempty(u.c) ? u.prec : pmin(Prec(Ex(Trel)), u.prec))
     v = isempty(u.c) ? EX0 : val(u)
     K = if isempty(u.c)
         kmin
@@ -154,6 +157,8 @@ end
 const OSC_MSG = "argument of exp/sin/cos diverges (oscillation or essential singularity)"
 
 function const_and_rest(a::PS)
+    # terms of negative order that are 0 in the context (exp(c x), c = 0)
+    any(k -> k < EX0, keys(a.c)) && (a = dropzeros(a))
     all(b -> EX0 < b, a.prec.bs) || throw(NeedMorePrecision())
     any(k -> k < EX0, keys(a.c)) &&
         throw(GruntzError(OSC_MSG))
@@ -592,6 +597,9 @@ function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom; maxP::Q = LEADTERM_MAXP)
             ks = sort!(collect(keys(ps.c)))
             i = findfirst(k -> !numzero(ps.c[k], x), ks)
             i === nothing || return ps.c[ks[i]], ks[i]
+            # an exact series with only zero coefficients: f is 0, as under a condition
+            # c = 0 not solved for a parameter (see `solve_cases`), (a^3 + a + 1) x
+            CONTEXT[].cases && isexact(ps.prec) && return zeroS(), EX0
         catch err
             err isa NeedMorePrecision || rethrow()
         end

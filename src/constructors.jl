@@ -274,6 +274,7 @@ function mkfloor(s::Sum)
     atomS(funatom(:floor, Sum[s]))
 end
 mkceil(s::Sum) = negS(mkfloor(negS(s)))
+mktrunc(s::Sum) = mulS(mksign(s), mkfloor(mkabs(s)))
 
 # sign: sign(c*m) = sign(c) * sign(m), and sign-normalised as abs is, so sign(-u) =
 # -sign(u). Eliminated with abs before the limit is computed.
@@ -320,17 +321,21 @@ function mkpow(a::Sum, b::Sum)
     r = ratconst(b)
     r !== nothing && return powS(a, r)
     negconst(a) && hasleaf(b, CONTEXT[].x.key) && return mulS(mkpow(negS(a), b), mkaltsign(b))
-    negbase(a, b) && return mulS(mkpow(negS(a), b), mkaltsign(b))
-    length(a.t) == 1 && hasleaf(b, CONTEXT[].x.key) && _defer_domain(first(a.t).first) &&
+    if negbase(a, b)
+        hasleaf(b, CONTEXT[].x.key) && return mulS(mkpow(negS(a), b), mkaltsign(b))
+        throw(GruntzError("power of a negative number with a symbolic exponent, which is " *
+                          "real only for an integer exponent: write it as (-1)^n (-u)^n", :undefined))
+    end
+    length(a.t) == 1 && _defer_domain(first(a.t).first) &&
         return atomS(funatom(:pow, Sum[a, b]))          # rebuilt after the substitution
     mkexp(mulS(b, mklog(a)))
 end
 
-# whether the base a of a^b, b with x, is a monomial of x (not of w) that is eventually
-# negative: a^b = (-a)^b (-1)^b, which oscillates (-n/(n + 1))^n) or is not real. Decided
-# once x is the variable that tends to +oo (see DEFER_DOMAIN).
+# whether the base a of a^b (b not a number) is a monomial of x (not of w) that is
+# eventually negative: a^b = (-a)^b (-1)^b, which oscillates ((-n/(n + 1))^n) or is not
+# real. Decided once x is the variable that tends to +oo (see DEFER_DOMAIN).
 function negbase(a::Sum, b::Sum)
-    length(a.t) == 1 && hasleaf(b, CONTEXT[].x.key) || return false
+    length(a.t) == 1 || return false
     m, c = first(a.t)
     (_defer_domain(m) || any(p -> hasw(p.first), m.fs) || !hasleaf(a, CONTEXT[].x.key)) && return false
     needs_signs(m, c) && positive_factors(m, c) === nothing || return false

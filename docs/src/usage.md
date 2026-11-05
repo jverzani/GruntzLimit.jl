@@ -239,7 +239,8 @@ The operations understood are
   limit and `(-1/2)^x` tends to 0. The `abs` of a power is the power of the `abs`
   (`|b^u| = |b|^u`, for a negative `b` too), so `abs((-x/(x + 1))^x)` tends to `1/e` and
   `abs(sqrt(x^2 - 1))` is real for `|x| < 1`;
-* `floor` and `ceil`, when their argument has a finite limit;
+* `floor` and `ceil`, when their argument has a finite limit, and `trunc`, `mod` and `rem`
+  written with them (`mod(u, v) = u - v*floor(u/v)`);
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
@@ -390,10 +391,12 @@ cs(:a => 2, :b => 3), cs(:a => -1, :b => 2)
 cs[:a => 2, :b => 3]
 ```
 
-A condition is shown solved for a parameter when it is linear in one. A case whose
-condition `c == 0` cannot be solved for a parameter (`a*b == 1`, say) is not computed. The
-case's limit is then a `GruntzError`. Merging is pairwise, so a union of several cases may
-be listed in parts.
+A condition `c == 0` is solved for a parameter when it is linear in one, also with other
+parameters as coefficients (`a*b + 1 == 0` as `a = -1/b`, with `b != 0`), and `exp(u) - 1 == 0`
+is solved as `u == 0`. A case whose condition cannot be solved (`a^3 + a + 1 == 0`, say) is
+computed with the condition kept: quantities that are 0 under it are taken as 0, and a
+division by one makes the limit `:undefined`. Merging is pairwise, so a union of several
+cases may be listed in parts.
 
 ### Giving signs
 
