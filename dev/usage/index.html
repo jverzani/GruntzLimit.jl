@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=6b4c9684">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=1ca35242">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -380,7 +380,7 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 <h2 id="Supported-functions" class="md-heading">Supported functions<a href="#Supported-functions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>The operations understood are</p>
 <ul class="md-list-tight">
-<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code>, and <code class="md-code-inline">min</code>, <code class="md-code-inline">max</code> of any number of arguments. A power <code class="md-code-inline">c^u</code> of a negative constant <code class="md-code-inline">c</code> is real only for an integer <code class="md-code-inline">u</code>: where <code class="md-code-inline">u</code> tends to <code class="md-code-inline">±∞</code> it is taken as a sequence is, so <code class="md-code-inline">(-1)^x</code> has no limit and <code class="md-code-inline">(-1/2)^x</code> tends to 0;</p>
+<li><p>arithmetic: <code class="md-code-inline">+</code>, <code class="md-code-inline">-</code>, <code class="md-code-inline">*</code>, <code class="md-code-inline">/</code>, <code class="md-code-inline">^</code>, <code class="md-code-inline">inv</code>, <code class="md-code-inline">sqrt</code>, <code class="md-code-inline">cbrt</code>, <code class="md-code-inline">abs</code>, <code class="md-code-inline">sign</code>, and <code class="md-code-inline">min</code>, <code class="md-code-inline">max</code> of any number of arguments. A power <code class="md-code-inline">c^u</code> of a negative constant <code class="md-code-inline">c</code>, or of a base such as <code class="md-code-inline">-x/(x + 1)</code> that is negative near the limit point, is real only for an integer <code class="md-code-inline">u</code>: where <code class="md-code-inline">u</code> tends to <code class="md-code-inline">±∞</code> it is taken as a sequence is, so <code class="md-code-inline">(-1)^x</code> and <code class="md-code-inline">(-x/(x + 1))^x</code> have no limit and <code class="md-code-inline">(-1/2)^x</code> tends to 0. The <code class="md-code-inline">abs</code> of a power is the power of the <code class="md-code-inline">abs</code> (<code class="md-code-inline">|b^u| = |b|^u</code>, for a negative <code class="md-code-inline">b</code> too), so <code class="md-code-inline">abs((-x/(x + 1))^x)</code> tends to <code class="md-code-inline">1/e</code> and <code class="md-code-inline">abs(sqrt(x^2 - 1))</code> is real for <code class="md-code-inline">|x| &lt; 1</code>;</p>
 </li>
 <li><p><code class="md-code-inline">floor</code> and <code class="md-code-inline">ceil</code>, when their argument has a finite limit;</p>
 </li>
@@ -690,6 +690,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=6b4c9684"></script>
+  <script src="../assets/materialdocs.js?v=1ca35242"></script>
 </body>
 </html>
