@@ -428,6 +428,39 @@ function besseliPS(a::PS, ν::Sum, P::Q)
     addPS(polyPS(u, coef, 1, P), constPS(mkbesseli(ν, c0)))
 end
 
+# jred(z, ν) = J_ν(z) (z/2)^(-ν) = sum_k (-1)^k t^k / (k! Γ(ν + k + 1)), t = z^2/4
+function jredPS(a::PS, ν::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: besselj of an unbounded argument"))
+    t = scalePS(mulPS(a, a), constS(Q(1) // 4))
+    function coef(k)
+        d = constS(Q(factorial(big(k))))
+        for j in 1:k
+            d = mulS(d, addS(ν, constS(Q(j))))
+        end
+        scaleS(powS(d, Q(-1)), Q(isodd(k) ? -1 : 1))
+    end
+    scalePS(polyPS(t, coef, 0, P), powS(mkgamma(addS(ν, oneS())), Q(-1)))
+end
+
+# besselj(ν, c + u), c != 0, u -> 0, by Taylor's series:
+# J_ν^(n)(c) = 2^(-n) sum_j (-1)^j binomial(n, j) J_(ν-n+2j)(c)
+function besseljPS(a::PS, ν::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: besselj of an unbounded argument"))
+    sign(val(a)) > 0 && throw(GruntzError("internal error: besselj at 0 (see `resolve_besselj`)"))
+    c0, u = const_and_rest(a)
+    function coef(n)
+        n == 0 && return Q(0)
+        d = zeroS()
+        for j in 0:n
+            d = addS(d, scaleS(mkbesselj(addS(ν, constS(Q(2j - n))), c0), Q((-1)^j * binomial(big(n), j))))
+        end
+        scaleS(d, (Q(1) // 2)^n / factorial(big(n)))
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(mkbesselj(ν, c0)))
+end
+
 # besselk(ν, z), z -> 0+ (positive valuation), with t = z^2/4 (DLMF 10.25.2, 10.27.4, 10.31.1):
 #   I_μ(z) = (z/2)^μ sum_k t^k / (k! Γ(μ + k + 1)),
 #   K_ν = π/(2 sin(νπ)) (I_(-ν) - I_ν) for ν not an integer, and for an integer n >= 0
@@ -602,7 +635,10 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :besselk ? besselkPS(arg, a.args[2]::Sum, logw, P) :
     h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
     h === :besseli ? besseliPS(arg, a.args[2]::Sum, P) :
+    h === :besselj ? besseljPS(arg, a.args[2]::Sum, P) :
+    h === :jred ? jredPS(arg, a.args[2]::Sum, P) :
     h === :iaux ? kauxPS(arg, a.args[2]::Sum, P; alt = true) :
+    h === :fracpart ? throw(GruntzError(OSC_MSG)) :        # bounded, decided by `bounded_limit`
     h === :sin ? trigPS(arg, P)[1] :
     h === :cos ? trigPS(arg, P)[2] :
     h in (:abs, :sign) ? signPS(h, arg, x) :

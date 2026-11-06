@@ -70,7 +70,8 @@ function hasosc(a::Atom, x::Atom, memo::Dict{String,Bool})
         a.kind === :leaf && return false
         hasleaf(a, x.key) || return false
         any(u -> hasosc(u::Sum, x, memo), a.args) && return true
-        a.kind === :fun && a.head in (:sin, :cos) && limitinf(a.args[1]::Sum, x) isa Infinity
+        a.kind === :fun && a.head in (:sin, :cos) && limitinf(a.args[1]::Sum, x) isa Infinity ||
+            a.kind === :fun && a.head === :fracpart
     end
 end
 hasosc(s::Sum, x::Atom, memo) = any(m -> any(p -> hasosc(p.first, x, memo), m.fs), keys(s.t))
@@ -170,6 +171,7 @@ function rate_atom(R::OscRater, a::Atom)::Rated
         a.kind === :fun || oscfail()
         u = a.args[1]::Sum
         a.head in (:sin, :cos) && return Rated(oneS(), Iv(-1.0, 1.0, diverges(R, u)))
+        a.head === :fracpart && return Rated(oneS(), Iv(0.0, 1.0, false))   # u - floor(u), u -> ±oo
         a.head === :exp && return rate_exp(R, u)
         a.head === :log && return rate_log(R, u)
         a.head === :abs && return rate_abs(R, u)

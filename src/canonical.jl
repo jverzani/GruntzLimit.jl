@@ -130,6 +130,9 @@ hasatom(s::Sum, k::String) = any(m -> any(p -> hasatom(p.first, k), m.fs), keys(
 # `_limit` rebuilds the expression after its substitution (with the deferral off),
 # which simplifies them or raises the domain error then.
 const DEFER_DOMAIN = ScopedValue(false)
+# a real expression retried on the principal branches of log and fractional powers of
+# arguments in x (see `limit_value`)
+const BRANCH_X = ScopedValue(false)
 _defer_domain(m::Mono) = DEFER_DOMAIN[] && any(p -> hasleaf(p.first, CONTEXT[].x.key), m.fs)
 
 # --- rational powers --------------------------------------------------------

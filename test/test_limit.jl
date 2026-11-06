@@ -80,7 +80,8 @@
     @test gruntz_limit(ceil(cos(x)), x, 0) == 1
     @test gruntz_limit(floor(PI + 1/x), x) == 3
     @test gruntz_limit(floor(-1/x), x) == -1
-    @test_throws GruntzError gruntz_limit(floor(x), x)
+    @test gruntz_limit(floor(x), x) == Inf
+    @test gruntz_limit(x*floor(1/x), x, 0; dir = :+) == 1
 
     # sign: the eventual sign of its argument
     @test gruntz_limit(sign(x), x, 0; dir = :+) == 1
