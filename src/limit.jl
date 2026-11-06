@@ -162,10 +162,21 @@ function limit_value(f, xa::Atom, x0, dir::Symbol)
     else
         e = with(() -> from_term(f), DEFER_DOMAIN => true)
     end
-    L = _limit(e, xa, x0, dir)
+    L = try
+        _limit(e, xa, x0, dir)
+    catch err
+        # a log or fractional power of an argument that is negative near the limit
+        # point: on the principal branches, as complex values ((t + 1) cos(log(-t - 1))
+        # at -1 from above is 0)
+        (err isa GruntzError && err.msg in BRANCH_MSGS && !BRANCH_X[]) || rethrow()
+        z = with(() -> from_term_c(f), DEFER_DOMAIN => true, BRANCH_X => true)
+        return complex_limit(_limit(z.re, xa, x0, dir), _limit(z.im, xa, x0, dir), xa)
+    end
     L isa Infinity && signof(L)
     L
 end
+
+const BRANCH_MSGS = ("log of a negative number", "complex power of a negative number")
 
 # re + i im from the limits of the parts
 function complex_limit(re, im_, xa::Atom)

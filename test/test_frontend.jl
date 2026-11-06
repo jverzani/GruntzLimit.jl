@@ -19,7 +19,8 @@ import GruntzLimit: @limit, LimitCases
     @test_throws ArgumentError @limit(1/x, x => 0, dir = "left")
     # a limit that does not exist, or a function not defined, throws
     @test_throws GruntzError @limit(sin(x), x => Inf)
-    @test_throws GruntzError @limit(log(x)*x, x => 0)
+    @test_throws GruntzError @limit(log(x), x => 0)              # -oo + iπ from the left
+    @test @limit(log(x)*x, x => 0) == 0                             # principal branch
     @test @limit(log(x)*x, x => 0, :+) == 0
     try
         @limit(1/x, x => 0)

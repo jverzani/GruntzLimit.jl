@@ -46,6 +46,10 @@ function numval(a::Atom)
         ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
         k = SpecialFunctions.besselk(ν, t)
         return BigFloat(a.head === :besselk ? k : k / (sqrt(π / (2t)) * exp(-t)))
+    elseif a.head in (:besselj, :jred)
+        ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
+        J = BigFloat(SpecialFunctions.besselj(ν, t))
+        return a.head === :besselj ? J : J / (v / 2)^BigFloat(ν)
     elseif a.head in (:besseli, :iaux)
         ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
         return BigFloat(a.head === :besseli ? SpecialFunctions.besseli(ν, t) :
@@ -61,7 +65,7 @@ function numval(a::Atom)
     a.head === :atan ? atan(v) : a.head === :erf ? SpecialFunctions.erf(v) :
     a.head === :erfs ? SpecialFunctions.erfcx(v) : a.head === :gamma ? SpecialFunctions.gamma(v) :
     a.head in keys(F64_FUNS) ? BigFloat(F64_FUNS[a.head](Float64(v))) :
-    a.head === :lgrem ? SpecialFunctions.loggamma(v) - ((v - 1 / 2) * log(v) - v + log(2 * big(π)) / 2) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) :
+    a.head === :lgrem ? SpecialFunctions.loggamma(v) - ((v - 1 / 2) * log(v) - v + log(2 * big(π)) / 2) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) : a.head === :fracpart ? v - floor(v) :
     a.head === :sign ? (abs(v) < big"1e-60" ? zero(v) : sign(v)) :   # zero as `csign` decides
     a.head === :lambertw ? lambertw_big(v) : a.head === :wexp ? wexp_big(v) :
     a.head === :cos ? cos(v) : throw(GruntzError("cannot evaluate $(a.head)"))

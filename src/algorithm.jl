@@ -223,7 +223,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :polygamma)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma)) ||
             return nothing
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
@@ -233,6 +233,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :expinti && return resolve_expinti(u, x)
         a.head === :besselk && return resolve_besselk(u, a.args[2]::Sum, x)
         a.head === :besseli && return resolve_besseli(u, a.args[2]::Sum, x)
+        a.head === :besselj && return resolve_besselj(u, a.args[2]::Sum, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
@@ -349,6 +350,17 @@ function resolve_expinti(u::Sum, x::Atom)
     mkexpinti(u)
 end
 
+# besselj(ν, u): for u -> 0, (u/2)^ν jred(u, ν), jred entire (see `jredPS`), so that the
+# order may be a parameter; at another finite limit by Taylor's series (see
+# `besseljPS`). For u -> ±oo it oscillates, and is not supported.
+function resolve_besselj(u::Sum, ν::Sum, x::Atom)
+    hasleaf(u, x.key) || return mkbesselj(ν, u)
+    L = limitinf(u, x)
+    L isa Infinity && throw(GruntzError("besselj of an argument that tends to infinity is not supported"))
+    isempty(L.t) || return mkbesselj(ν, u)
+    mulS(mkpow(scaleS(u, Q(1) // 2), ν), mkjred(u, ν))
+end
+
 # besseli(ν, u): for u -> +oo, exp(u)/sqrt(2πu) iaux(u); at a finite limit by Taylor's
 # series, or its series at 0 (see `besseliPS`). For u < 0, I_n(u) = (-1)^n I_n(-u) for an
 # integer n; otherwise it is not real (see `apply_op_c` for its complex value).
@@ -395,7 +407,9 @@ end
 function resolve_floor(u::Sum, x::Atom)
     hasx = hasleaf(u, x.key)
     L = hasx ? limitinf(u, x) : u
-    L isa Infinity && throw(GruntzError("floor of an argument that tends to infinity is not supported"))
+    # u - 1 < floor(u) <= u: floor(u) = u - fracpart(u), fracpart bounded in [0, 1)
+    # (see `bounded_limit`), so x floor(1/x) -> 1 at 0⁺
+    L isa Infinity && return subS(u, atomS(funatom(:fracpart, Sum[u])))
     r = ratconst(L)
     if r === nothing
         v = try

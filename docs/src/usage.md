@@ -241,9 +241,14 @@ The operations understood are
   `abs(sqrt(x^2 - 1))` is real for `|x| < 1`. `cbrt` is the real cube root, so `cbrt(x)`
   tends to `-2` at `-8`. A square root of a perfect square, `sqrt(c p^2)` with `p` a
   polynomial in the parameters, is `sqrt(c) |p|`, with the sign of `p` taken from `signs`:
-  `m + 1 - sqrt(m^2 + 2m + 1)` is 0 for `m > -1`;
-* `floor` and `ceil`, when their argument has a finite limit, and `trunc`, `mod` and `rem`
-  written with them (`mod(u, v) = u - v*floor(u/v)`);
+  `m + 1 - sqrt(m^2 + 2m + 1)` is 0 for `m > -1`. A `log` or fractional power of an
+  argument in `x` that is negative near the limit point takes its principal value
+  (`log(u) = log|u| + iπ`, `u^q = |u|^q exp(iqπ)`), so `(x - 5)^(1//3)` tends to `1 + √3 i`
+  at `-3`, `(t + 1)*cos(log(-t - 1))` to 0 at `-1⁺`, and `x*log(x)` to 0 from both sides;
+* `floor` and `ceil`, and `trunc`, `mod` and `rem` written with them
+  (`mod(u, v) = u - v*floor(u/v)`): where the argument has a finite limit, by its side of
+  the integer; where it tends to `±∞`, as `u - frac(u)`, `frac(u)` bounded in `[0, 1)`, so
+  `x*floor(1/x)` tends to 1 at 0 and `floor(x) - x` has no limit;
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
@@ -273,6 +278,9 @@ The operations understood are
 * `expinti`, the exponential integral Ei, as in SpecialFunctions.jl: at `±∞` by
   `Ei(u) = exp(u)/u (1 + 1/u + 2/u^2 + …)`, and at finite points by its Taylor series
   (`Ei(u) = γ + log|u| + …` near 0);
+* `besselj(ν, u)` (also `besselj0`, `besselj1`), at a finite limit: at 0 as
+  `(u/2)^ν/Γ(ν + 1) (1 + O(u²))`, for a parameter order too (`besselj(7, z)/z^7` tends to
+  `1/645120`), elsewhere by Taylor's series; at `±∞` it oscillates and is not supported;
 * `besselk(ν, u)` and `besseli(ν, u)`, for a rational order `ν`: at `+∞` by Hankel's
   expansions `K_ν(u) = sqrt(π/(2u)) exp(-u) (1 + (4ν^2 - 1)/(8u) + …)` and
   `I_ν(u) = exp(u)/sqrt(2πu) (1 - (4ν^2 - 1)/(8u) + …)`, by their Taylor series at finite

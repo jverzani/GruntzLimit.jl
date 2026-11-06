@@ -206,6 +206,10 @@ function apply_op(op, a::Vector{Sum})
         mkbesselk(a[1], a[2])
     elseif n === :besseli && na == 2
         mkbesseli(a[1], a[2])
+    elseif n === :besselj && na == 2
+        mkbesselj(a[1], a[2])
+    elseif n in (:besselj0, :besselj1) && na == 1
+        mkbesselj(constS(Q(n === :besselj0 ? 0 : 1)), a[1])
     elseif n === :abs && na == 1
         mkabs(a[1])
     elseif n === :sign && na == 1

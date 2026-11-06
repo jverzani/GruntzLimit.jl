@@ -183,9 +183,15 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(floor(1 + a/x)), :x; signs = Dict(:a => :negative)) == 0
         cs = gruntz_cases(:(floor(1 + a/x)), :x)
         @test [string(only(c.first)) => c.second for c in cs] == ["a < 0" => 0, "a >= 0" => 1]
-        # a diverging argument (bounded oscillation of the fractional part)
-        @test_throws GruntzError gruntz_limit(:(floor(x)), :x)
-        @test_throws GruntzError gruntz_limit(:(x * floor(1/x)), :x, 0; dir = :+)
+        # a diverging argument: floor(u) = u - fracpart(u), fracpart bounded in [0, 1)
+        # (SymPy #21310)
+        @test gruntz_limit(:(floor(x)), :x) == Inf
+        @test gruntz_limit(:(x * floor(1/x)), :x, 0; dir = :+) == 1
+        @test gruntz_limit(:(x * floor(1/x)), :x, 0; dir = :-) == 1
+        @test gruntz_limit(:(floor(x)/x), :x) == 1
+        @test gruntz_limit(:(ceil(x^2)/x^2), :x) == 1
+        @test gruntz_limit(:(floor(-x)), :x) == -Inf
+        @test_throws GruntzError gruntz_limit(:(floor(x) - x), :x)
     end
 
     @testset "sign" begin
@@ -688,6 +694,18 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test string(gruntz_limit(:(besselk(1, x)), :x, -1)) == "-1 * (im) * π * besseli(1, 1) + -1 * besselk(1, 1)"
         @test_throws GruntzError gruntz_limit(:(besselk(0, x)), :x, 0; dir = :both)
         @test_throws GruntzError gruntz_limit(:(besselk(1, 0) + x), :x)
+        # besselj(ν, u): (u/2)^ν/Γ(ν + 1) (1 + O(u²)) at 0, a parameter order too; Taylor's
+        # series elsewhere (SymPy #21701)
+        @test gruntz_limit(:(besselj(7, z)/z^7), :z, 0; dir = :both) == 1//645120
+        @test gruntz_limit(:(besselj(-1, z)/z), :z, 0; dir = :both) == -1//2
+        @test gruntz_limit(:((besselj(0, z) - 1)/z^2), :z, 0; dir = :both) == -1//4
+        @test gruntz_limit(:(besselj0(z) + besselj1(z)/z), :z, 0) == 3//2
+        @test eval(gruntz_limit(:(besselj(1//2, z)/sqrt(z)), :z, 0)) ≈ sqrt(2/π)
+        @test string(gruntz_limit(:((besselj(1, 2 + z) - besselj(1, 2))/z), :z, 0; dir = :both)) ==
+              "1//2 * besselj(0, 2) + -1//2 * besselj(2, 2)"
+        r = gruntz_limit(:(besselj(m, z)/z^m), :z, 0)
+        @test eval(:(let m = 3, gamma = GruntzLimit.SpecialFunctions.gamma; $r end)) ≈ 1/48
+        @test_throws "tends to infinity" gruntz_limit(:(besselj(0, z)), :z)
         # besseli(ν, u): I_ν(u) ~ exp(u)/sqrt(2πu) at +oo; Taylor's series, and its series at 0
         @test gruntz_limit(:(besseli(0, x)), :x) == Inf
         @test eval(gruntz_limit(:(besseli(1, x)*exp(-x)*sqrt(x)), :x)) ≈ 1/sqrt(2π)
@@ -701,6 +719,16 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
     end
 
     @testset "complex values" begin
+        # |(x - i)/(-x - i)|² = 1 recognised, so its log is iπ at the cut (SymPy #22220)
+        @test eval(gruntz_limit(:(log((x - im)/(-x - im))), :x)) ≈ π*im
+        @test eval(gruntz_limit(:(log((x - im)/(-x - im))), :x, -Inf)) ≈ -π*im
+        # a real expression whose log or fractional power meets a negative argument, on
+        # the principal branches (SymPy #21899, #21733)
+        @test gruntz_limit(:((t + 1)*cos(log(-t - 1))), :t, -1; dir = :+) == 0
+        @test gruntz_limit(:((sqrt(1 - x) - 2)/(2 + (x - 5)^(1//3))), :x, -3; dir = :both) == 0
+        @test eval(gruntz_limit(:((x - 5)^(1//3)), :x, -3)) ≈ 1 + sqrt(3)*im
+        @test eval(gruntz_limit(:(log(x)), :x, -1)) ≈ π*im
+        @test eval(gruntz_limit(:(sqrt(x - 1)), :x, 0)) ≈ im
         # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
         @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2
@@ -852,9 +880,11 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         r = gruntz_limit(d, :k, 0; signs = Dict(:C => :positive, :a => :positive, :(M1 + M2) => :positive))
         @test eval(:(let C = 1, a = 1, M1 = 1, M2 = 1; $r end)) ≈ 1/2
         cs = gruntz_cases(:(1/(M + 1 - sqrt((M + 1)^2 - k^2))), :k, 0)
-        @test Dict(string(c.first) => c.second for c in cs) ==
-              Dict("GruntzLimit.CaseCondition[1 + 2M + M ^ 2 == 0]" => :undefined,
-                   "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M < -1]" => :((2 + 2M) ^ -1),
+        D = Dict(string(c.first) => c.second for c in cs)
+        # M = -1: 1/(-sqrt(-k^2)) = 1/(-i|k|), infinite in a complex direction
+        @test pop!(D, "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 == 0]") isa GruntzError
+        @test D ==
+              Dict("GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M < -1]" => :((2 + 2M) ^ -1),
                    "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M > -1]" => Inf)
         # (M1 + M2)^2 = 0 is solved as M1 = -M2
         cs = gruntz_cases(d, :k, 0; signs = Dict(:C => :positive, :a => :positive))
@@ -889,12 +919,13 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:((-x)^(1//3)*x), :x, 0; dir = :-) == 0
         @test gruntz_limit(:(log(-x)/x), :x, -Inf) == 0
         @test gruntz_limit(:(sqrt(-x)/x), :x, -Inf) == 0
-        # and still undefined where the argument is negative
+        # where the argument is negative, the principal value: infinite ones in a complex
+        # direction are errors
         @test_throws GruntzError gruntz_limit(:(log(-x)), :x)
         @test_throws GruntzError gruntz_limit(:(sqrt(-x)), :x)
         @test_throws GruntzError gruntz_limit(:(log(-x)), :x, 0)
         @test_throws GruntzError gruntz_limit(:(log(-x)), :x, 0; dir = :both)
-        @test_throws GruntzError gruntz_limit(:(x*log(-x)), :x, 1; dir = :-)
+        @test eval(gruntz_limit(:(x*log(-x)), :x, 1; dir = :-)) ≈ π*im
         @test_throws GruntzError gruntz_limit(:(log(-2)*x), :x)
     end
 
@@ -902,7 +933,7 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws GruntzError gruntz_limit(:(sin(x)), :x)
         @test_throws GruntzError gruntz_limit(:(sin(1/x)), :x, 0)
         @test_throws GruntzError gruntz_limit(:(zeta(x)), :x)
-        @test_throws GruntzError gruntz_limit(:(log(x)), :x, -1)
+        @test_throws GruntzError gruntz_limit(:(log(x)), :x, 0; dir = :-)   # -oo + iπ
         @test_throws GruntzError gruntz_limit(:(sqrt(-1 - x^2)), :x)
         @test_throws GruntzError gruntz_limit(:(1/x), :x, 0; dir = :sideways)
     end
