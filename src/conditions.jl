@@ -381,12 +381,52 @@ param_value(how::Symbol, v::Sum) = how === :id ? v : how === :log ? mkexp(v) : n
 # or nothing.
 solve_zero(c::Sum) = solve_zero_cond(c)[1]
 
+# c times the parameters in its denominators: 1/M1 + 1/M2 as M2 + M1 (the parameters
+# are nonzero where c is defined)
+function clear_denoms(c::Sum)
+    length(c.t) < 2 && return c
+    low = Dict{String,Tuple{Atom,Q}}()
+    for m in keys(c.t), (a, e) in m.fs
+        (isparam(a) && e < 0) || continue
+        low[a.key] = (a, min(e, get(low, a.key, (a, e))[2]))
+    end
+    isempty(low) && return c
+    mulS(c, monoS(mono(Dict{Atom,Q}(a => -e for (a, e) in values(low))), Q(1)))
+end
+
+# a parameter p with p^n (n > 0) dividing every term of c: (p, n), or nothing
+function common_param(c::Sum)
+    ps = common_params(c)
+    isempty(ps) && return nothing
+    a = ps[1]
+    a, minimum(sum((e for (b, e) in m.fs if b == a); init = Q(0)) for m in keys(c.t))
+end
+# the parameters dividing every term of c (with two terms or more)
+function common_params(c::Sum)
+    length(c.t) < 2 && return Atom[]
+    ms = collect(keys(c.t))
+    [a for (a, _) in ms[1].fs if isparam(a) &&
+         all(m -> sum((e for (b, e) in m.fs if b == a); init = Q(0)) > 0, ms)]
+end
+
 # The same, with the condition the solution needs (A ≠ 0 for p = -B/A, as a Sum that
 # must be nonzero), or nothing
 function solve_zero_cond(c::Sum)
-    # c p² = 0 as p = 0: (M1 + M2)² = 0
-    r = any(m -> any(p -> hasvar(p.first), m.fs), keys(c.t)) ? nothing : sqrt_poly(c)
-    r === nothing || return solve_zero_cond(r[2])
+    if !any(m -> any(p -> hasvar(p.first), m.fs), keys(c.t))
+        # parameters in denominators (nonzero there) and factors of known sign cleared:
+        # 2C/M1 + 2C/M2 = 0 as M1 + M2 = 0
+        c2 = clear_factors(clear_denoms(c))[1]
+        skey(c2) == skey(c) || return solve_zero_cond(c2)
+        # p^n r = 0 with r nonzero in the context as p = 0: (M1 + M2) a² = 0, M1 + M2 > 0
+        p = common_param(c)
+        if p !== nothing
+            r = mulS(c, powS(atomS(p[1]), -p[2]))
+            0 in possible_signs(r) || return solve_zero_cond(atomS(p[1]))
+        end
+        # c p² = 0 as p = 0: (M1 + M2)² = 0
+        r = sqrt_poly(c)
+        r === nothing || return solve_zero_cond(r[2])
+    end
     sol = solve_zero_simple(c)
     sol === nothing || return sol, nothing
     r = solve_linear(c)

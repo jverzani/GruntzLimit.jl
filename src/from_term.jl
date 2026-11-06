@@ -188,6 +188,10 @@ function apply_op(op, a::Vector{Sum})
         mklambertw(a[1])
     elseif n === :gamma && na == 1
         mkgamma(a[1])
+    elseif n in (:digamma, :trigamma) && na == 1      # ψ = polygamma(0, ⋅), ψ' = polygamma(1, ⋅)
+        mkpolygamma(n === :digamma ? 0 : 1, a[1])
+    elseif n === :polygamma && na == 2 && (k = ratconst(a[1]); k !== nothing && isinteger(k) && k >= 0)
+        mkpolygamma(Int(k), a[2])
     elseif n === :factorial && na == 1                # factorial(u) = gamma(u + 1)
         mkgamma(addS(a[1], oneS()))
     elseif n in (:loggamma, :lgamma) && na == 1

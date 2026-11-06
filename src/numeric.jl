@@ -53,6 +53,10 @@ function numval(a::Atom)
     end
     a.head === :polygamma &&
         return BigFloat(SpecialFunctions.polygamma(Int(numval(a.args[2]::Sum)), Float64(v)))
+    if a.head === :psiaux                    # ψ^(k)(v), less log(v) for k = 0
+        k = Int(numval(a.args[2]::Sum))
+        return BigFloat(SpecialFunctions.polygamma(k, Float64(v))) - (k == 0 ? log(v) : zero(v))
+    end
     a.head === :exp ? exp(v) : a.head === :log ? log(v) : a.head === :sin ? sin(v) :
     a.head === :atan ? atan(v) : a.head === :erf ? SpecialFunctions.erf(v) :
     a.head === :erfs ? SpecialFunctions.erfcx(v) : a.head === :gamma ? SpecialFunctions.gamma(v) :

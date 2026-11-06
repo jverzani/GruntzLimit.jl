@@ -223,7 +223,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :polygamma)) ||
             return nothing
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
@@ -235,6 +235,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :besseli && return resolve_besseli(u, a.args[2]::Sum, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
+        a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
         a.head === :erf && return resolve_erf(u, x)
         sg = hasleaf(u, x.key) ? try
             sgn(u, x)
@@ -296,6 +297,17 @@ function resolve_gamma(u::Sum, x::Atom)
     half = Q(1) // 2
     l2pi = mklog(scaleS(atomS(PI_ATOM), Q(2)))
     mkexp(addS(subS(mulS(subS(u, constS(half)), mklog(u)), u), addS(scaleS(l2pi, half), mklgrem(u))))
+end
+
+# polygamma(k, u): for u -> +oo, log(u) + psiaux(u, 0) or psiaux(u, k) (see `psiauxPS`);
+# at a finite limit, Taylor's series, or the recurrence at a pole (see `polygammaPS`).
+# For u -> -oo the poles accumulate.
+function resolve_polygamma(u::Sum, k::Int, x::Atom)
+    hasleaf(u, x.key) || return mkpolygamma(k, u)
+    L = limitinf(u, x)
+    L isa Infinity || return mkpolygamma(k, u)
+    signof(L) > 0 || throw(GruntzError("polygamma of an argument that tends to -oo (poles accumulate)"))
+    k == 0 ? addS(mklog(u), mkpsiaux(u, 0)) : mkpsiaux(u, k)
 end
 
 # sinint, cosint and erfi of an argument that tends to ±oo, rewritten with their
