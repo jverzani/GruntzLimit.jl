@@ -665,7 +665,11 @@ end
 # When splitting into cases, leading coefficients that may vanish (b in b/w^2 + 1)
 # are tested, and dropped when zero
 function dropzeros(a::PS)
-    CONTEXT[].cases || return a
+    if !CONTEXT[].cases
+        # outside cases only a leading p - |p| is tested (see `zerostate`)
+        isempty(a.c) || numzero(a.c[val(a)], CONTEXT[].x)
+        return a
+    end
     ks = sort!(collect(keys(a.c)))
     i = findfirst(k -> !numzero(a.c[k], CONTEXT[].x), ks)
     i === nothing && return PS(Dict{Ex,Sum}(), a.prec)

@@ -813,6 +813,24 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(:((m + 1 - sqrt(m^2 + 2m + 1))*k), :k)
         @test Dict(string(c.first) => c.second for c in cs) ==
               Dict("GruntzLimit.CaseCondition[m < -1]" => -Inf, "GruntzLimit.CaseCondition[m >= -1]" => 0)
+        # without signs, a leading p - |p| is not taken to be nonzero: it vanishes for all
+        # p ≥ 0, so the sign of p is needed (the derivative in SymPy #23525 gave 0)
+        R = :(sqrt(-(-2*cos(a*k) + 2)*M1*M2 + (M1 + M2)^2))
+        d = :(C*a*sin(a*k)/(2*$R*sqrt(C*(M1 + M2 - $R)/(M1*M2))))
+        @test_throws "the sign of `M1 + M2`" gruntz_limit(d, :k, 0)
+        @test_throws "the sign of `M + 1`" gruntz_limit(:(sqrt(M + 1 - sqrt((M + 1)^2 - k^2))/k), :k, 0)
+        r = gruntz_limit(d, :k, 0; signs = Dict(:C => :positive, :a => :positive, :(M1 + M2) => :positive))
+        @test eval(:(let C = 1, a = 1, M1 = 1, M2 = 1; $r end)) ≈ 1/2
+        cs = gruntz_cases(:(1/(M + 1 - sqrt((M + 1)^2 - k^2))), :k, 0)
+        @test Dict(string(c.first) => c.second for c in cs) ==
+              Dict("GruntzLimit.CaseCondition[1 + 2M + M ^ 2 == 0]" => :undefined,
+                   "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M < -1]" => :((2 + 2M) ^ -1),
+                   "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M > -1]" => Inf)
+        # (M1 + M2)^2 = 0 is solved as M1 = -M2
+        cs = gruntz_cases(d, :k, 0; signs = Dict(:C => :positive, :a => :positive))
+        @test any(c -> string(c.first) == "GruntzLimit.CaseCondition[2 * M1 * M2 + M1 ^ 2 + M2 ^ 2 == 0, M2 != 0]" &&
+                       c.second == Inf, cs)
+        @test length(cs) == 6
     end
 
     @testset "rational literals" begin

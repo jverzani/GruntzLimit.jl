@@ -144,6 +144,12 @@ end
 function difference(c)
     c.rhs isa Number && iszero(c.rhs) && return string(c.lhs)
     c.rhs isa Real && c.rhs < 0 && return string(c.lhs, " + ", -c.rhs)
+    r = c.rhs                                        # M1 > -1*M2: M1 + M2
+    if r isa Expr && r.head === :call && r.args[1] === :* && r.args[2] isa Real && r.args[2] < 0
+        rest = r.args[3:end]
+        t = r.args[2] == -1 && length(rest) == 1 ? rest[1] : Expr(:call, :*, -r.args[2], rest...)
+        return string(c.lhs, " + ", t)
+    end
     string(c.lhs, " - ", c.rhs)
 end
 

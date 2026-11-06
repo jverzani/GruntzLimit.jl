@@ -98,7 +98,14 @@ function atom_sign(a::Atom)
         a.kind === :fun && a.head === :log ? subS(a.args[1]::Sum, oneS()) :
         a.kind === :fun && a.head in (:atan, :erf, :sign, :sinint, :erfi, :dawson) ? a.args[1]::Sum : nothing
     s === nothing && return nothing
-    ps = possible_signs(s; facts = false)
+    # a perfect square c p², c > 0, positive where p ≠ 0: (1 + 2M + M²)⁻¹
+    if a.kind === :base && !hasvar(a)
+        r = sqrt_poly(s)
+        r !== nothing && (known_nonzero(s) || !(0 in possible_signs(r[2]; facts = false))) && return 1
+    end
+    # a base's own factors are used ((1 + M)/(1 + 2M + M²) for M > -1); its argument is
+    # smaller, so this ends
+    ps = possible_signs(s; facts = a.kind === :base && !hasvar(a))
     length(ps) == 1 && ps[1] != 0 ? ps[1] : nothing
 end
 
@@ -240,10 +247,32 @@ function zerostate(s::Sum)
         nothing
     end
     v === nothing || return abs(v) < big"1e-60"
-    CONTEXT[].cases || return false
+    if !CONTEXT[].cases
+        # p - |p| vanishes for every p ≥ 0, not at isolated values: not generic, so the
+        # sign of p is needed (√((M+1)²) = |M+1|, SymPy #23525)
+        q = abs_cancel(s)
+        q === nothing && return false
+        ps = possible_signs(q)
+        return length(setdiff(ps, [0])) > 1 ? NeedSign(q, ps, false) : false
+    end
     ps = possible_signs(s)
     ps == [0] && return true
     0 in ps ? NeedSign(s, ps, true) : false
+end
+
+# The argument q of an atom |q| of the constant s for which s vanishes identically
+# when |q| is taken as q or as -q; or nothing
+function abs_cancel(s::Sum)
+    seen = Set{String}()
+    for m in keys(s.t), (a, _) in m.fs
+        (a.kind === :fun && a.head === :abs && !(a.key in seen)) || continue
+        push!(seen, a.key)
+        q = a.args[1]::Sum
+        for r in (q, negS(q))
+            isempty(subs_atoms(s, b -> b.key == a.key ? r : nothing).t) && return q
+        end
+    end
+    nothing
 end
 
 hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
@@ -355,6 +384,9 @@ solve_zero(c::Sum) = solve_zero_cond(c)[1]
 # The same, with the condition the solution needs (A ≠ 0 for p = -B/A, as a Sum that
 # must be nonzero), or nothing
 function solve_zero_cond(c::Sum)
+    # c p² = 0 as p = 0: (M1 + M2)² = 0
+    r = any(m -> any(p -> hasvar(p.first), m.fs), keys(c.t)) ? nothing : sqrt_poly(c)
+    r === nothing || return solve_zero_cond(r[2])
     sol = solve_zero_simple(c)
     sol === nothing || return sol, nothing
     r = solve_linear(c)
