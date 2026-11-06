@@ -238,7 +238,10 @@ The operations understood are
   `u` tends to `±∞` it is taken as a sequence is, so `(-1)^x` and `(-x/(x + 1))^x` have no
   limit and `(-1/2)^x` tends to 0. The `abs` of a power is the power of the `abs`
   (`|b^u| = |b|^u`, for a negative `b` too), so `abs((-x/(x + 1))^x)` tends to `1/e` and
-  `abs(sqrt(x^2 - 1))` is real for `|x| < 1`;
+  `abs(sqrt(x^2 - 1))` is real for `|x| < 1`. `cbrt` is the real cube root, so `cbrt(x)`
+  tends to `-2` at `-8`. A square root of a perfect square, `sqrt(c p^2)` with `p` a
+  polynomial in the parameters, is `sqrt(c) |p|`, with the sign of `p` taken from `signs`:
+  `m + 1 - sqrt(m^2 + 2m + 1)` is 0 for `m > -1`;
 * `floor` and `ceil`, when their argument has a finite limit, and `trunc`, `mod` and `rem`
   written with them (`mod(u, v) = u - v*floor(u/v)`);
 * `exp`, and `log` (one or two arguments);
@@ -252,23 +255,28 @@ The operations understood are
   the branch point `-1/e`. An answer such as `lambertw(1)` is built with the `lambertw` of
   the input's package;
 * `gamma`, `loggamma` and `factorial`, for an argument that tends to `+∞` (by Stirling's
-  series) or is constant. `gamma(x + k)`, with `k` an integer, is reduced to
+  series), to a finite limit (by its Taylor series, or its Laurent series at a pole, so that
+  `x*gamma(x)` tends to 1 at 0), or is constant. Coefficients such as `ψ(1/2)` come back as
+  `polygamma(0, 1//2)`. `gamma(x + k)`, with `k` an integer, is reduced to
   `x (x + 1) ⋯ (x + k - 1) gamma(x)`, so that ratios such as `factorial(n + 1)/factorial(n)`
   cancel;
-* `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl (`cosint` for a positive
-  argument, or one that tends to 0 from above). At finite points by their Taylor series
+* `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl; `cosint` of a negative argument
+  is its principal value `cosint(-u) = cosint(u) + iπ`, so that `cosint(3x) - cosint(x)`
+  tends to `log(3)` from both sides of 0. At finite points by their Taylor series
   (`cosint(u) = γ + log(u) + …` near 0), and at `±∞` with their asymptotic expansions, as
   `sinint(u) = π/2 - f(u) cos(u) - g(u) sin(u)`, so that `sinint(x)` tends to `π/2` while
   `x*(π/2 - sinint(x))` has no limit;
 * `expinti`, the exponential integral Ei, as in SpecialFunctions.jl: at `±∞` by
   `Ei(u) = exp(u)/u (1 + 1/u + 2/u^2 + …)`, and at finite points by its Taylor series
   (`Ei(u) = γ + log|u| + …` near 0);
-* `besselk(ν, u)`, for a rational order `ν`: at `+∞` by Hankel's expansion
-  `K_ν(u) = sqrt(π/(2u)) exp(-u) (1 + (4ν^2 - 1)/(8u) + …)`, and by its Taylor series where
-  `u` tends to a positive number. The singularity at 0 is not supported;
+* `besselk(ν, u)` and `besseli(ν, u)`, for a rational order `ν`: at `+∞` by Hankel's
+  expansions `K_ν(u) = sqrt(π/(2u)) exp(-u) (1 + (4ν^2 - 1)/(8u) + …)` and
+  `I_ν(u) = exp(u)/sqrt(2πu) (1 - (4ν^2 - 1)/(8u) + …)`, by their Taylor series at finite
+  points, and at 0 by their series there (`K_1(u) = 1/u + …`, so `x*besselk(1, x)` tends to 1).
+  For a negative argument, their principal values: `K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v)`;
 * complex values: an expression with the imaginary unit (`im`, or a complex number) is split
   into its real and imaginary parts, whose limits are taken separately. Arithmetic, `exp`,
-  `log`, powers, `sin`, `cos` and the functions written with them (`tan`, `sinh`, ...),
+  `log`, powers, `sin`, `cos`, `atan` and the functions written with them (`tan`, `sinh`, ...),
   `abs`, `real`, `imag`, `conj` and `angle` are understood for complex arguments (`log`
   and fractional powers on their principal branch, so `sqrt(-1 + im*x)` tends to `im`
   from the right and to `-im` from the left); other functions only for real ones. So

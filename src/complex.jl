@@ -11,6 +11,7 @@
 #     z^w         = exp(w log z)
 #     sin, cos (with cosh and sinh of the imaginary part), and functions written with
 #     them or exp (tan, sinh, cosh, tanh, sec, ...)
+#     atan(z)     = i/2 (log(1 - i*z) - log(1 + i*z)),  the principal branch
 #
 # with `arg(a, b)` the principal argument, in (-π, π], an atom resolved like abs once
 # the sign of `a` near the limit point is known (see `resolve_carg`). Other functions of
@@ -62,6 +63,8 @@ function has_complex(t)
         args = arguments(t)
         if !isempty(args)
             length(args) == 2 && op_or_name(t) in (^, :^) && negsqrt(args...) && return true
+            length(args) == 1 && opname(op_or_name(t)) === :cosint && return true   # see apply_op_c
+            length(args) == 2 && opname(op_or_name(t)) in (:besselk, :besseli) && return true
             return any(has_complex, args)
         end
     end
@@ -147,6 +150,31 @@ function apply_op_c(op, a::Vector{CS})::CS
     n === :conj && na == 1 && return CS(a[1].re, negS(a[1].im))
     n in (:angle, :arg) && na == 1 && return realC(mkcarg(a[1].re, a[1].im))
     n in (:abs2,) && na == 1 && return realC(abs2C(a[1]))
+    # cosint of a real argument in x, on its principal branch: Ci(u) = Ci(|u|) + iπ for
+    # u < 0, so Ci(u) = Ci(|u|) + iπ (1 - sign(u))/2, decided at the limit point
+    if n === :cosint && na == 1 && isrealC(a[1]) && hasleaf(a[1].re, CONTEXT[].x.key)
+        u = a[1].re
+        return CS(mkcosint(mkabs(u)), scaleS(mulS(atomS(PI_ATOM), subS(oneS(), mksign(u))), Q(1) // 2))
+    end
+    # besselk and besseli of a real argument in x, on their principal branches: for v > 0,
+    # K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v) and I_ν(-v) = exp(iνπ) I_ν(v) (DLMF 10.34.1-2)
+    if n in (:besselk, :besseli) && na == 2 && all(isrealC, a) && hasleaf(a[2].re, CONTEXT[].x.key)
+        ν, u = a[1].re, a[2].re
+        r = ratconst(ν)
+        r === nothing && throw(GruntzError("$n is supported only for a rational order"))
+        n === :besselk && (r = abs(r))
+        s, au = mksign(u), mkabs(u)
+        pos, neg = scaleS(addS(oneS(), s), Q(1) // 2), scaleS(subS(oneS(), s), Q(1) // 2)
+        θ = scaleS(atomS(PI_ATOM), r)
+        if n === :besselk
+            K = mkbesselk(ν, au)
+            return CS(mulS(K, addS(pos, mulS(mkcos(θ), neg))),
+                      negS(mulS(neg, addS(mulS(mksin(θ), K), mulS(atomS(PI_ATOM), mkbesseli(constS(r), au))))))
+        end
+        isinteger(r) && return realC(mkbesseli(ν, u))
+        I = mkbesseli(ν, au)
+        return CS(mulS(I, addS(pos, mulS(mkcos(θ), neg))), mulS(I, mulS(mksin(θ), neg)))
+    end
     # a real expression is an ordinary one, except for the principal value of a power, a
     # square root or a log of a negative constant: (-1)^(1/2) = i
     all(isrealC, a) && !(n in (:^, :sqrt, :log) && negconst(a[1].re) &&
@@ -188,6 +216,11 @@ function apply_op_c(op, a::Vector{CS})::CS
         s = cscale(cadd(p, cneg(m)), constS(half))
         c = cscale(cadd(p, m), constS(half))
         n === :sinh ? s : n === :cosh ? c : cmul(s, cinv(c))
+    elseif n === :atan && na == 1                     # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z))
+        z = a[1]
+        l1 = clog(CS(addS(oneS(), z.im), negS(z.re)))
+        l2 = clog(CS(subS(oneS(), z.im), z.re))
+        cmul(CS(zeroS(), constS(half)), cadd(l1, cneg(l2)))
     elseif haskey(RECIPROCALS, n) && na == 1
         cinv(apply_op_c(RECIPROCALS[n], a))
     else

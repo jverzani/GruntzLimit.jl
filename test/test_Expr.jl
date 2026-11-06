@@ -435,8 +435,20 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         # constant arguments
         @test gruntz_limit(:(factorial(5) + 1/x), :x) == 120
         @test_throws GruntzError gruntz_limit(:(gamma(0) + x), :x, 1)
-        # not supported: an argument with a finite limit, or one that tends to -oo
-        @test_throws GruntzError gruntz_limit(:(gamma(x)), :x, 2)
+        # at a finite limit by Taylor's series, at a pole by its Laurent series (SymPy #23635)
+        @test gruntz_limit(:(gamma(x)), :x, 2) == 1
+        @test gruntz_limit(:(y*gamma(y)), :y, 0; dir = :both) == 1
+        @test gruntz_limit(:(1/gamma(x)), :x, 0; dir = :both) == 0
+        @test gruntz_limit(:(gamma(x)), :x, 0; dir = :-) == -Inf
+        @test string(gruntz_limit(:(gamma(x) - 1/x), :x, 0; dir = :both)) == "-1 * γ"
+        @test gruntz_limit(:((x + 2)*gamma(x)), :x, -2; dir = :both) == 1//2
+        @test string(gruntz_limit(:((gamma(x) - 1)/(x - 2)), :x, 2; dir = :both)) == "1 + -1 * γ"
+        @test eval(gruntz_limit(:((gamma(1 + x) + gamma(1 - x) - 2)/x^2), :x, 0)) ≈
+              Base.MathConstants.eulergamma^2 + π^2/6
+        @test string(gruntz_limit(:((gamma(x) - gamma(1//2))/(x - 1//2)), :x, 1//2; dir = :both)) ==
+              "sqrt(π) * polygamma(0, 1//2)"
+        @test string(gruntz_limit(:(gamma(1//2) + 1/x), :x)) == "sqrt(π)"
+        # not supported: an argument that tends to -oo
         @test_throws GruntzError gruntz_limit(:(gamma(-x)), :x)
     end
 
@@ -466,12 +478,16 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(erfi(x)), :x, -Inf) == -Inf
         @test eval(gruntz_limit(:(erfi(x)*x*exp(-x^2)), :x)) ≈ 1/sqrt(π)
         @test gruntz_limit(:(erfi(x)/exp(x^2)), :x) == 0
-        # constants; cosint of a negative number is complex, and has a singularity at 0
+        # constants; cosint has a singularity at 0, and of a negative number it is
+        # Ci(|u|) + iπ, its principal value (SymPy #22787)
         @test gruntz_limit(:(sinint(2) + 1/x), :x) == :(sinint(2))
-        @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, -Inf)
         @test_throws GruntzError gruntz_limit(:(cosint(0) + x), :x, 1)
-        @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, 0; dir = :-)
-        @test_throws GruntzError gruntz_limit(:(cosint(x)), :x, -1)
+        @test_throws "direction of the complex plane" gruntz_limit(:(cosint(x)), :x, 0; dir = :-)  # -oo + iπ
+        @test string(gruntz_limit(:(cosint(x)), :x, -Inf)) == "(im) * π"
+        @test string(gruntz_limit(:(cosint(x)), :x, -1)) == "(im) * π + cosint(1)"
+        @test gruntz_limit(:(cosint(3x) - cosint(x)), :x, 0; dir = :both) == :(log(3))
+        @test gruntz_limit(:(cosint(3x) - cosint(x)), :x, 0; dir = :-) == :(log(3))
+        @test eval(gruntz_limit(:(cosint(-x) - log(x)), :x, 0)) ≈ Base.MathConstants.eulergamma + im*π
         # at finite points, by Taylor's series
         @test gruntz_limit(:(sinint(x)), :x, 0) == 0
         @test gruntz_limit(:(sinint(x)/x), :x, 0; dir = :both) == 1
@@ -626,11 +642,42 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:(besselk(1, x)*exp(x)*sqrt(x)), :x)) ≈ sqrt(π/2)
         @test gruntz_limit(:(besselk(2, x)/besselk(1, x)), :x) == 1
         @test gruntz_limit(:(x*(besselk(1, x)/besselk(0, x) - 1)), :x) == 1//2
-        @test_throws GruntzError gruntz_limit(:(besselk(1, x)), :x, 0)
+        # at 0+, by the expansion of K_ν there (SymPy #22911)
+        @test gruntz_limit(:(x*besselk(1, x)), :x, 0) == 1
+        @test gruntz_limit(:(x^3*besselk(1, x)), :x, 0) == 0
+        @test gruntz_limit(:(besselk(1, x)), :x, 0) == Inf
+        @test gruntz_limit(:(x^3*besselk(3, x)), :x, 0) == 8
+        @test string(gruntz_limit(:(besselk(0, x) + log(x)), :x, 0)) == "-1 * γ + log(2)"
+        @test gruntz_limit(:((x*besselk(1, x) - 1)/(x^2*log(x))), :x, 0) == 1//2
+        @test string(gruntz_limit(:(sqrt(x)*besselk(1//2, x)), :x, 0)) == "sqrt(1//2) * sqrt(π)"
+        r = gruntz_limit(:(x^(1//3)*besselk(1//3, x)), :x, 0)                      # Γ(1/3) 2^(1/3)/2
+        @test eval(:(let gamma = GruntzLimit.SpecialFunctions.gamma; $r end)) ≈ 2.678938534707747*2^(1/3)/2
+        # for u < 0, its principal value K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v)
+        @test gruntz_limit(:(x*besselk(1, x)), :x, 0; dir = :both) == 1
+        @test gruntz_limit(:(x^3*besselk(1, x)), :x, 0; dir = :both) == 0
+        @test string(gruntz_limit(:(besselk(1, x)), :x, -1)) == "-1 * (im) * π * besseli(1, 1) + -1 * besselk(1, 1)"
+        @test_throws GruntzError gruntz_limit(:(besselk(0, x)), :x, 0; dir = :both)
+        @test_throws GruntzError gruntz_limit(:(besselk(1, 0) + x), :x)
+        # besseli(ν, u): I_ν(u) ~ exp(u)/sqrt(2πu) at +oo; Taylor's series, and its series at 0
+        @test gruntz_limit(:(besseli(0, x)), :x) == Inf
+        @test eval(gruntz_limit(:(besseli(1, x)*exp(-x)*sqrt(x)), :x)) ≈ 1/sqrt(2π)
+        @test gruntz_limit(:(besseli(1, x)/besseli(0, x)), :x) == 1
+        @test gruntz_limit(:(x*(1 - besseli(1, x)/besseli(0, x))), :x) == 1//2
+        @test gruntz_limit(:(besseli(1, x)/x), :x, 0; dir = :both) == 1//2
+        @test gruntz_limit(:(besseli(1, x)), :x, -Inf) == -Inf
+        @test string(gruntz_limit(:((besseli(0, x) - besseli(0, 1))/(x - 1)), :x, 1; dir = :both)) == "besseli(1, 1)"
+        @test eval(gruntz_limit(:(besseli(-1//2, x)*sqrt(x)), :x, 0)) ≈ sqrt(2/π)
         @test_throws GruntzError gruntz_limit(:(besselk(a, x)), :x)
     end
 
     @testset "complex values" begin
+        # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
+        @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
+        @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2
+        @test eval(gruntz_limit(:(atan(x + 2im)), :x, -Inf)) ≈ -π/2
+        @test gruntz_limit(:(x*(atan(x - im) - π/2)), :x) == -1
+        @test gruntz_limit(:(x^2*(atan(x - im) - π/2 + 1/x)), :x) == -im
+        @test gruntz_limit(:(atan(im*x)/x), :x, 0) == im
         @test gruntz_limit(:(exp(-(2 + 3im)*x)), :x) == 0
         @test gruntz_limit(:(exp(-$(2 + 3im)*x)), :x) == 0          # a Complex in the Expr
         @test gruntz_limit(:(-exp(-(2 + 3im)*x)/(2 + 3im)), :x, 0) == -2//13 + 3//13*im
@@ -735,6 +782,37 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
     @testset "irrational ratio of exponents" begin
         @test ev(gruntz_limit(:((2^x - 1)/(3^x - 1)), :x, 0; dir = :both)) ≈ log(2)/log(3)
         @test gruntz_limit(:((2^(1/x) + 3^(1/x))^x), :x, 0) == 3
+        # a ratio of floats, with a large numerator and denominator (SymPy #23266)
+        @test gruntz_limit(:(-0.295084971874737*exp(-18.9442719099992t) +
+                             5.29508497187474*exp(-1.05572809000084t)), :t) == 0
+        @test gruntz_limit(:((exp(-18.9442719099992t) + exp(-1.05572809000084t))/exp(-18.9442719099992t)), :t) == Inf
+        @test gruntz_limit(:(exp(t)/(exp(t) + exp(0.99999999t))), :t) == 1
+        @test gruntz_limit(:((exp(t) + exp(0.99999999t))/exp(0.99999999t)), :t) == Inf
+    end
+
+    @testset "the real cube root" begin
+        # cbrt(-8) = -2, not the principal (-8)^(1/3) (SymPy #22824)
+        @test gruntz_limit(:(cbrt(x)), :x, -8; dir = :both) == -2
+        @test gruntz_limit(:((x^2 + 10x + 16)/(12 + 6cbrt(x))), :x, -8; dir = :both) == -12
+        @test gruntz_limit(:(cbrt(x)), :x, -Inf) == -Inf
+        @test gruntz_limit(:(cbrt(x)/x), :x, 0; dir = :-) == Inf
+        @test gruntz_limit(:(cbrt(x^3 + x^2) - x), :x, -Inf) == 1//3
+        @test gruntz_limit(:(cbrt(-8) + 1/x), :x) == -2
+    end
+
+    @testset "square roots of perfect squares" begin
+        # sqrt(c p^2) = sqrt(c) |p|, decided by the signs given (SymPy #23525)
+        f = :(sqrt((m + 1 - sqrt((m + 1)^2 - m*(1 - cos(k))))/m)/k)
+        r = gruntz_limit(f, :k, 0; signs = Dict(:m => :positive))
+        @test all(m0 -> eval(:(let m = $m0; $r end)) ≈ 1/(2sqrt(m0 + 1)), (1//2, 2, 7))
+        @test_throws "one-sided limits differ" gruntz_limit(f, :k, 0; dir = :both, signs = Dict(:m => :positive))
+        @test gruntz_limit(:((m + 1 - sqrt(m^2 + 2m + 1))*k), :k; signs = Dict(:m => :positive)) == 0
+        @test gruntz_limit(:((sqrt(4a^2 - 12a*b + 9b^2) - 2a + 3b)*x), :x;
+                           signs = Dict(:(2a - 3b) => :positive)) == 0
+        @test gruntz_limit(:(sqrt(a^2 + 2a*b + b^2)*x), :x) == Inf
+        cs = gruntz_cases(:((m + 1 - sqrt(m^2 + 2m + 1))*k), :k)
+        @test Dict(string(c.first) => c.second for c in cs) ==
+              Dict("GruntzLimit.CaseCondition[m < -1]" => -Inf, "GruntzLimit.CaseCondition[m >= -1]" => 0)
     end
 
     @testset "rational literals" begin

@@ -46,7 +46,13 @@ function numval(a::Atom)
         ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
         k = SpecialFunctions.besselk(ν, t)
         return BigFloat(a.head === :besselk ? k : k / (sqrt(π / (2t)) * exp(-t)))
+    elseif a.head in (:besseli, :iaux)
+        ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
+        return BigFloat(a.head === :besseli ? SpecialFunctions.besseli(ν, t) :
+                        SpecialFunctions.besselix(ν, t) * sqrt(2π * t))
     end
+    a.head === :polygamma &&
+        return BigFloat(SpecialFunctions.polygamma(Int(numval(a.args[2]::Sum)), Float64(v)))
     a.head === :exp ? exp(v) : a.head === :log ? log(v) : a.head === :sin ? sin(v) :
     a.head === :atan ? atan(v) : a.head === :erf ? SpecialFunctions.erf(v) :
     a.head === :erfs ? SpecialFunctions.erfcx(v) : a.head === :gamma ? SpecialFunctions.gamma(v) :

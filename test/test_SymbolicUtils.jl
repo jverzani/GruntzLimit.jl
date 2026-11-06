@@ -65,4 +65,9 @@ PI = SymbolicUtils.maketerm(typeof(x), identity, Any[π], nothing)
     @test gruntz_limit(mod(x, 3), x, 3; dir = :-) == 3
     @test gruntz_limit(mod(x, 3), x, 3; dir = :+) == 0
     @test gruntz_limit((1//10 + im/10)^x, x) == 0
+
+    # the real cube root (SymPy #22824), atan of a complex argument (#23760)
+    @test gruntz_limit(cbrt(x), x, -8; dir = :both) == -2
+    @test gruntz_limit((x^2 + 10x + 16)/(12 + 6cbrt(x)), x, -8; dir = :both) == -12
+    @test su(gruntz_limit(atan(x - im), x)) ≈ π/2
 end

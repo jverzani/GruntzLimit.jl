@@ -209,6 +209,15 @@ function mkbesselk(ν::Sum, s::Sum)
 end
 mkkaux(s::Sum, ν::Sum) = atomS(funatom(:kaux, Sum[s, ν]))
 
+# The modified Bessel function besseli(ν, u), for a rational order ν, stored as besselk
+# is. I_(-n) = I_n for an integer n. For u -> +oo, I_ν(u) = exp(u)/sqrt(2πu) iaux_ν(u).
+function mkbesseli(ν::Sum, s::Sum)
+    r = ratconst(ν)
+    r === nothing && throw(GruntzError("besseli is supported only for a rational order"))
+    atomS(funatom(:besseli, Sum[s, constS(isinteger(r) ? abs(r) : r)]))
+end
+mkiaux(s::Sum, ν::Sum) = atomS(funatom(:iaux, Sum[s, ν]))
+
 # gamma. Of a positive integer, evaluated; a pole is an error. An argument with the
 # limit variable is shifted by an integer to u + r, 0 <= r < 1, the first monomial of
 # u with a positive coefficient: gamma(u + r + n) = (u + r)(u + r + 1)...(u + r + n - 1)
@@ -222,6 +231,12 @@ function mkgamma(s::Sum)
     if r !== nothing && isinteger(r)
         r <= 0 && throw(GruntzError("gamma has a pole at $(r)", :undefined))
         r <= 1000 && return constS(factorial(big(numerator(r)) - 1))
+    end
+    if r !== nothing && denominator(r) == 2 && abs(r) <= 1000   # Γ(1/2 + m) from Γ(1/2) = sqrt(π)
+        m = Int(r - Q(1) // 2)
+        k = m >= 0 ? prod((Q(1) // 2 + j for j in 0:m-1); init = Q(1)) :
+                     inv(prod((Q(1) // 2 + j for j in m:-1); init = Q(1)))
+        return scaleS(powS(atomS(PI_ATOM), Q(1) // 2), k)
     end
     c = get(s.t, ONEMONO, zero(Q))
     n = floor(BigInt, c)
@@ -237,6 +252,21 @@ function mkgamma(s::Sum)
     end
 end
 mklgrem(s::Sum) = atomS(funatom(:lgrem, Sum[s]))
+
+# polygamma(k, c), the k-th derivative of digamma, at a constant c, stored with the
+# argument first: funatom(:polygamma, [c, k]). At c = 1, ψ(1) = -γ and
+# ψ^(k)(1) = (-1)^(k+1) k! ζ(k+1), with ζ(2n) = (-1)^(n+1) B_2n (2π)^(2n) / (2 (2n)!).
+function mkpolygamma(k::Int, c::Sum)
+    if ratconst(c) == 1
+        k == 0 && return negS(atomS(leafatom(Base.MathConstants.eulergamma)))
+        if isodd(k)
+            n = (k + 1) ÷ 2
+            z = Q((-1)^(n + 1)) * bernoulli(2n) * Q(2)^(2n) / (2 * factorial(big(2n)))
+            return scaleS(powS(atomS(PI_ATOM), Q(2n)), Q((-1)^(k + 1) * factorial(big(k))) * z)
+        end
+    end
+    atomS(funatom(:polygamma, Sum[c, constS(Q(k))]))
+end
 
 # lambertw, the principal branch W of the inverse of w exp(w), real for u >= -1/e. Of
 # r exp(r), r rational, evaluated (W(0) = 0, W(e) = 1). wexp(L) = W(exp(L)), for
@@ -276,6 +306,14 @@ end
 mkceil(s::Sum) = negS(mkfloor(negS(s)))
 mktrunc(s::Sum) = mulS(mksign(s), mkfloor(mkabs(s)))
 
+# cbrt: the real cube root, sign(u) |u|^(1/3), so cbrt(-8) = -2 (not the principal
+# (-8)^(1/3)), for an argument in x or a negative constant; a parameter is kept as u^(1/3)
+function mkcbrt(s::Sum)
+    third = Q(1) // 3
+    (hasleaf(s, CONTEXT[].x.key) || negconst(s)) || return powS(s, third)
+    mulS(mksign(s), powS(mkabs(s), third))
+end
+
 # sign: sign(c*m) = sign(c) * sign(m), and sign-normalised as abs is, so sign(-u) =
 # -sign(u). Eliminated with abs before the limit is computed.
 function mksign(s::Sum)
@@ -314,6 +352,9 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :eiaux ? mkaux(h, a[1]) :
     h === :besselk ? mkbesselk(a[2], a[1]) :
     h === :kaux ? mkkaux(a[1], a[2]) :
+    h === :besseli ? mkbesseli(a[2], a[1]) :
+    h === :iaux ? mkiaux(a[1], a[2]) :
+    h === :polygamma ? mkpolygamma(Int(ratconst(a[2])::Q), a[1]) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 

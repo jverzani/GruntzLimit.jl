@@ -263,6 +263,59 @@ function powS(s::Sum, q::Q)
         end
         return res
     end
+    if denominator(q) == 2 && !hasleaf(s, CONTEXT[].x.key) && !hasatom(s, WLEAF.key)
+        r = sqrt_poly(s)
+        r === nothing || return square_pow(r..., q)
+    end
     !isone(denominator(q)) && require_positive(s; strict = q < 0, what = "fractional power")
     monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))
+end
+
+# A constant c p^2, c > 0 and p a polynomial (in parameters and atoms) with leading
+# coefficient 1: (c p^2)^q = c^q |p|^(2q) for q = n/2, |p| = ±p when the context decides the
+# sign of p, so that m + 1 - sqrt(m^2 + 2m + 1) is 0 for m > -1. Otherwise it is abs(p),
+# or, when splitting into cases, the cases are on the sign of p.
+function square_pow(c::Q, p::Sum, q::Q)
+    σ = try
+        csign(p)
+    catch err
+        (err isa NeedSign && !CONTEXT[].cases) || rethrow()
+        nothing
+    end
+    a = σ === nothing ? mkabs(p) : scaleS(p, Q(σ))
+    mulS(powS(constS(c), q), powS(a, 2q))
+end
+
+# graded lexicographic order on monomials (atoms by key)
+function mono_lt(a::Mono, b::Mono)
+    da, db = sum(last, a.fs; init = Q(0)), sum(last, b.fs; init = Q(0))
+    da == db || return da < db
+    for (pa, pb) in zip(a.fs, b.fs)
+        pa.first.key == pb.first.key || return pa.first.key > pb.first.key   # b has the earlier atom
+        pa.second == pb.second || return pa.second < pb.second
+    end
+    length(a.fs) < length(b.fs)
+end
+lead_term(s::Sum) = reduce((x, y) -> mono_lt(x.first, y.first) ? y : x, collect(s.t))
+
+# (c, p) with s = c p^2, c > 0 and p of leading coefficient 1, or nothing: the square
+# root of a polynomial, term by term from its leading one
+function sqrt_poly(s::Sum)
+    (2 <= length(s.t) <= 64) || return nothing
+    m0, c0 = lead_term(s)
+    c0 > 0 || return nothing
+    r1 = powMono(m0, Q(1) // 2)
+    t = scaleS(s, inv(c0))
+    root = monoS(r1, Q(1))
+    R = subS(t, mulS(root, root))
+    for _ in 1:length(s.t)
+        isempty(R.t) && return c0, root
+        m, c = lead_term(R)
+        nm = mulMono(m, powMono(r1, Q(-1)))
+        mono_lt(nm, r1) || return nothing
+        term = monoS(nm, c / 2)
+        R = subS(R, addS(scaleS(mulS(root, term), Q(2)), mulS(term, term)))
+        root = addS(root, term)
+    end
+    isempty(R.t) ? (c0, root) : nothing
 end
