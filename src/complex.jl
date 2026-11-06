@@ -98,7 +98,29 @@ cadd(a::CS, b::CS) = CS(addS(a.re, b.re), addS(a.im, b.im))
 cneg(a::CS) = CS(negS(a.re), negS(a.im))
 cmul(a::CS, b::CS) = CS(subS(mulS(a.re, b.re), mulS(a.im, b.im)), addS(mulS(a.re, b.im), mulS(a.im, b.re)))
 cscale(a::CS, s::Sum) = CS(mulS(a.re, s), mulS(a.im, s))
-abs2C(a::CS) = addS(mulS(a.re, a.re), mulS(a.im, a.im))
+abs2C(a::CS) = cancel_base(addS(mulS(a.re, a.re), mulS(a.im, a.im)))
+
+# s = N B^(-e), B a multi-term base dividing every term, with N a constant times B^e
+# expanded: that constant. |(x - i)/(-x - i)|² is ((1 - x²)² + 4x²)/(1 + x²)², which is 1;
+# otherwise its log is a zero the series cannot find.
+function cancel_base(s::Sum)
+    length(s.t) < 2 && return s
+    ms = collect(keys(s.t))
+    for (a, _) in ms[1].fs
+        a.kind === :base || continue
+        es = [sum((e for (b, e) in m.fs if b == a); init = Q(0)) for m in ms]
+        e = -maximum(es)
+        (e > 0 && isinteger(e) && e <= 8 && all(==(es[1]), es)) || continue
+        N = mulS(s, powS(atomS(a), e))
+        P = powS(a.args[1]::Sum, e)
+        (isempty(N.t) || isempty(P.t)) && continue
+        mP, cP = first(P.t)
+        c = get(N.t, mP, nothing)
+        c === nothing && continue
+        skey(N) == skey(scaleS(P, c / cP)) && return constS(c / cP)
+    end
+    s
+end
 function cinv(a::CS)
     isrealC(a) && return realC(powS(a.re, Q(-1)))
     d = powS(abs2C(a), Q(-1))
@@ -155,6 +177,22 @@ function apply_op_c(op, a::Vector{CS})::CS
     if n === :cosint && na == 1 && isrealC(a[1]) && hasleaf(a[1].re, CONTEXT[].x.key)
         u = a[1].re
         return CS(mkcosint(mkabs(u)), scaleS(mulS(atomS(PI_ATOM), subS(oneS(), mksign(u))), Q(1) // 2))
+    end
+    # on retrying a real expression whose log or fractional power met a negative
+    # argument (see `limit_value`): on the principal branch, log(u) = log|u| + iπ (1 -
+    # sign(u))/2 and u^q = |u|^q exp(iqπ (1 - sign(u))/2), the sign decided at the limit
+    if BRANCH_X[] && all(isrealC, a) && hasleaf(a[1].re, CONTEXT[].x.key)
+        u = a[1].re
+        q = n === :sqrt && na == 1 ? Q(1) // 2 :
+            n === :^ && na == 2 ? (r = ratconst(a[2].re); r !== nothing && !isinteger(r) ? r : nothing) : nothing
+        neg = scaleS(subS(oneS(), mksign(u)), Q(1) // 2)
+        if n === :log && na == 1
+            return CS(mklog(mkabs(u)), mulS(atomS(PI_ATOM), neg))
+        elseif q !== nothing
+            θ = mulS(scaleS(atomS(PI_ATOM), q), neg)
+            m = powS(mkabs(u), q)
+            return CS(mulS(m, mkcos(θ)), mulS(m, mksin(θ)))
+        end
     end
     # besselk and besseli of a real argument in x, on their principal branches: for v > 0,
     # K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v) and I_ν(-v) = exp(iνπ) I_ν(v) (DLMF 10.34.1-2)

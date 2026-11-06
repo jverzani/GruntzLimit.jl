@@ -217,6 +217,16 @@ function mkbesseli(ν::Sum, s::Sum)
     atomS(funatom(:besseli, Sum[s, constS(isinteger(r) ? abs(r) : r)]))
 end
 mkiaux(s::Sum, ν::Sum) = atomS(funatom(:iaux, Sum[s, ν]))
+# besselj(ν, s), stored with the argument first; J_(-n) = (-1)^n J_n for an integer
+# order. jred(s, ν) = J_ν(s) (s/2)^(-ν), entire in s (see `jredPS`).
+function mkbesselj(ν::Sum, s::Sum)
+    r = ratconst(ν)
+    if r !== nothing && isinteger(r) && r < 0
+        return scaleS(mkbesselj(constS(-r), s), Q(isodd(numerator(r)) ? -1 : 1))
+    end
+    atomS(funatom(:besselj, Sum[s, ν]))
+end
+mkjred(s::Sum, ν::Sum) = atomS(funatom(:jred, Sum[s, ν]))
 
 # gamma. Of a positive integer, evaluated; a pole is an error. An argument with the
 # limit variable is shifted by an integer to u + r, 0 <= r < 1, the first monomial of
@@ -337,6 +347,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :erfs ? mkerfs(a[1]) :
     h === :gamma ? mkgamma(a[1]) :
     h === :lgrem ? mklgrem(a[1]) :
+    h === :fracpart ? atomS(funatom(:fracpart, Sum[a[1]])) :
     h === :lambertw ? mklambertw(a[1]) :
     h === :wexp ? mkwexp(a[1]) :
     h in (:sinint, :erfi, :dawson) ? mkodd(h, a[1]) :
@@ -354,6 +365,8 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :kaux ? mkkaux(a[1], a[2]) :
     h === :besseli ? mkbesseli(a[2], a[1]) :
     h === :iaux ? mkiaux(a[1], a[2]) :
+    h === :besselj ? mkbesselj(a[2], a[1]) :
+    h === :jred ? mkjred(a[1], a[2]) :
     h === :polygamma ? mkpolygamma(Int(ratconst(a[2])::Q), a[1]) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
