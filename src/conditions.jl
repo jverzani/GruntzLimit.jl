@@ -98,7 +98,14 @@ function atom_sign(a::Atom)
         a.kind === :fun && a.head === :log ? subS(a.args[1]::Sum, oneS()) :
         a.kind === :fun && a.head in (:atan, :erf, :sign, :sinint, :erfi, :dawson) ? a.args[1]::Sum : nothing
     s === nothing && return nothing
-    ps = possible_signs(s; facts = false)
+    # a perfect square c p², c > 0, positive where p ≠ 0: (1 + 2M + M²)⁻¹
+    if a.kind === :base && !hasvar(a)
+        r = sqrt_poly(s)
+        r !== nothing && (known_nonzero(s) || !(0 in possible_signs(r[2]; facts = false))) && return 1
+    end
+    # a base's own factors are used ((1 + M)/(1 + 2M + M²) for M > -1); its argument is
+    # smaller, so this ends
+    ps = possible_signs(s; facts = a.kind === :base && !hasvar(a))
     length(ps) == 1 && ps[1] != 0 ? ps[1] : nothing
 end
 
@@ -240,10 +247,32 @@ function zerostate(s::Sum)
         nothing
     end
     v === nothing || return abs(v) < big"1e-60"
-    CONTEXT[].cases || return false
+    if !CONTEXT[].cases
+        # p - |p| vanishes for every p ≥ 0, not at isolated values: not generic, so the
+        # sign of p is needed (√((M+1)²) = |M+1|, SymPy #23525)
+        q = abs_cancel(s)
+        q === nothing && return false
+        ps = possible_signs(q)
+        return length(setdiff(ps, [0])) > 1 ? NeedSign(q, ps, false) : false
+    end
     ps = possible_signs(s)
     ps == [0] && return true
     0 in ps ? NeedSign(s, ps, true) : false
+end
+
+# The argument q of an atom |q| of the constant s for which s vanishes identically
+# when |q| is taken as q or as -q; or nothing
+function abs_cancel(s::Sum)
+    seen = Set{String}()
+    for m in keys(s.t), (a, _) in m.fs
+        (a.kind === :fun && a.head === :abs && !(a.key in seen)) || continue
+        push!(seen, a.key)
+        q = a.args[1]::Sum
+        for r in (q, negS(q))
+            isempty(subs_atoms(s, b -> b.key == a.key ? r : nothing).t) && return q
+        end
+    end
+    nothing
 end
 
 hasvar(a::Atom) = hasleaf(a, CONTEXT[].x.key) || hasw(a)
@@ -352,9 +381,52 @@ param_value(how::Symbol, v::Sum) = how === :id ? v : how === :log ? mkexp(v) : n
 # or nothing.
 solve_zero(c::Sum) = solve_zero_cond(c)[1]
 
+# c times the parameters in its denominators: 1/M1 + 1/M2 as M2 + M1 (the parameters
+# are nonzero where c is defined)
+function clear_denoms(c::Sum)
+    length(c.t) < 2 && return c
+    low = Dict{String,Tuple{Atom,Q}}()
+    for m in keys(c.t), (a, e) in m.fs
+        (isparam(a) && e < 0) || continue
+        low[a.key] = (a, min(e, get(low, a.key, (a, e))[2]))
+    end
+    isempty(low) && return c
+    mulS(c, monoS(mono(Dict{Atom,Q}(a => -e for (a, e) in values(low))), Q(1)))
+end
+
+# a parameter p with p^n (n > 0) dividing every term of c: (p, n), or nothing
+function common_param(c::Sum)
+    ps = common_params(c)
+    isempty(ps) && return nothing
+    a = ps[1]
+    a, minimum(sum((e for (b, e) in m.fs if b == a); init = Q(0)) for m in keys(c.t))
+end
+# the parameters dividing every term of c (with two terms or more)
+function common_params(c::Sum)
+    length(c.t) < 2 && return Atom[]
+    ms = collect(keys(c.t))
+    [a for (a, _) in ms[1].fs if isparam(a) &&
+         all(m -> sum((e for (b, e) in m.fs if b == a); init = Q(0)) > 0, ms)]
+end
+
 # The same, with the condition the solution needs (A ≠ 0 for p = -B/A, as a Sum that
 # must be nonzero), or nothing
 function solve_zero_cond(c::Sum)
+    if !any(m -> any(p -> hasvar(p.first), m.fs), keys(c.t))
+        # parameters in denominators (nonzero there) and factors of known sign cleared:
+        # 2C/M1 + 2C/M2 = 0 as M1 + M2 = 0
+        c2 = clear_factors(clear_denoms(c))[1]
+        skey(c2) == skey(c) || return solve_zero_cond(c2)
+        # p^n r = 0 with r nonzero in the context as p = 0: (M1 + M2) a² = 0, M1 + M2 > 0
+        p = common_param(c)
+        if p !== nothing
+            r = mulS(c, powS(atomS(p[1]), -p[2]))
+            0 in possible_signs(r) || return solve_zero_cond(atomS(p[1]))
+        end
+        # c p² = 0 as p = 0: (M1 + M2)² = 0
+        r = sqrt_poly(c)
+        r === nothing || return solve_zero_cond(r[2])
+    end
     sol = solve_zero_simple(c)
     sol === nothing || return sol, nothing
     r = solve_linear(c)

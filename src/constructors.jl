@@ -152,8 +152,40 @@ function trigatom(h::Symbol, s::Sum)
         h === :cos && (sg = -sg)
         h = h === :sin ? :cos : :sin
     end
+    if iszero(r) && length(u.t) == 1 && isone(first(u.t).second)
+        m = first(u.t).first
+        if length(m.fs) == 1 && isone(m.fs[1].second) && m.fs[1].first.kind === :fun &&
+           m.fs[1].first.head === :atan
+            sc = sincos_atan(m.fs[1].first.args[1]::Sum)
+            return scaleS(h === :sin ? sc[1] : sc[2], Q(sg))
+        end
+    end
     arg = iszero(r) ? u : addS(u, scaleS(atomS(PI_ATOM), r))
     scaleS(atomS(funatom(h, Sum[arg])), Q(sg))
+end
+
+# (sin, cos) of atan(s): s/√(1 + s²), 1/√(1 + s²). For s = v/√(1 - v²), as asin(v) and
+# acos(v) are written, v and √(1 - v²), so that cos(acos(c)) - c is recognised as 0.
+function sincos_atan(s::Sum)
+    half = Q(1) // 2
+    if length(s.t) == 1
+        m, c = first(s.t)
+        for (a, e) in m.fs
+            (a.kind === :base && e == -half) || continue
+            v = mulS(s, powS(atomS(a), half))
+            B = a.args[1]::Sum
+            skey(B) == skey(subS(oneS(), mulS(v, v))) && return v, powS(B, half)
+        end
+    end
+    # s² = r rational: s √(1/(1 + r)), √(1/(1 + r)), the radical of a rational taken
+    # anew, so that it meets the one in s (atan(3/8 √(8/9)) from asin(1/3): sin is 1/3)
+    r = ratconst(mulS(s, s))
+    if r !== nothing
+        c = powS(constS(1 / (1 + r)), half)
+        return mulS(s, c), c
+    end
+    ic = powS(addS(oneS(), mulS(s, s)), -half)
+    mulS(s, ic), ic
 end
 
 # atan is odd: pull a negative sign of a single-term argument outside
@@ -267,7 +299,13 @@ mklgrem(s::Sum) = atomS(funatom(:lgrem, Sum[s]))
 # argument first: funatom(:polygamma, [c, k]). At c = 1, ψ(1) = -γ and
 # ψ^(k)(1) = (-1)^(k+1) k! ζ(k+1), with ζ(2n) = (-1)^(n+1) B_2n (2π)^(2n) / (2 (2n)!).
 function mkpolygamma(k::Int, c::Sum)
-    if ratconst(c) == 1
+    r = ratconst(c)
+    # at an integer n > 1, from ψ^(k)(1): ψ^(k)(n) = ψ^(k)(1) + (-1)^k k! sum_(j<n) j^(-k-1)
+    if r !== nothing && isinteger(r) && 1 < r <= 64 && (k == 0 || isodd(k))
+        s = sum(Q(1) // big(j)^(k + 1) for j in 1:Int(r)-1)
+        return addS(mkpolygamma(k, oneS()), constS(Q((-1)^k * factorial(big(k))) * s))
+    end
+    if r == 1
         k == 0 && return negS(atomS(leafatom(Base.MathConstants.eulergamma)))
         if isodd(k)
             n = (k + 1) ÷ 2
@@ -277,6 +315,9 @@ function mkpolygamma(k::Int, c::Sum)
     end
     atomS(funatom(:polygamma, Sum[c, constS(Q(k))]))
 end
+# ψ^(k)(u) for u -> +oo: log(u) + psiaux(u, 0), and psiaux(u, k) for k >= 1, psiaux
+# having an asymptotic series in 1/u (see `psiauxPS`)
+mkpsiaux(u::Sum, k::Int) = atomS(funatom(:psiaux, Sum[u, constS(Q(k))]))
 
 # lambertw, the principal branch W of the inverse of w exp(w), real for u >= -1/e. Of
 # r exp(r), r rational, evaluated (W(0) = 0, W(e) = 1). wexp(L) = W(exp(L)), for
@@ -368,6 +409,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :besselj ? mkbesselj(a[2], a[1]) :
     h === :jred ? mkjred(a[1], a[2]) :
     h === :polygamma ? mkpolygamma(Int(ratconst(a[2])::Q), a[1]) :
+    h === :psiaux ? mkpsiaux(a[1], Int(ratconst(a[2])::Q)) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 

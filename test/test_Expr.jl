@@ -417,6 +417,36 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test failed(:(exp(x*sin(x))), :x)
     end
 
+    @testset "digamma and polygamma" begin
+        g = Base.MathConstants.eulergamma
+        val(r) = eval(:(let γ = $g; $r end))
+        # at the pole 0, from ψ(y) = ψ(y + 1) - 1/y
+        @test val(gruntz_limit(:(digamma(y) + 1/y), :y, 0; dir = :both)) ≈ -g
+        @test string(gruntz_limit(:(polygamma(1, y) - 1/y^2), :y, 0; dir = :both)) == "1//6 * π ^ 2"
+        @test string(gruntz_limit(:(trigamma(y) - 1/y^2), :y, 0)) == "1//6 * π ^ 2"
+        @test gruntz_limit(:(digamma(y)*(y + 2)), :y, -2; dir = :both) == -1
+        @test gruntz_limit(:(polygamma(1, y)*(y + 1)^2), :y, -1; dir = :both) == 1
+        # Taylor's series at a finite point; exact at an integer
+        @test val(gruntz_limit(:(digamma(y + 1)), :y, 0)) ≈ -g
+        @test string(gruntz_limit(:((digamma(2 + y) - digamma(2))/y), :y, 0; dir = :both)) == "-1 + 1//6 * π ^ 2"
+        # at +oo, ψ(y) = log(y) - 1/(2y) + ..., ψ^(k)(y) ~ (-1)^(k+1) (k-1)!/y^k
+        @test gruntz_limit(:((digamma(y) - log(y))*y), :y) == -1//2
+        @test gruntz_limit(:(polygamma(1, y)*y), :y) == 1
+        @test gruntz_limit(:(polygamma(2, y)*y^2), :y) == -1
+        @test gruntz_limit(:(digamma(exp(y)) - y), :y) == 0
+        @test_throws GruntzError gruntz_limit(:(digamma(1/y)*y), :y, 0; dir = :-)
+    end
+
+    @testset "sin and cos of inverse trigonometric constants" begin
+        # cos(acos(c)) = c, so the expansion of cos(acos(c) + h) has no constant term
+        @test eval(gruntz_limit(:(h/(cos(acos(1//3) + h) - 1//3)), :h, 0; dir = :both)) ≈ -3/(2sqrt(2))
+        @test eval(gruntz_limit(:((x - acos(1//3))/(cos(x) - 1//3)), :x, :(acos(1//3)); dir = :both)) ≈ -3/(2sqrt(2))
+        @test eval(gruntz_limit(:(h/(sin(asin(1//3) + h) - 1//3)), :h, 0)) ≈ 3/(2sqrt(2))
+        @test gruntz_limit(:(h/(tan(atan(1//3) + h) - 1//3)), :h, 0) == 9//10
+        r = gruntz_limit(:((x - acos(-C))/(C + cos(x))), :x, :(acos(-C)); dir = :both)
+        @test eval(:(let C = 1//2; $r end)) ≈ -1/sqrt(3/4)
+    end
+
     @testset "gamma and factorial" begin
         # x^x/x!, c^x/x!, and ratio tests a(n+1)/a(n)
         @test gruntz_limit(:(x^x/factorial(x)), :x) == Inf
@@ -841,6 +871,30 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(:((m + 1 - sqrt(m^2 + 2m + 1))*k), :k)
         @test Dict(string(c.first) => c.second for c in cs) ==
               Dict("GruntzLimit.CaseCondition[m < -1]" => -Inf, "GruntzLimit.CaseCondition[m >= -1]" => 0)
+        # without signs, a leading p - |p| is not taken to be nonzero: it vanishes for all
+        # p ≥ 0, so the sign of p is needed (the derivative in SymPy #23525 gave 0)
+        R = :(sqrt(-(-2*cos(a*k) + 2)*M1*M2 + (M1 + M2)^2))
+        d = :(C*a*sin(a*k)/(2*$R*sqrt(C*(M1 + M2 - $R)/(M1*M2))))
+        @test_throws "the sign of `M1 + M2`" gruntz_limit(d, :k, 0)
+        @test_throws "the sign of `M + 1`" gruntz_limit(:(sqrt(M + 1 - sqrt((M + 1)^2 - k^2))/k), :k, 0)
+        r = gruntz_limit(d, :k, 0; signs = Dict(:C => :positive, :a => :positive, :(M1 + M2) => :positive))
+        @test eval(:(let C = 1, a = 1, M1 = 1, M2 = 1; $r end)) ≈ 1/2
+        cs = gruntz_cases(:(1/(M + 1 - sqrt((M + 1)^2 - k^2))), :k, 0)
+        D = Dict(string(c.first) => c.second for c in cs)
+        # M = -1: 1/(-sqrt(-k^2)) = 1/(-i|k|), infinite in a complex direction
+        @test pop!(D, "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 == 0]") isa GruntzError
+        @test D ==
+              Dict("GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M < -1]" => :((2 + 2M) ^ -1),
+                   "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M > -1]" => Inf)
+        # (M1 + M2)^2 = 0 is solved as M1 = -M2
+        cs = gruntz_cases(d, :k, 0; signs = Dict(:C => :positive, :a => :positive))
+        @test any(c -> string(c.first) == "GruntzLimit.CaseCondition[2 * M1 * M2 + M1 ^ 2 + M2 ^ 2 == 0, M2 != 0]" &&
+                       c.second == Inf, cs)
+        @test length(cs) == 5          # not M1 + M2 < 0 with 1/M1 + 1/M2 = 0
+        # with no signs, in seconds: C (M1 + M2) a² = 0 is split on C, then a = 0 solved
+        cs = gruntz_cases(d, :k, 0)
+        @test length(cs) == 14
+        @test count(c -> c.second isa Expr, cs) == 1
     end
 
     @testset "rational literals" begin

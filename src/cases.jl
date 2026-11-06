@@ -21,8 +21,15 @@ const MAX_DEPTH = 12
 
 # The constant to split on for a needed sign: a product of parameters is split on
 # one factor at a time, log(s) on s - 1.
-function split_target(c::Sum)
+function split_target(c::Sum; zerotest::Bool = false)
     c = clear_factors(c)[1]
+    # whether c = 0, c with two parameters of undecided sign dividing every term,
+    # C (M1 + M2) a²: split on one first, as no one substitution solves c = 0 (kept as a
+    # condition, it is tested again at each order)
+    if zerotest
+        ps = filter(a -> atom_sign(a) === nothing, common_params(c))
+        length(ps) >= 2 && return atomS(ps[1])
+    end
     vars = Dict{String,Mono}()
     a, k0 = linform(c, vars)
     (length(a) == 1 && abs(k0) <= FM_TOL) || return c
@@ -47,7 +54,7 @@ function solve_cases(run, ctx::Vector{Cond}, sub::Dict{String,Sum}, x::Atom, dep
     (depth >= MAX_DEPTH || count[] >= MAX_CASES) &&
         return Leaf(GruntzError("too many cases"))
     c, rels, zsub = with_context(ctx, sub, true, x) do
-        c = split_target(need.c)
+        c = split_target(need.c; zerotest = need.zerotest)
         ps = possible_signs(c)
         rels = need.zerotest && c === need.c ?
                [r for (r, ok) in ((:(==), 0 in ps), (:!=, any(!=(0), ps))) if ok] :

@@ -265,6 +265,10 @@ The operations understood are
   `polygamma(0, 1//2)`. `gamma(x + k)`, with `k` an integer, is reduced to
   `x (x + 1) ⋯ (x + k - 1) gamma(x)`, so that ratios such as `factorial(n + 1)/factorial(n)`
   cancel;
+* `digamma`, `trigamma` and `polygamma(k, u)` (an integer `k ≥ 0`), for an argument that
+  tends to `+∞` (`ψ(u) = log(u) - 1/(2u) - ⋯`), to a finite limit (by Taylor's series, or
+  at a pole by `ψ(u) = ψ(u + 1) - 1/u`, so that `digamma(y) + 1/y` tends to `-γ` at 0), or
+  is constant;
 * `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl; `cosint` of a negative argument
   is its principal value `cosint(-u) = cosint(u) + iπ`, so that `cosint(3x) - cosint(x)`
   tends to `log(3)` from both sides of 0. At finite points by their Taylor series

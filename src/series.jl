@@ -512,6 +512,46 @@ function gammaPS(a::PS, P::Q)
     mulPS(taylor(oneS()), powPS(den, Q(-1), P))
 end
 
+# ψ^(k)(c + v), v -> 0: sum_j ψ^(k+j)(c) v^j / j!, and at a pole c = -n, by
+# ψ^(k)(z) = ψ^(k)(z + n + 1) - (-1)^k k! sum_(j=0..n) (z + j)^(-k-1)
+function polygammaPS(a::PS, k::Int, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: polygamma of an unbounded argument"))
+    c0, v = const_and_rest(a)
+    r = ratconst(c0)
+    taylor(c) = polyPS(v, j -> scaleS(mkpolygamma(k + j, c), inv(Q(factorial(big(j))))), 0, P)
+    (r === nothing || !isinteger(r) || r > 0) && return taylor(c0)
+    acc = taylor(oneS())
+    kf = Q((-1)^(k + 1) * factorial(big(k)))
+    for j in 0:Int(-r)
+        acc = addPS(acc, scalePS(powPS(addPS(v, constPS(constS(Q(j) + r))), Q(-k - 1), P), constS(kf)))
+    end
+    acc
+end
+
+# psiaux(v, k) for v -> +oo, t = 1/v (asymptotic, truncated as erfs's is):
+#   k = 0: ψ(v) - log(v) ~ -t/2 - sum_(j>=1) B_2j/(2j) t^(2j),
+#   k >= 1: ψ^(k)(v) ~ (-1)^(k+1) ((k-1)! t^k + k!/2 t^(k+1) + sum_(j>=1) B_2j (2j+k-1)!/(2j)! t^(2j+k))
+function psiauxPS(a::PS, k::Int, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 ||
+        throw(GruntzError("polygamma: the argument does not tend to infinity in the expansion variable"))
+    function coef(i)
+        if k == 0
+            i == 1 && return Q(-1) // 2
+            return iseven(i) ? -bernoulli(i) / i : Q(0)
+        end
+        s = Q((-1)^(k + 1))
+        i < k && return Q(0)
+        i == k && return s * factorial(big(k - 1))
+        i == k + 1 && return s * factorial(big(k)) / 2
+        m = i - k
+        isodd(m) && return Q(0)
+        s * bernoulli(m) * Q(factorial(big(i - 1))) / factorial(big(m))
+    end
+    polyPS(powPS(a, Q(-1), P), coef, 1, P)
+end
+
 # kaux_ν(v) ~ sum_k a_k(ν) v^(-k), a_k = prod_(j=1..k) (4ν^2 - (2j-1)^2) / (k! 8^k), for
 # v -> +oo (Hankel's expansion); a finite series for a half-integer ν
 # iaux_ν(v) ~ sum_k (-1)^k a_k(ν) v^(-k), for besseli (`alt`)
@@ -629,6 +669,8 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :lgrem ? lgremPS(arg, P) :
     h === :lambertw ? lambertwPS(arg, P) :
     h === :gamma ? gammaPS(arg, P) :
+    h === :polygamma ? polygammaPS(arg, Int(ratconst(a.args[2]::Sum)::Q), P) :
+    h === :psiaux ? psiauxPS(arg, Int(ratconst(a.args[2]::Sum)::Q), P) :
     h === :wexp ? wexpPS(arg, logw, P) :
     h in (:fsi, :gsi, :dawson, :eiaux) ? auxPS(h, arg, P) :
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
@@ -701,7 +743,11 @@ end
 # When splitting into cases, leading coefficients that may vanish (b in b/w^2 + 1)
 # are tested, and dropped when zero
 function dropzeros(a::PS)
-    CONTEXT[].cases || return a
+    if !CONTEXT[].cases
+        # outside cases only a leading p - |p| is tested (see `zerostate`)
+        isempty(a.c) || numzero(a.c[val(a)], CONTEXT[].x)
+        return a
+    end
     ks = sort!(collect(keys(a.c)))
     i = findfirst(k -> !numzero(a.c[k], CONTEXT[].x), ks)
     i === nothing && return PS(Dict{Ex,Sum}(), a.prec)
