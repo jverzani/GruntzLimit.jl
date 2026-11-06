@@ -11,7 +11,7 @@
 #     z^w         = exp(w log z)
 #     sin, cos (with cosh and sinh of the imaginary part), and functions written with
 #     them or exp (tan, sinh, cosh, tanh, sec, ...)
-#     atan(z)     = i/2 (log(1 - iz) - log(1 + iz)),  the principal branch
+#     atan(z)     = i/2 (log(1 - i*z) - log(1 + i*z)),  the principal branch
 #
 # with `arg(a, b)` the principal argument, in (-π, π], an atom resolved like abs once
 # the sign of `a` near the limit point is known (see `resolve_carg`). Other functions of
@@ -216,7 +216,7 @@ function apply_op_c(op, a::Vector{CS})::CS
         s = cscale(cadd(p, cneg(m)), constS(half))
         c = cscale(cadd(p, m), constS(half))
         n === :sinh ? s : n === :cosh ? c : cmul(s, cinv(c))
-    elseif n === :atan && na == 1                     # atan(z) = i/2 (log(1 - iz) - log(1 + iz))
+    elseif n === :atan && na == 1                     # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z))
         z = a[1]
         l1 = clog(CS(addS(oneS(), z.im), negS(z.re)))
         l2 = clog(CS(subS(oneS(), z.im), z.re))

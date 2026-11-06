@@ -671,7 +671,7 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
     end
 
     @testset "complex values" begin
-        # atan(z) = i/2 (log(1 - iz) - log(1 + iz)) (SymPy #23760)
+        # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
         @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x, -Inf)) ≈ -π/2
