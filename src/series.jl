@@ -107,6 +107,8 @@ end
 
 binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end; r)
 
+const MAX_POLY_TERMS = 64
+
 # sum_{k>=kmin} coef(k) u^k, u having positive valuation; relative target `Trel`.
 # A coefficient is a rational or a constant `Sum`.
 # A valuation with a parameter (w^a) has no numerical value: a few terms are taken
@@ -118,7 +120,12 @@ function polyPS(u::PS, coef, kmin::Int, Trel::Q)
     K = if isempty(u.c)
         kmin
     elseif israt(v)
-        max(kmin, Int(ceil(BigInt, Trel / v.q)))
+        k = max(kmin, Int(ceil(BigInt, Trel / v.q)))
+        # a tiny valuation (w^(1/10^8), from float exponents) would need very many terms:
+        # fewer are taken, and the precision is that of the first one left out
+        k > MAX_POLY_TERMS && (k = max(kmin, MAX_POLY_TERMS);
+                               acc = PS(acc.c, pmin(acc.prec, Prec(v * Q(k + 1)))))
+        k
     else
         vv = try value(v) catch err; err isa FreeSymbol || rethrow(); nothing end
         vv === nothing ? (acc = PS(acc.c, pmin(acc.prec, Prec(v * Q(kmin + 3)))); kmin + 2) :
@@ -379,9 +386,10 @@ end
 
 # besselk(ν, c + u), u -> 0, c > 0, by Taylor's series:
 #   K_ν^(n) = (-1/2)^n sum_j C(n, j) K_(ν-n+2j),  K_(-μ) = K_μ
-function besselkPS(a::PS, ν::Sum, P::Q)
+function besselkPS(a::PS, ν::Sum, logw::Sum, P::Q)
     isempty(a.c) && throw(NeedMorePrecision())
     sign(val(a)) < 0 && throw(GruntzError("internal error: besselk of an unbounded argument"))
+    sign(val(a)) > 0 && return besselk0PS(a, ratconst(ν)::Q, logw, P)
     c0, u = const_and_rest(a)
     nu = ratconst(ν)::Q
     function coef(n)
@@ -395,14 +403,92 @@ function besselkPS(a::PS, ν::Sum, P::Q)
     addPS(polyPS(u, coef, 1, P), constPS(mkbesselk(ν, c0)))
 end
 
+# besseli(ν, c + u), u -> 0, by Taylor's series, I_ν^(n) = (1/2)^n sum_j C(n, j) I_(ν-n+2j);
+# at c = 0, I_ν(z) = (z/2)^ν sum_k t^k / (k! Γ(ν + k + 1)), t = z^2/4
+function besseliPS(a::PS, ν::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: besseli of an unbounded argument"))
+    nu = ratconst(ν)::Q
+    if sign(val(a)) > 0
+        nu < 0 && isinteger(nu) && (nu = -nu)
+        half = scalePS(a, constS(Q(1) // 2))
+        t = scalePS(mulPS(a, a), constS(Q(1) // 4))
+        ired = polyPS(t, k -> inv(Q(factorial(big(k))) * prod((nu + j for j in 1:k); init = Q(1))), 0, P)
+        return scalePS(mulPS(powPS(half, nu, P), ired), powS(mkgamma(constS(nu + 1)), Q(-1)))
+    end
+    c0, u = const_and_rest(a)
+    function coef(n)
+        n == 0 && return Q(0)
+        d = zeroS()
+        for j in 0:n
+            d = addS(d, scaleS(mkbesseli(constS(nu - n + 2j), c0), Q(binomial(big(n), j))))
+        end
+        scaleS(d, (Q(1) // 2)^n / factorial(big(n)))
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(mkbesseli(ν, c0)))
+end
+
+# besselk(ν, z), z -> 0+ (positive valuation), with t = z^2/4 (DLMF 10.25.2, 10.27.4, 10.31.1):
+#   I_μ(z) = (z/2)^μ sum_k t^k / (k! Γ(μ + k + 1)),
+#   K_ν = π/(2 sin(νπ)) (I_(-ν) - I_ν) for ν not an integer, and for an integer n >= 0
+#   K_n(z) = 1/2 (z/2)^(-n) sum_(k<n) (n-k-1)!/k! (-t)^k + (-1)^(n+1) log(z/2) I_n(z)
+#            + (-1)^n 1/2 (z/2)^n sum_k (ψ(k+1) + ψ(n+k+1)) t^k / (k! (n+k)!),
+#   ψ(m+1) = -γ + H_m.
+function besselk0PS(z::PS, nu::Q, logw::Sum, P::Q)
+    half = scalePS(z, constS(Q(1) // 2))
+    t = scalePS(mulPS(z, z), constS(Q(1) // 4))
+    # I_μ(z) (z/2)^(-μ) Γ(μ + 1): coefficients 1/(k! (μ+1)_k)
+    function Ired(μ::Q)
+        polyPS(t, k -> inv(Q(factorial(big(k))) * prod((μ + j for j in 1:k); init = Q(1))), 0, P)
+    end
+    if !isinteger(nu)
+        I(μ) = scalePS(mulPS(powPS(half, μ, P), Ired(μ)), powS(mkgamma(constS(μ + 1)), Q(-1)))
+        k = mulS(scaleS(atomS(PI_ATOM), Q(1) // 2), powS(mksin(scaleS(atomS(PI_ATOM), nu)), Q(-1)))
+        return scalePS(addPS(I(-nu), scalePS(I(nu), negS(oneS()))), k)
+    end
+    n = Int(abs(nu))
+    sg = iseven(n) ? 1 : -1
+    hpos = n == 0 ? onePS() : powPS(half, Q(n), P)
+    In = scalePS(mulPS(hpos, Ired(Q(n))), constS(inv(Q(factorial(big(n))))))
+    acc = scalePS(mulPS(logPS(half, logw, P), In), constS(Q(-sg)))
+    H(m) = sum((Q(1) // j for j in 1:m); init = Q(0))
+    coef(k) = scaleS(addS(scaleS(EULER, Q(-2)), constS(H(k) + H(n + k))),
+                     inv(Q(factorial(big(k)) * factorial(big(n + k)))))
+    acc = addPS(acc, scalePS(mulPS(hpos, polyPS(t, coef, 0, P)), constS(Q(sg) // 2)))
+    if n > 0
+        A = polyPS(t, k -> k < n ? Q((-1)^k * factorial(big(n - k - 1))) // factorial(big(k)) : Q(0), 0, P)
+        acc = addPS(acc, scalePS(mulPS(powPS(half, Q(-n), P), A), constS(Q(1) // 2)))
+    end
+    acc
+end
+
+# gamma(c + v), v -> 0: log Γ(c + v) = log Γ(c) + sum_(k>=1) ψ^(k-1)(c) v^k / k!, and at a
+# pole c = -n, Γ(v - n) = Γ(1 + v) / (v (v - 1) ... (v - n))
+function gammaPS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: gamma of an unbounded argument"))
+    c0, v = const_and_rest(a)
+    r = ratconst(c0)
+    taylor(c) = scalePS(expPS(polyPS(v, k -> k == 0 ? Q(0) : scaleS(mkpolygamma(k - 1, c), inv(Q(factorial(big(k))))), 1, P), P),
+                        mkgamma(c))
+    (r === nothing || !isinteger(r) || r > 0) && return taylor(c0)
+    den = onePS()
+    for j in 0:Int(-r)
+        den = mulPS(den, addPS(v, constPS(constS(Q(-j)))))
+    end
+    mulPS(taylor(oneS()), powPS(den, Q(-1), P))
+end
+
 # kaux_ν(v) ~ sum_k a_k(ν) v^(-k), a_k = prod_(j=1..k) (4ν^2 - (2j-1)^2) / (k! 8^k), for
 # v -> +oo (Hankel's expansion); a finite series for a half-integer ν
-function kauxPS(a::PS, ν::Sum, P::Q)
+# iaux_ν(v) ~ sum_k (-1)^k a_k(ν) v^(-k), for besseli (`alt`)
+function kauxPS(a::PS, ν::Sum, P::Q; alt::Bool = false)
     isempty(a.c) && throw(NeedMorePrecision())
     sign(val(a)) < 0 ||
         throw(GruntzError("kaux: the argument does not tend to infinity in the expansion variable"))
     nu = ratconst(ν)::Q
-    coef(k) = prod((4nu^2 - Q(2j - 1)^2 for j in 1:k); init = Q(1)) / (factorial(big(k)) * Q(8)^k)
+    coef(k) = Q(alt && isodd(k) ? -1 : 1) *
+              prod((4nu^2 - Q(2j - 1)^2 for j in 1:k); init = Q(1)) / (factorial(big(k)) * Q(8)^k)
     polyPS(powPS(a, Q(-1), P), coef, 0, P)
 end
 
@@ -509,11 +595,14 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :erfs ? erfsPS(arg, P) :
     h === :lgrem ? lgremPS(arg, P) :
     h === :lambertw ? lambertwPS(arg, P) :
+    h === :gamma ? gammaPS(arg, P) :
     h === :wexp ? wexpPS(arg, logw, P) :
     h in (:fsi, :gsi, :dawson, :eiaux) ? auxPS(h, arg, P) :
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
-    h === :besselk ? besselkPS(arg, a.args[2]::Sum, P) :
+    h === :besselk ? besselkPS(arg, a.args[2]::Sum, logw, P) :
     h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
+    h === :besseli ? besseliPS(arg, a.args[2]::Sum, P) :
+    h === :iaux ? kauxPS(arg, a.args[2]::Sum, P; alt = true) :
     h === :sin ? trigPS(arg, P)[1] :
     h === :cos ? trigPS(arg, P)[2] :
     h in (:abs, :sign) ? signPS(h, arg, x) :

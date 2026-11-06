@@ -155,7 +155,10 @@ function mrv_leadterm(e::Sum, x::Atom)
         ci isa Infinity && throw(GruntzError("internal error: mrv class is inconsistent"))
         cq = ratconst(ci)
         iszero(ci) && throw(GruntzError("internal error: mrv class is inconsistent"))
-        if cq === nothing      # an irrational ratio: w^(-σ ci) is a leaf of its own
+        # an irrational ratio: w^(-σ ci) is a leaf of its own; so is a rational one with a
+        # large numerator or denominator (from floats, 18.94/1.0557), as in w^g, g the gcd
+        # of the exponents (see `wgcd`), the exponents would be too large
+        if cq === nothing || max(abs(numerator(cq)), denominator(cq)) > MAX_WRATIO
             wpow[a.key] = atomS(wpowatom(scaleS(ci, Q(-σ))))
             rest[a.key] = subS(gi, mulS(g1, ci))
         else
@@ -178,7 +181,9 @@ function mrv_leadterm(e::Sum, x::Atom)
     # Expanded in w^g, g the gcd of the exponents of w, every exponent is an integer:
     # exp(-x/40) is exp(x)^(-1/40), so w = exp(-x) occurs as w^(1/40), and a series in
     # w to order P would need 40 P terms in each nested function (sinh(tanh(x/40)))
+    # (not for a tiny g, from exponents that were floats: exp(-18.94x) and exp(-1.0557x))
     g = wgcd(f)
+    g !== nothing && max(numerator(g), denominator(g)) > MAX_WRATIO && (g = nothing)
     if g !== nothing && !isone(g)
         f = subs_atoms(f, a -> a == WLEAF ? powS(wS, inv(g)) : nothing)
         logw = scaleS(logw, g)
@@ -187,6 +192,8 @@ function mrv_leadterm(e::Sum, x::Atom)
     maxP = g === nothing ? LEADTERM_MAXP : max(LEADTERM_MAXP, LEADTERM_MAXP / g)
     leadterm(f, WLEAF, logw, x; maxP)
 end
+
+const MAX_WRATIO = 10_000
 
 # The gcd of the exponents of w in s (in atoms too), or nothing when there is none, or
 # when w^r with an irrational r occurs (see `wpowatom`)
@@ -216,7 +223,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli)) ||
             return nothing
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
@@ -225,6 +232,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head in (:sinint, :cosint, :erfi) && return resolve_infinite(a.head, u, x)
         a.head === :expinti && return resolve_expinti(u, x)
         a.head === :besselk && return resolve_besselk(u, a.args[2]::Sum, x)
+        a.head === :besseli && return resolve_besseli(u, a.args[2]::Sum, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :erf && return resolve_erf(u, x)
@@ -277,13 +285,14 @@ function resolve_lambertw(u::Sum, x::Atom)
 end
 
 # gamma(u), for u -> +oo, by Stirling's formula: exp((u - 1/2) log(u) - u + log(2π)/2 +
-# lgrem(u)), lgrem having an asymptotic series in 1/u (see `lgremPS`). At other points
-# gamma is not supported, unless its argument is a constant.
+# lgrem(u)), lgrem having an asymptotic series in 1/u (see `lgremPS`). At a finite limit,
+# a pole included, by its Laurent series (see `gammaPS`); u -> -oo is not supported.
 function resolve_gamma(u::Sum, x::Atom)
     hasleaf(u, x.key) || return mkgamma(u)
     L = limitinf(u, x)
-    (L isa Infinity && signof(L) > 0) ||
-        throw(GruntzError("gamma is supported only for an argument that tends to +oo, or is constant"))
+    L isa Infinity || return mkgamma(u)
+    signof(L) > 0 ||
+        throw(GruntzError("gamma is supported only for an argument that tends to +oo or to a finite limit"))
     half = Q(1) // 2
     l2pi = mklog(scaleS(atomS(PI_ATOM), Q(2)))
     mkexp(addS(subS(mulS(subS(u, constS(half)), mklog(u)), u), addS(scaleS(l2pi, half), mklgrem(u))))
@@ -328,9 +337,26 @@ function resolve_expinti(u::Sum, x::Atom)
     mkexpinti(u)
 end
 
+# besseli(ν, u): for u -> +oo, exp(u)/sqrt(2πu) iaux(u); at a finite limit by Taylor's
+# series, or its series at 0 (see `besseliPS`). For u < 0, I_n(u) = (-1)^n I_n(-u) for an
+# integer n; otherwise it is not real (see `apply_op_c` for its complex value).
+function resolve_besseli(u::Sum, ν::Sum, x::Atom)
+    nu = ratconst(ν)::Q
+    L = hasleaf(u, x.key) ? limitinf(u, x) : u
+    s = L isa Infinity ? signof(L) : csign(L)
+    s == 0 && hasleaf(u, x.key) && (s = sgn(u, x))
+    if s < 0
+        isinteger(nu) || throw(GruntzError("besseli of a negative number is not real", :undefined))
+        return scaleS(resolve_besseli(negS(u), ν, x), Q(iseven(numerator(nu)) ? 1 : -1))
+    end
+    L isa Infinity || return mkbesseli(ν, u)
+    k = powS(mulS(scaleS(atomS(PI_ATOM), Q(2)), u), -Q(1) // 2)
+    mulS(mulS(k, mkexp(u)), mkiaux(u, ν))
+end
+
 # besselk(ν, u): for u -> +oo, sqrt(π/(2u)) exp(-u) kaux(u); at a positive finite limit by
-# Taylor's series (see `besselkPS`). Not real for u < 0; the singularity at 0 is not
-# supported.
+# Taylor's series (see `besselkPS`), and for u -> 0+ by its expansion at 0. Not real for
+# u < 0.
 function resolve_besselk(u::Sum, ν::Sum, x::Atom)
     L = hasleaf(u, x.key) ? limitinf(u, x) : u
     if L isa Infinity
@@ -339,7 +365,12 @@ function resolve_besselk(u::Sum, ν::Sum, x::Atom)
         return mulS(mulS(k, mkexp(negS(u))), mkkaux(u, ν))
     end
     s = csign(L)
-    s == 0 && throw(GruntzError("besselk at 0 is not supported"))
+    if s == 0                            # u -> 0: by the expansion at 0 (see `besselk0PS`)
+        (hasleaf(u, x.key) && sgn(u, x) > 0) ||
+            throw(GruntzError(hasleaf(u, x.key) ? "besselk of a negative number is not real" :
+                              "besselk has a singularity at 0", :undefined))
+        return mkbesselk(ν, u)
+    end
     s < 0 && throw(GruntzError("besselk of a negative number is not real", :undefined))
     mkbesselk(ν, u)
 end

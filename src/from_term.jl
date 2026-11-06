@@ -166,7 +166,7 @@ function apply_op(op, a::Vector{Sum})
     elseif n === :sqrt && na == 1
         powS(a[1], half)
     elseif n === :cbrt && na == 1
-        powS(a[1], Q(1) // 3)
+        mkcbrt(a[1])
     elseif n === :exp && na == 1
         mkexp(a[1])
     elseif n === :log && na == 1
@@ -200,6 +200,8 @@ function apply_op(op, a::Vector{Sum})
         mkexpinti(a[1])
     elseif n === :besselk && na == 2
         mkbesselk(a[1], a[2])
+    elseif n === :besseli && na == 2
+        mkbesseli(a[1], a[2])
     elseif n === :abs && na == 1
         mkabs(a[1])
     elseif n === :sign && na == 1

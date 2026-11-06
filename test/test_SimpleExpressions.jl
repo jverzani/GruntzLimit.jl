@@ -23,4 +23,9 @@ ONE, PI = one(x), π * one(x)
 
     # a complex base (SymPy #23915)
     @test gruntz_limit((1//10 + im/10)^x, x) == 0
+
+    # the real cube root (SymPy #22824), atan of a complex argument (#23760)
+    @test gruntz_limit(cbrt(x), x, -8; dir = :both) == -2
+    @test gruntz_limit((x^2 + 10x + 16)/(12 + 6cbrt(x)), x, -8; dir = :both) == -12
+    @test gruntz_limit(atan(x - im), x)() ≈ π/2
 end

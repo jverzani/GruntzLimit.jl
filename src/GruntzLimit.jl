@@ -41,11 +41,12 @@ Operations understood (given as `Function`s; `Symbol` names are accepted too):
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
 their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
 SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
-or is constant, `sinint cosint erfi` (`cosint` for a positive argument), `expinti`,
-`besselk(ν, u)` (rational ν, `u` tending to `+∞` or a positive number), `lambertw` (the
+or to a finite limit, `sinint cosint erfi`, `expinti`, `besselk(ν, u)` and
+`besseli(ν, u)` (rational ν), `lambertw` (the
 principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
 number of arguments). Complex expressions (with `im`) are split into real and imaginary
-parts, for arithmetic, `exp`, `log`, powers, `sin`, `cos` and functions written with them. A power `c^u` of a negative constant `c` is taken, where `u` tends
+parts, for arithmetic, `exp`, `log`, powers, `sin`, `cos`, `atan` and functions written with
+them; `cosint`, `besselk` and `besseli` of a negative argument take their principal values. A power `c^u` of a negative constant `c` is taken, where `u` tends
 to `±∞`, as a sequence's: `(-1)^u` oscillates. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 
