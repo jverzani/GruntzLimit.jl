@@ -856,6 +856,23 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(cbrt(x)/x), :x, 0; dir = :-) == Inf
         @test gruntz_limit(:(cbrt(x^3 + x^2) - x), :x, -Inf) == 1//3
         @test gruntz_limit(:(cbrt(-8) + 1/x), :x) == -2
+        # an argument with a nonzero limit needs no sign of a parameter: cbrt(a^2 x) at
+        # x = a is a for either sign (SymJ's L'Hôpital example)
+        @test gruntz_limit(:(cbrt(a^2*x)), :x, :a) == :a
+        @test string(gruntz_limit(:(cbrt(a^2*x)), :x, 1)) == "a ^ 2//3"
+        @test gruntz_limit(:(sign(a^2*x)), :x, 1) == 1     # a^2 > 0, a generic
+        lh = :((sqrt(2 * a^3 * x - x^4) - a * cbrt(a^2 * x)) / (a - a^(1 // 4) * x^(3 // 4)))
+        @test string(gruntz_limit(lh, :x, :a)) == "16//9 * a"
+        @test string(gruntz_limit(lh, :x, :a; signs = [])) == "16//9 * a"
+        @test gruntz_limit(lh, :x, 1) isa Expr                 # the generic value
+        # the case split ends, without a stack overflow (a sum whose cleared factors
+        # include its own base: possible_signs -> atom_sign -> possible_signs), and
+        # without splitting again under a second unsolved condition
+        cs = gruntz_cases(lh, :x, 1)
+        @test length(cs) <= 20
+        @test any(c -> string(c.second) == string(gruntz_limit(lh, :x, 1)), cs)
+        @test [join(string.(c.first), ", ") => string(c.second) for c in gruntz_cases(lh, :x, :a)] ==
+              ["a <= 0" => "undefined", "a > 0" => "16//9 * a"]
     end
 
     @testset "square roots of perfect squares" begin

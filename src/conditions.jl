@@ -128,7 +128,13 @@ function fact_ineqs(vars::Dict{String,Mono})
     for (key, m) in vars
         (length(m.fs) == 1 && isone(m.fs[1].second) && m.fs[1].first.kind === :leaf) && continue
         sg = mono_sign(m)
-        sg === nothing || push!(out, Ineq(Dict{String,BigFloat}(key => BigFloat(sg)), BigFloat(0), true))
+        if sg !== nothing
+            push!(out, Ineq(Dict{String,BigFloat}(key => BigFloat(sg)), BigFloat(0), true))
+        else
+            # factors of undecided sign with even exponents: σ m ≥ 0 (a², a² b for b > 0)
+            sg = mono_sign(Mono(filter(p -> !(isone(denominator(p.second)) && iseven(numerator(p.second))), m.fs)))
+            sg === nothing || push!(out, Ineq(Dict{String,BigFloat}(key => BigFloat(sg)), BigFloat(0), false))
+        end
     end
     out
 end
@@ -191,7 +197,19 @@ known_nonzero(s::Sum) =
 function possible_signs(s::Sum; facts::Bool = true)
     cache = CONTEXT[].sign_cache
     cache === nothing && return _possible_signs(s, facts)
-    copy(get!(() -> _possible_signs(s, facts), cache, (skey(s), facts)))
+    k = (skey(s), facts)
+    haskey(cache, k) && return copy(cache[k])
+    # a re-entrant call for s, from the signs of its factors or atoms (see `atom_sign`),
+    # finds every sign possible instead of recursing without end
+    cache[k] = [-1, 0, 1]
+    ps = try
+        _possible_signs(s, facts)
+    catch
+        delete!(cache, k)
+        rethrow()
+    end
+    cache[k] = ps
+    copy(ps)
 end
 function _possible_signs(s::Sum, facts::Bool)
     if facts

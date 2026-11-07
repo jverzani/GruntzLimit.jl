@@ -56,6 +56,9 @@ function sgn(c::Sum, x::Atom)::Int
                     break
                 end
             else
+                # an even power of a parameter is positive where it is nonzero, which
+                # outside case splitting it is taken to be (a^2 x)
+                (iseven(numerator(e)) && isone(denominator(e)) && !CONTEXT[].cases) && continue
                 s2 = csign(atomS(a))
                 s2 == 0 && throw(GruntzError("zero constant factor"))
                 if s2 < 0
@@ -223,7 +226,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma, :cbrt)) ||
             return nothing
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
@@ -238,6 +241,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
         a.head === :erf && return resolve_erf(u, x)
+        a.head === :cbrt && return subs_atoms(resolve_cbrt(u, x), res)
         sg = hasleaf(u, x.key) ? try
             sgn(u, x)
         catch err
@@ -253,6 +257,23 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :abs ? scaleS(u, Q(sg)) : constS(sg)
     end
     subs_atoms(e, res)
+end
+
+# cbrt(u), the real cube root. For u with a nonzero finite limit L, cbrt(L) (u/L)^(1/3),
+# u/L tending to 1: no sign of a parameter is needed (cbrt(a^2 x) at x = a is a, for
+# either sign of a). Otherwise (u tends to 0 or ±oo) sign(u) |u|^(1/3), whose sign and
+# abs are then resolved.
+function resolve_cbrt(u::Sum, x::Atom)
+    hasleaf(u, x.key) || return mkcbrt(u)
+    L = limitinf(u, x)
+    if L isa Sum && !isempty(L.t)
+        z = zerostate(L)
+        if z === false
+            return mulS(mkcbrt(L), powS(mulS(u, powS(L, Q(-1))), Q(1) // 3))
+        end
+        z isa NeedSign && throw(z)
+    end
+    mulS(mksign(u), powS(mkabs(u), Q(1) // 3))
 end
 
 function resolve_erf(u::Sum, x::Atom)
