@@ -357,11 +357,13 @@ end
 mkceil(s::Sum) = negS(mkfloor(negS(s)))
 mktrunc(s::Sum) = mulS(mksign(s), mkfloor(mkabs(s)))
 
-# cbrt: the real cube root, sign(u) |u|^(1/3), so cbrt(-8) = -2 (not the principal
-# (-8)^(1/3)), for an argument in x or a negative constant; a parameter is kept as u^(1/3)
+# cbrt: the real cube root, so cbrt(-8) = -2 (not the principal (-8)^(1/3)): sign(u)
+# |u|^(1/3) for a negative constant; a parameter is kept as u^(1/3) (generic). An argument
+# in x is an atom, resolved by its limit (see `resolve_cbrt`).
 function mkcbrt(s::Sum)
     third = Q(1) // 3
-    (hasleaf(s, CONTEXT[].x.key) || negconst(s)) || return powS(s, third)
+    hasleaf(s, CONTEXT[].x.key) && return atomS(funatom(:cbrt, Sum[s]))
+    negconst(s) || return powS(s, third)
     mulS(mksign(s), powS(mkabs(s), third))
 end
 
@@ -389,6 +391,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :gamma ? mkgamma(a[1]) :
     h === :lgrem ? mklgrem(a[1]) :
     h === :fracpart ? atomS(funatom(:fracpart, Sum[a[1]])) :
+    h === :cbrt ? mkcbrt(a[1]) :
     h === :lambertw ? mklambertw(a[1]) :
     h === :wexp ? mkwexp(a[1]) :
     h in (:sinint, :erfi, :dawson) ? mkodd(h, a[1]) :

@@ -68,7 +68,15 @@ function solve_cases(run, ctx::Vector{Cond}, sub::Dict{String,Sum}, x::Atom, dep
         count[] += 1
         if rel === :(==)
             if zsub === nothing
-                # not solved: the limit is computed with the condition c = 0 in the context
+                # not solved: the limit is computed with the condition c = 0 in the
+                # context; not with a second such condition, whose zero tests at each
+                # order would split again without end (a coefficient that vanishes at
+                # isolated values of a, sqrt(2a³ - 1) = a^(5/3))
+                if any(cd -> cd.rel === :(==), ctx)
+                    push!(rs, rel)
+                    push!(kids, Leaf(GruntzError("the condition could not be solved for a parameter")))
+                    continue
+                end
                 sub2, ctx2 = sub, [ctx; normcond(c, rel)]
             else
                 sub2 = with_context(() -> add_subst!(copy(sub), zsub), ctx, sub, false, x)
