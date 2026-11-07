@@ -224,6 +224,26 @@ function mkcosint(s::Sum)
 end
 mkaux(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
 
+# Clausen's function Cl₂(θ) = -∫₀^θ log|2 sin(t/2)| dt = Σ sin(kθ)/k², odd and 2π-periodic,
+# continuous on ℝ, with Cl₂(kπ) = 0. A rational multiple of π is reduced to (-π, π].
+function mkclausen2(s::Sum)
+    q = pi_multiple(s)
+    if q !== nothing
+        q = q - 2 * floor((q + 1) // 2)              # in (-1, 1]
+        isinteger(q) && return zeroS()
+        s = scaleS(atomS(PI_ATOM), q)
+    end
+    mkodd(:clausen2, s)
+end
+
+# q for s = q π, q rational (0 for s = 0), or nothing
+function pi_multiple(s::Sum)
+    isempty(s.t) && return Q(0)
+    length(s.t) == 1 || return nothing
+    m, c = first(s.t)
+    (length(m.fs) == 1 && m.fs[1].first == PI_ATOM && isone(m.fs[1].second)) ? c : nothing
+end
+
 # The exponential integral Ei (SpecialFunctions' expinti), singular at 0. For u -> ±oo,
 # Ei(u) = exp(u) eiaux(u), eiaux(u) ~ sum_k k!/u^(k+1) (see `resolve_piecewise`).
 function mkexpinti(s::Sum)
@@ -392,6 +412,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :lgrem ? mklgrem(a[1]) :
     h === :fracpart ? atomS(funatom(:fracpart, Sum[a[1]])) :
     h === :cbrt ? mkcbrt(a[1]) :
+    h === :clausen2 ? mkclausen2(a[1]) :
     h === :lambertw ? mklambertw(a[1]) :
     h === :wexp ? mkwexp(a[1]) :
     h in (:sinint, :erfi, :dawson) ? mkodd(h, a[1]) :

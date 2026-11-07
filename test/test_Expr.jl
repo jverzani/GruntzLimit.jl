@@ -417,6 +417,33 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test failed(:(exp(x*sin(x))), :x)
     end
 
+    @testset "Clausen's function clausen2" begin
+        # Cl₂ is continuous: its value at a finite point (SymPy #19864: ∫ log(cos x) on
+        # [0, π/2] from an antiderivative with clausen2(2x - π))
+        @test gruntz_limit(:(clausen2(x)), :x, 1) == :(clausen2(1))
+        @test gruntz_limit(:(clausen2(2x - π)), :x, :(π/2)) == 0
+        @test string(gruntz_limit(:(x*log(2) + clausen2(2x - π)/2), :x, :(π/2))) == "1//2 * π * log(2)"
+        @test gruntz_limit(:(clausen2(x)), :x, :(2π)) == 0
+        @test string(gruntz_limit(:(clausen2(π/3 + 1/x)), :x)) == "clausen2(1//3 * π)"
+        @test string(gruntz_limit(:(clausen2(a*x)), :x, 1)) == "clausen2(a)"
+        # near 2πk, θ (1 - log|θ|)
+        @test gruntz_limit(:(clausen2(x)/x), :x, 0) == Inf
+        @test gruntz_limit(:(clausen2(x)/x), :x, 0; dir = :-) == Inf
+        @test gruntz_limit(:((clausen2(x) - x)/(x*log(x))), :x, 0) == -1
+        @test gruntz_limit(:(clausen2(2π + x)/x), :x, 0) == Inf
+        # Taylor's series: Cl₂' = -log(2 sin(θ/2)), Cl₂'' = -cot(θ/2)/2
+        @test string(gruntz_limit(:((clausen2(x) - clausen2(1))/(x - 1)), :x, 1)) ==
+              string(gruntz_limit(:(-log(2sin(x/2))), :x, 1))
+        v = gruntz_limit(:((clausen2(x) - clausen2(1) + log(2sin(1//2))*(x - 1))/(x - 1)^2), :x, 1)
+        @test eval(v) ≈ -cot(0.5)/4
+        # bounded and oscillating at ±∞
+        @test_throws GruntzError gruntz_limit(:(clausen2(x)), :x)
+        @test gruntz_limit(:(clausen2(x)/x), :x) == 0
+        @test gruntz_limit(:(clausen2(x) - x), :x, -Inf) == Inf
+        @test GruntzLimit.clausen2(π/3) ≈ 1.0149416064096536
+        @test GruntzLimit.clausen2(7.0) ≈ GruntzLimit.clausen2(7.0 - 2π)
+    end
+
     @testset "digamma and polygamma" begin
         g = Base.MathConstants.eulergamma
         val(r) = eval(:(let γ = $g; $r end))

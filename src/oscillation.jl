@@ -70,7 +70,7 @@ function hasosc(a::Atom, x::Atom, memo::Dict{String,Bool})
         a.kind === :leaf && return false
         hasleaf(a, x.key) || return false
         any(u -> hasosc(u::Sum, x, memo), a.args) && return true
-        a.kind === :fun && a.head in (:sin, :cos) && limitinf(a.args[1]::Sum, x) isa Infinity ||
+        a.kind === :fun && a.head in (:sin, :cos, :clausen2) && limitinf(a.args[1]::Sum, x) isa Infinity ||
             a.kind === :fun && a.head === :fracpart
     end
 end
@@ -164,6 +164,8 @@ function rate_pow(r::Rated, e::Q)
     end
 end
 
+const CL2_MAX = 1.0149416064096536             # max Cl₂ = Cl₂(π/3)
+
 function rate_atom(R::OscRater, a::Atom)::Rated
     hasosc(R, a) || return Rated(atomS(a), nothing)
     get!(R.atoms, a.key) do
@@ -171,6 +173,7 @@ function rate_atom(R::OscRater, a::Atom)::Rated
         a.kind === :fun || oscfail()
         u = a.args[1]::Sum
         a.head in (:sin, :cos) && return Rated(oneS(), Iv(-1.0, 1.0, diverges(R, u)))
+        a.head === :clausen2 && return Rated(oneS(), Iv(-CL2_MAX, CL2_MAX, diverges(R, u)))   # 2π-periodic
         a.head === :fracpart && return Rated(oneS(), Iv(0.0, 1.0, false))   # u - floor(u), u -> ±oo
         a.head === :exp && return rate_exp(R, u)
         a.head === :log && return rate_log(R, u)

@@ -384,6 +384,47 @@ function expintiPS(a::PS, c0::Sum, u::PS, logw::Sum, P::Q)
     addPS(polyPS(u, coef, 1, P), constPS(mkexpinti(c0)))
 end
 
+# Cl₂(c + u), u -> 0. At c = 2πk, Cl₂(u) = u - u log|u| + Σ_(n>=1) |B_2n| / (2n (2n+1)!) u^(2n+1);
+# otherwise by Taylor's series, with Cl₂' = -log|2 sin(θ/2)| and Cl₂'' = -cot(θ/2)/2,
+# d/dθ cot(θ/2) = -(1 + cot²(θ/2))/2. An argument that tends to ±oo oscillates (bounded:
+# see `bounded_limit`).
+function clausen2PS(a::PS, logw::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError(OSC_MSG))
+    c0, u = const_and_rest(a)
+    q = pi_multiple(c0)
+    if q !== nothing && isinteger(q) && iseven(numerator(q))
+        isempty(u.c) && return PS(Dict{Ex,Sum}(), u.prec)
+        _, lc, _ = split_lead(u)
+        s = sgn(lc, CONTEXT[].x)                     # log|u|
+        poly = polyPS(u, k -> k == 1 ? Q(1) : (isodd(k) ? abs(bernoulli(k - 1)) / ((k - 1) * factorial(big(k))) : Q(0)), 1, P)
+        return addPS(poly, scalePS(mulPS(u, logPS(scalePS(u, constS(Q(s))), logw, P)), constS(Q(-1))))
+    end
+    half = scaleS(c0, Q(1) // 2)
+    sn = mksin(half)
+    C = mulS(mkcos(half), powS(sn, Q(-1)))          # cot(c/2)
+    s2 = scaleS(sn, Q(2))
+    σ = try csign(s2) catch err; err isa NeedSign || rethrow(); nothing end
+    peval(p) = foldr((ci, acc) -> addS(constS(ci), mulS(C, acc)), p; init = zeroS())
+    D = [Q[0, 1]]                                    # d^k/dθ^k cot(θ/2) as a polynomial in C
+    function coef(n)
+        n == 0 && return Q(0)
+        n == 1 && return negS(mklog(σ === nothing ? mkabs(s2) : scaleS(s2, Q(σ))))
+        while length(D) < n - 1
+            p = D[end]
+            dp = Q[(i - 1) * p[i] for i in 2:length(p)]          # p'(C)
+            r = zeros(Q, length(dp) + 2)                         # -(1 + C²)/2 p'(C)
+            for (i, c) in enumerate(dp)
+                r[i] -= c / 2
+                r[i+2] -= c / 2
+            end
+            push!(D, r)
+        end
+        scaleS(peval(D[n-1]), -inv(Q(2) * factorial(big(n))))
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(mkclausen2(c0)))
+end
+
 # besselk(ν, c + u), u -> 0, c > 0, by Taylor's series:
 #   K_ν^(n) = (-1/2)^n sum_j C(n, j) K_(ν-n+2j),  K_(-μ) = K_μ
 function besselkPS(a::PS, ν::Sum, logw::Sum, P::Q)
@@ -674,6 +715,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :wexp ? wexpPS(arg, logw, P) :
     h in (:fsi, :gsi, :dawson, :eiaux) ? auxPS(h, arg, P) :
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
+    h === :clausen2 ? clausen2PS(arg, logw, P) :
     h === :besselk ? besselkPS(arg, a.args[2]::Sum, logw, P) :
     h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
     h === :besseli ? besseliPS(arg, a.args[2]::Sum, P) :

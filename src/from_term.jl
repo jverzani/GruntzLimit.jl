@@ -198,6 +198,8 @@ function apply_op(op, a::Vector{Sum})
         mklog(mkgamma(a[1]))
     elseif n in (:sinint, :erfi, :dawson) && na == 1
         mkodd(n, a[1])
+    elseif n === :clausen2 && na == 1
+        mkclausen2(a[1])
     elseif n === :cosint && na == 1
         mkcosint(a[1])
     elseif n === :expinti && na == 1

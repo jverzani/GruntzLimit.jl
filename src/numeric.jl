@@ -67,6 +67,7 @@ function numval(a::Atom)
     a.head in keys(F64_FUNS) ? BigFloat(F64_FUNS[a.head](Float64(v))) :
     a.head === :lgrem ? SpecialFunctions.loggamma(v) - ((v - 1 / 2) * log(v) - v + log(2 * big(π)) / 2) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) : a.head === :fracpart ? v - floor(v) :
     a.head === :sign ? (abs(v) < big"1e-60" ? zero(v) : sign(v)) :   # zero as `csign` decides
+    a.head === :clausen2 ? clausen2_big(v) :
     a.head === :lambertw ? lambertw_big(v) : a.head === :wexp ? wexp_big(v) :
     a.head === :cos ? cos(v) : throw(GruntzError("cannot evaluate $(a.head)"))
 end
@@ -102,6 +103,24 @@ function numval_or_nothing(a::Atom)
         nothing
     end
 end
+
+# Cl₂(v): v reduced to (-π, π], then v - v log|v| + Σ |B_2n| / (2n (2n+1)!) v^(2n+1),
+# whose terms decrease at least like 4^(-n)
+function clausen2_big(v::BigFloat)
+    tp = 2 * big(π)
+    t = v - tp * round(v / tp)
+    iszero(t) && return t
+    s = t - t * log(abs(t))
+    t2, p = t * t, t
+    for n in 1:2000
+        p *= t2
+        term = abs(BigFloat(bernoulli(2n))) / (2n * factorial(big(2n + 1))) * p
+        s += term
+        abs(term) <= eps(BigFloat) * abs(s) && break
+    end
+    s
+end
+clausen2(t::Real) = Float64(clausen2_big(BigFloat(t)))
 
 # The principal branch of Lambert's W, for v >= -1/e, by Halley's iteration
 function lambertw_big(v::BigFloat)
