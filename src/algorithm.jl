@@ -226,7 +226,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma, :cbrt)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma, :cbrt, :li2)) ||
             return nothing
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
@@ -242,6 +242,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
         a.head === :erf && return resolve_erf(u, x)
         a.head === :cbrt && return subs_atoms(resolve_cbrt(u, x), res)
+        a.head === :li2 && return resolve_li2(u, x)
         sg = hasleaf(u, x.key) ? try
             sgn(u, x)
         catch err
@@ -274,6 +275,28 @@ function resolve_cbrt(u::Sum, x::Atom)
         z isa NeedSign && throw(z)
     end
     mulS(mksign(u), powS(mkabs(u), Q(1) // 3))
+end
+
+# li2(u): for u -> -oo, by the inversion formula -π²/6 - log(-u)²/2 - li2(1/u); for u -> 1
+# from below, where log(1 - u) is singular, by the reflection formula
+# π²/6 - log(u) log(1 - u) - li2(1 - u); for u tending to a number below 1, by Taylor's
+# series (see `li2PS`). Above 1 it is not real.
+function resolve_li2(u::Sum, x::Atom)
+    hasleaf(u, x.key) || return mkli2(u)
+    notreal() = throw(GruntzError("li2 of a number above 1 is not real", :undefined))
+    L = limitinf(u, x)
+    p2 = powS(atomS(PI_ATOM), Q(2))
+    if L isa Infinity
+        signof(L) > 0 && notreal()
+        l = mklog(negS(u))
+        return subS(negS(addS(scaleS(p2, Q(1) // 6), scaleS(mulS(l, l), Q(1) // 2))), mkli2(powS(u, Q(-1))))
+    end
+    t = subS(oneS(), u)
+    s = csign(subS(oneS(), L))
+    s < 0 && notreal()
+    s > 0 && return mkli2(u)
+    sgn(t, x) > 0 || notreal()
+    subS(subS(scaleS(p2, Q(1) // 6), mulS(mklog(u), mklog(t))), mkli2(t))
 end
 
 function resolve_erf(u::Sum, x::Atom)

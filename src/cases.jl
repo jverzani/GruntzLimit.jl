@@ -38,7 +38,7 @@ function split_target(c::Sum; zerotest::Bool = false)
         return at.kind === :leaf ? atomS(at) :
                at.kind === :base ? at.args[1]::Sum :
                at.kind === :fun && at.head === :log ? subS(at.args[1]::Sum, oneS()) :
-               at.kind === :fun && at.head in (:abs, :atan, :erf, :sign, :sinint, :erfi, :dawson) ? at.args[1]::Sum : c
+               at.kind === :fun && at.head in (:abs, :atan, :erf, :sign, :sinint, :erfi, :dawson, :li2) ? at.args[1]::Sum : c
     end
     c
 end

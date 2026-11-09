@@ -425,6 +425,32 @@ function clausen2PS(a::PS, logw::Sum, P::Q)
     addPS(polyPS(u, coef, 1, P), constPS(mkclausen2(c0)))
 end
 
+# li2(c + u), u -> 0, c < 1. At c = 0, Σ u^k/k²; otherwise by Taylor's series, from
+# li2'(c + h) = -log(d - h)/(c + h), d = 1 - c: -log(d - h) = -log(d) + Σ_(k>=1) h^k/(k d^k)
+# and 1/(c + h) = Σ_(j>=0) (-h)^j / c^(j+1). An argument that tends to 1 or -oo was
+# rewritten (see `resolve_li2`).
+function li2PS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: li2 of an unbounded argument"))
+    c0, u = const_and_rest(a)
+    isempty(c0.t) && return polyPS(u, k -> k == 0 ? Q(0) : inv(Q(k)^2), 1, P)
+    ratconst(c0) == 1 && throw(GruntzError("internal error: li2 at its branch point 1"))
+    d = subS(oneS(), c0)
+    ld, id, ic = mklog(d), powS(d, Q(-1)), powS(c0, Q(-1))
+    A(k) = k == 0 ? negS(ld) : scaleS(powS(id, Q(k)), inv(Q(k)))
+    B(j) = scaleS(powS(ic, Q(j + 1)), Q(isodd(j) ? -1 : 1))
+    G = Sum[]                                        # the Taylor coefficients of li2'
+    function coef(n)
+        n == 0 && return Q(0)
+        while length(G) < n
+            m = length(G)
+            push!(G, foldl(addS, (mulS(A(k), B(m - k)) for k in 0:m)))
+        end
+        scaleS(G[n], inv(Q(n)))
+    end
+    addPS(polyPS(u, coef, 1, P), constPS(mkli2(c0)))
+end
+
 # besselk(ν, c + u), u -> 0, c > 0, by Taylor's series:
 #   K_ν^(n) = (-1/2)^n sum_j C(n, j) K_(ν-n+2j),  K_(-μ) = K_μ
 function besselkPS(a::PS, ν::Sum, logw::Sum, P::Q)
@@ -716,6 +742,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h in (:fsi, :gsi, :dawson, :eiaux) ? auxPS(h, arg, P) :
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
     h === :clausen2 ? clausen2PS(arg, logw, P) :
+    h === :li2 ? li2PS(arg, P) :
     h === :besselk ? besselkPS(arg, a.args[2]::Sum, logw, P) :
     h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
     h === :besseli ? besseliPS(arg, a.args[2]::Sum, P) :

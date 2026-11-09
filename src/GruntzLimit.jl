@@ -41,7 +41,7 @@ Operations understood (given as `Function`s; `Symbol` names are accepted too):
 `asin acos atan asec acsc acot`, the hyperbolic `sinh cosh tanh sech csch coth` and
 their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
 SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
-or to a finite limit, `digamma trigamma polygamma(k, u)` likewise, `sinint cosint erfi`, `expinti`, `besselk(ν, u)` and
+or to a finite limit, `digamma trigamma polygamma(k, u)` likewise, `binomial` (as a ratio of gammas, a polynomial when the second argument, or the difference of the two, is an integer), `sinint cosint erfi`, `expinti`, `clausen2`, the dilogarithm `li2` (real for `u <= 1`; also `polylog(2, u)` or `li(2, u)`, with `li0`, `li1` and their two-argument forms), `besselk(ν, u)` and
 `besseli(ν, u)` (rational ν), `besselj(ν, u)` at a finite limit, `lambertw` (the
 principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
 number of arguments). Complex expressions (with `im`) are split into real and imaginary

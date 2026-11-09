@@ -87,7 +87,7 @@ end
 # ±1 or nothing. log(s) has the sign of s - 1, sign(s) that of s; abs is taken to be positive (a zero
 # argument is split off as a case of its own). erf(s) has the sign of s, erfs is positive,
 # as are lgrem, fsi and gsi (their arguments tend to +oo) and gamma of a positive number.
-# sinint, erfi and dawson have the sign of their argument.
+# sinint, erfi and dawson have the sign of their argument, as has li2 (real for u <= 1).
 function atom_sign(a::Atom)
     a.kind === :fun && a.head in (:exp, :abs, :erfs, :lgrem, :fsi, :gsi) && return 1
     if a.kind === :fun && a.head === :gamma
@@ -96,7 +96,7 @@ function atom_sign(a::Atom)
     s = a.kind === :leaf ? atomS(a) :
         a.kind === :base ? a.args[1]::Sum :
         a.kind === :fun && a.head === :log ? subS(a.args[1]::Sum, oneS()) :
-        a.kind === :fun && a.head in (:atan, :erf, :sign, :sinint, :erfi, :dawson) ? a.args[1]::Sum : nothing
+        a.kind === :fun && a.head in (:atan, :erf, :sign, :sinint, :erfi, :dawson, :li2) ? a.args[1]::Sum : nothing
     s === nothing && return nothing
     # a perfect square c p², c > 0, positive where p ≠ 0: (1 + 2M + M²)⁻¹
     if a.kind === :base && !hasvar(a)

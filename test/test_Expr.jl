@@ -444,6 +444,47 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test GruntzLimit.clausen2(7.0) ≈ GruntzLimit.clausen2(7.0 - 2π)
     end
 
+    @testset "binomial" begin
+        # SymPy #16722: binomial(n + z, n) n^(-z) -> 1/gamma(z + 1), as a gamma ratio
+        @test string(gruntz_limit(:(binomial(n + z, n)*n^(-z)), :n)) == "gamma(1 + z) ^ -1"
+        # an integer b (or a - b): a polynomial
+        @test gruntz_limit(:(binomial(n + 2, n)/n^2), :n) == 1//2
+        @test gruntz_limit(:(binomial(n, 3)/n^3), :n) == 1//6
+        @test gruntz_limit(:(binomial(n, -1)), :n) == 0
+        @test string(gruntz_limit(:(binomial(2n, n)*sqrt(n)/4^n), :n)) == "π ^ -1//2"
+        @test string(gruntz_limit(:(binomial(x, 1//2)), :x, 0)) == "2 * π ^ -1"
+    end
+
+    @testset "the dilogarithm li2" begin
+        # SymPy #17109: ∫ log(x)/(1 - x²) on (0, ∞) = -π²/4, on (0, 1) = -π²/8, from this
+        # antiderivative
+        F = :(li2(1 - x)/2 + li2(1/(x + 1))/2 + log(x + 1)^2/4)
+        @test string(gruntz_limit(F, :x)) == "-1//12 * π ^ 2"
+        @test string(gruntz_limit(F, :x, 1)) == "1//24 * π ^ 2"
+        @test string(gruntz_limit(F, :x, 0)) == "1//6 * π ^ 2"
+        # at 1 (reflection), at -∞ (inversion), and Taylor's series below 1
+        @test string(gruntz_limit(:(li2(x)), :x, 1; dir = :-)) == "1//6 * π ^ 2"
+        @test_throws GruntzError gruntz_limit(:(li2(x)), :x, 1; dir = :+)
+        @test_throws GruntzError gruntz_limit(:(li2(x)), :x, Inf)
+        @test gruntz_limit(:(li2(x)), :x, -Inf) == -Inf
+        @test gruntz_limit(:(li2(x)/log(-x)^2), :x, -Inf) == -1//2
+        @test string(gruntz_limit(:(li2(-1 + 1/x)), :x)) == "-1//12 * π ^ 2"
+        @test string(gruntz_limit(:(li2(1//2 + 1/x)), :x)) == "1//12 * π ^ 2 + -1//2 * log(2) ^ 2"
+        @test gruntz_limit(:((li2(x) - x)/x^2), :x, 0) == 1//4
+        @test string(gruntz_limit(:((li2(x) - li2(1//3))/(x - 1//3)), :x, 1//3)) == "-3 * log(2) + 3 * log(3)"
+        @test gruntz_limit(:((li2(1 - x) - pi^2/6)/(x*log(x))), :x, 0) == 1
+        @test string(gruntz_limit(:(polylog(2, x)), :x, -1)) == "-1//12 * π ^ 2"
+        @test gruntz_limit(:(polylog(1, x)/x), :x, 0) == 1
+        @test gruntz_limit(:(li1(x)/x), :x, 0) == 1
+        @test gruntz_limit(:(li0(x)*(1 - x)), :x, 1) == 1
+        @test string(gruntz_limit(:(li(2, x)), :x, 1; dir = :-)) == "1//6 * π ^ 2"
+        @test [join(string.(c.first), ", ") => string(c.second) for c in gruntz_cases(:(li2(a*x)), :x, 1)] ==
+              ["a < 1" => "li2(a)", "a >= 1" => "undefined"]
+        @test GruntzLimit.li2(-3.0) ≈ -1.9393754207667089
+        @test GruntzLimit.li2(0.9) ≈ 1.2997147230049588
+        @test GruntzLimit.li2(-0.7) ≈ -0.6051584023377052
+    end
+
     @testset "digamma and polygamma" begin
         g = Base.MathConstants.eulergamma
         val(r) = eval(:(let γ = $g; $r end))
