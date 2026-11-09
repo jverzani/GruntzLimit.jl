@@ -198,6 +198,12 @@ function apply_op(op, a::Vector{Sum})
         mklog(mkgamma(a[1]))
     elseif n in (:sinint, :erfi, :dawson) && na == 1
         mkodd(n, a[1])
+    elseif n === :binomial && na == 2
+        mkbinomial(a[1], a[2])
+    elseif n in (:li0, :li1, :li2) && na == 1         # polylogarithms Li_0, Li_1, Li_2
+        mkpolylog(n === :li0 ? 0 : n === :li1 ? 1 : 2, a[1])
+    elseif n in (:polylog, :li) && na == 2 && ratconst(a[1]) in (0, 1, 2)
+        mkpolylog(Int(ratconst(a[1])), a[2])
     elseif n === :clausen2 && na == 1
         mkclausen2(a[1])
     elseif n === :cosint && na == 1

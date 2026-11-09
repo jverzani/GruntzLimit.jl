@@ -236,6 +236,37 @@ function mkclausen2(s::Sum)
     mkodd(:clausen2, s)
 end
 
+# binomial(a, b) = gamma(a + 1)/(gamma(b + 1) gamma(a - b + 1)). When b, or a - b, is an
+# integer constant k (at most MAX_GAMMA_SHIFT), the polynomial a (a - 1)...(a - k + 1)/k!,
+# zero for k < 0.
+function mkbinomial(a::Sum, b::Sum)
+    for k in (ratconst(b), ratconst(subS(a, b)))
+        (k !== nothing && isinteger(k) && k <= MAX_GAMMA_SHIFT) || continue
+        k < 0 && return zeroS()
+        p = foldl((acc, j) -> mulS(acc, subS(a, constS(Q(j)))), 0:Int(k)-1; init = oneS())
+        return scaleS(p, inv(Q(factorial(big(Int(k))))))
+    end
+    g(s) = mkgamma(addS(s, oneS()))
+    mulS(g(a), powS(mulS(g(b), g(subS(a, b))), Q(-1)))
+end
+
+# The dilogarithm li2(u) = -∫₀^u log(1 - t)/t dt = Σ u^k/k² (SymPy's polylog(2, u)), real
+# for u <= 1. Its values at 0, ±1 and 1/2 are known.
+function mkli2(s::Sum)
+    r = ratconst(s)
+    p2 = powS(atomS(PI_ATOM), Q(2))
+    r == 0 && return zeroS()
+    r == 1 && return scaleS(p2, Q(1) // 6)
+    r == -1 && return scaleS(p2, -Q(1) // 12)
+    r == Q(1) // 2 && return subS(scaleS(p2, Q(1) // 12), scaleS(powS(mklog(constS(Q(2))), Q(2)), Q(1) // 2))
+    r !== nothing && r > 1 && throw(GruntzError("li2 of a number above 1 is not real", :undefined))
+    atomS(funatom(:li2, Sum[s]))
+end
+
+# Li_k(u) for k = 0, 1, 2: u/(1 - u), -log(1 - u), li2(u)
+mkpolylog(k::Int, u::Sum) = k == 2 ? mkli2(u) : k == 1 ? negS(mklog(subS(oneS(), u))) :
+                                     mulS(u, powS(subS(oneS(), u), Q(-1)))
+
 # q for s = q π, q rational (0 for s = 0), or nothing
 function pi_multiple(s::Sum)
     isempty(s.t) && return Q(0)
@@ -413,6 +444,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :fracpart ? atomS(funatom(:fracpart, Sum[a[1]])) :
     h === :cbrt ? mkcbrt(a[1]) :
     h === :clausen2 ? mkclausen2(a[1]) :
+    h === :li2 ? mkli2(a[1]) :
     h === :lambertw ? mklambertw(a[1]) :
     h === :wexp ? mkwexp(a[1]) :
     h in (:sinint, :erfi, :dawson) ? mkodd(h, a[1]) :

@@ -67,7 +67,7 @@ function numval(a::Atom)
     a.head in keys(F64_FUNS) ? BigFloat(F64_FUNS[a.head](Float64(v))) :
     a.head === :lgrem ? SpecialFunctions.loggamma(v) - ((v - 1 / 2) * log(v) - v + log(2 * big(π)) / 2) : a.head === :abs ? abs(v) : a.head === :floor ? floor(v) : a.head === :fracpart ? v - floor(v) :
     a.head === :sign ? (abs(v) < big"1e-60" ? zero(v) : sign(v)) :   # zero as `csign` decides
-    a.head === :clausen2 ? clausen2_big(v) :
+    a.head === :clausen2 ? clausen2_big(v) : a.head === :li2 ? li2_big(v) :
     a.head === :lambertw ? lambertw_big(v) : a.head === :wexp ? wexp_big(v) :
     a.head === :cos ? cos(v) : throw(GruntzError("cannot evaluate $(a.head)"))
 end
@@ -121,6 +121,26 @@ function clausen2_big(v::BigFloat)
     s
 end
 clausen2(t::Real) = Float64(clausen2_big(BigFloat(t)))
+
+# li2(v), v <= 1: Σ v^k/k² for |v| <= 1/2, reduced to that range by the reflection
+# (1/2 < v <= 1), Landen (-1 <= v < -1/2) and inversion (v < -1) formulas
+function li2_big(v::BigFloat)
+    v > 1 && throw(DomainError(v, "li2 of a number above 1 is not real"))
+    p2 = big(π)^2
+    v == 1 && return p2 / 6
+    v < -1 && return -p2 / 6 - log(-v)^2 / 2 - li2_big(1 / v)
+    v < -0.5 && return -li2_big(v / (v - 1)) - log1p(-v)^2 / 2
+    v > 0.5 && return p2 / 6 - log(v) * log1p(-v) - li2_big(1 - v)
+    s, p = zero(v), one(v)
+    for k in 1:100_000
+        p *= v
+        term = p / k^2
+        s += term
+        abs(term) <= eps(BigFloat) * abs(s) && break
+    end
+    s
+end
+li2(t::Real) = Float64(li2_big(BigFloat(t)))
 
 # The principal branch of Lambert's W, for v >= -1/e, by Halley's iteration
 function lambertw_big(v::BigFloat)
