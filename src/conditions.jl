@@ -235,10 +235,22 @@ function _possible_signs(s::Sum, facts::Bool)
     out
 end
 
+# c times a product of exp atoms, π and powers of positive rational constants: never
+# zero, however small (exp(-x) at x = 1000 is below the numeric zero test)
+function positive_mono(s::Sum)
+    length(s.t) == 1 || return false
+    m = first(keys(s.t))
+    all(m.fs) do (a, _)
+        a === PI_ATOM || (a.kind === :fun && a.head === :exp) ||
+            (a.kind === :base && (r = ratconst(a.args[1]::Sum); r !== nothing && r > 0))
+    end
+end
+
 function csign(s::Sum)::Int
     isempty(s.t) && return 0
     r = ratconst(s)
     r !== nothing && return Int(sign(r))
+    positive_mono(s) && return Int(sign(first(values(s.t))))
     v = try
         numval(s)
     catch err
@@ -258,6 +270,7 @@ end
 # splitting into cases.
 function zerostate(s::Sum)
     isempty(s.t) && return true
+    positive_mono(s) && return false
     v = try
         numval(s)
     catch err

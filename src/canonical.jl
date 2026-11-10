@@ -142,10 +142,13 @@ function iroot(n::BigInt, k::Int)
     r^k == n ? r : nothing
 end
 
+# integer powers of a rational constant larger than this are kept as powers
+const MAX_INT_POW = 100_000
 function ratpow(c::Q, e::Q)
     if isone(denominator(e))
         n = numerator(e)
-        abs(n) > 100_000 && throw(GruntzError("exponent too large"))
+        abs(c) == 1 && return iseven(n) ? abs(c) : c        # (±1)^n, n of any size
+        abs(n) > MAX_INT_POW && throw(GruntzError("exponent too large"))
         return c^Int(n)
     end
     c < 0 && throw(GruntzError("complex power of a negative number", :undefined))
@@ -246,6 +249,11 @@ function powS(s::Sum, q::Q)
             end
         end
         k, mm = isone(denominator(q)) ? (Q(1), powMono(m, q)) : evenpow_signs(m, q)
+        if isone(denominator(q)) && abs(q) > MAX_INT_POW && !(abs(c) in (0, 1))
+            # c^n for a large n (2^x at x = 10^6) stays a power of the constant |c|
+            c < 0 && isodd(numerator(q)) && (k = -k)
+            return monoS(mulMono(mm, Mono(Pair{Atom,Q}[baseatom(constS(abs(c))) => q])), k)
+        end
         r = ratpow(c, q)
         if r === nothing
             c, q = rootreduce(c, q)

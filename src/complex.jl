@@ -259,6 +259,9 @@ function apply_op_c(op, a::Vector{CS})::CS
         l1 = clog(CS(addS(oneS(), z.im), negS(z.re)))
         l2 = clog(CS(subS(oneS(), z.im), z.re))
         cmul(CS(zeroS(), constS(half)), cadd(l1, cneg(l2)))
+    elseif n in (:erf, :erfc) && na == 1 && hasleaf(a[1].re, CONTEXT[].x.key)
+        e = cerf(a[1])
+        n === :erf ? e : cadd(CS(oneS(), zeroS()), cneg(e))
     elseif haskey(RECIPROCALS, n) && na == 1
         cinv(apply_op_c(RECIPROCALS[n], a))
     else
@@ -286,6 +289,18 @@ function carg_value(sa::Int, a::Sum, b::Sum, sb)
     s = iszero(b) ? 1 : sb()
     addS(t, scaleS(atomS(PI_ATOM), Q(s >= 0 ? 1 : -1)))   # a < 0: arg in (π/2, π] or (-π, -π/2)
 end
+# erf(z), z = u + iv with u in x, as σ (1 - exp(-z²) erfcx(σz)), σ = sign(u). erfcx of an
+# argument with a nonnegative real part is the Faddeeva function w(iσz), of modulus at
+# most 1, so its parts are bounded atoms, erfcxre and erfcxim (see `rate_atom`). For
+# u -> ±oo with v² - u² -> -oo, exp(-z²) decays and erf(z) -> σ, decided by
+# `bounded_limit`; at a finite point erfcx of a complex argument is not supported.
+function cerf(z::CS)
+    σ = mksign(z.re)
+    p, q = mulS(σ, z.re), mulS(σ, z.im)
+    E = CS(atomS(funatom(:erfcxre, Sum[p, q])), atomS(funatom(:erfcxim, Sum[p, q])))
+    cscale(cadd(CS(oneS(), zeroS()), cneg(cmul(cexp(cneg(cmul(z, z))), E))), σ)
+end
+
 function resolve_carg(a::Sum, b::Sum, x::Atom)
     sgnof(u) = iszero(u) ? 0 : hasleaf(u, x.key) ? sgn(u, x) : csign(u)
     carg_value(sgnof(a), a, b, () -> sgnof(b))

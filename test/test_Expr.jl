@@ -455,6 +455,34 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test string(gruntz_limit(:(binomial(x, 1//2)), :x, 0)) == "2 * π ^ -1"
     end
 
+    @testset "large integer exponents" begin
+        # SymPy #16222: exp(n) at a large integer stays exp(1)^n, not an exponent error
+        @test string(gruntz_limit(:(exp(x)), :x, 10^6)) == "exp(1) ^ 1000000"
+        @test string(gruntz_limit(:(x^2 + exp(x)), :x, 10^7)) == "100000000000000 + exp(1) ^ 10000000"
+        @test string(gruntz_limit(:(exp(x)/x), :x, 10^6)) == "1//1000000 * exp(1) ^ 1000000"
+        @test gruntz_limit(:(exp(x) - exp(1000000)), :x, 10^6) == 0
+        # a tiny exp(-n) is not a numeric zero
+        @test string(gruntz_limit(:(exp(-x)), :x, 1000)) == "exp(1) ^ -1000"
+        @test string(gruntz_limit(:(exp(-x)), :x, 10^6)) == "exp(1) ^ -1000000"
+        @test string(gruntz_limit(:((exp(-x) - exp(-1000))/(x - 1000)), :x, 1000)) == "-1 * exp(1) ^ -1000"
+        @test gruntz_limit(:(2^x), :x, 10^6) == big(2)^(10^6)
+    end
+
+    @testset "erf of a complex argument" begin
+        # SymPy #15486: ∫ exp(-2x²) cos(3x) over ℝ = sqrt(π/2) exp(-9/8), from the
+        # antiderivative's erf(sqrt(2) x ± 3i/(2 sqrt(2))) at ±∞
+        F = :(sqrt(2)*sqrt(pi)*exp(-9/8)*(erf(sqrt(2)*x - 3*sqrt(2)*im/4) + erf(sqrt(2)*x + 3*sqrt(2)*im/4))/8)
+        @test string(gruntz_limit(F, :x)) == "1//4 * sqrt(2) * sqrt(π) * exp(1) ^ -9//8"
+        @test string(gruntz_limit(F, :x, -Inf)) == "-1//4 * sqrt(2) * sqrt(π) * exp(1) ^ -9//8"
+        @test gruntz_limit(:(erf(x + im)), :x) == 1
+        @test gruntz_limit(:(erf(x + im)), :x, -Inf) == -1
+        @test gruntz_limit(:(erf(x + im*x/2)), :x) == 1
+        @test gruntz_limit(:(x*(erf(x + im) - 1)), :x) == 0
+        @test gruntz_limit(:(erfc(x - 3im)), :x) == 0
+        @test_throws GruntzError gruntz_limit(:(erf(x + 2im*x)), :x)     # |arg z| > π/4
+        @test_throws GruntzError gruntz_limit(:(erf(x + im)), :x, 0)
+    end
+
     @testset "the dilogarithm li2" begin
         # SymPy #17109: ∫ log(x)/(1 - x²) on (0, ∞) = -π²/4, on (0, 1) = -π²/8, from this
         # antiderivative

@@ -442,6 +442,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :gamma ? mkgamma(a[1]) :
     h === :lgrem ? mklgrem(a[1]) :
     h === :fracpart ? atomS(funatom(:fracpart, Sum[a[1]])) :
+    h in (:erfcxre, :erfcxim) ? atomS(funatom(h, a)) :
     h === :cbrt ? mkcbrt(a[1]) :
     h === :clausen2 ? mkclausen2(a[1]) :
     h === :li2 ? mkli2(a[1]) :
