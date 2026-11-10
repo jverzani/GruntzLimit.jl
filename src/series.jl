@@ -750,6 +750,8 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :jred ? jredPS(arg, a.args[2]::Sum, P) :
     h === :iaux ? kauxPS(arg, a.args[2]::Sum, P; alt = true) :
     h === :fracpart ? throw(GruntzError(OSC_MSG)) :        # bounded, decided by `bounded_limit`
+    h in (:erfcxre, :erfcxim) ? (sign(val(arg)) < 0 ? throw(GruntzError(OSC_MSG)) :
+                                 throw(GruntzError("erf of a complex argument is supported only where its real part tends to ±oo"))) :
     h === :sin ? trigPS(arg, P)[1] :
     h === :cos ? trigPS(arg, P)[2] :
     h in (:abs, :sign) ? signPS(h, arg, x) :
