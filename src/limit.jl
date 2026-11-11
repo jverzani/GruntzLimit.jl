@@ -173,7 +173,7 @@ function limit_value(f, xa::Atom, x0, dir::Symbol)
         return complex_limit(_limit(z.re, xa, x0, dir), _limit(z.im, xa, x0, dir), xa)
     end
     L isa Infinity && signof(L)
-    L
+    L isa Sum ? cancel_base_inv(L) : L
 end
 
 const BRANCH_MSGS = ("log of a negative number", "complex power of a negative number")

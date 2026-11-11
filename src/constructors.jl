@@ -532,6 +532,79 @@ end
 mkaltsign(s::Sum) = atomS(funatom(:altsign, Sum[s]))
 
 # --- substitution --------------------------------------------------------------
+# B(S)^(-1) N, N a rational multiple r S of S, is r: terms with the factor B(S)^(-1) are
+# grouped by their other factors outside the atoms of S, and a group that is r S times
+# them is replaced (L/L with L = log(5) - log(2) - log(3), in limits of products of
+# powers u^u, SymPy #13332). Atoms' arguments are simplified first.
+function cancel_base_inv(s::Sum)::Sum
+    s = subs_atoms(s, a -> a.kind === :fun ? mkfun(a.head, Sum[cancel_base_inv(u::Sum) for u in a.args]) : nothing)
+    s = merge_const_roots(s)
+    for (m, _) in s.t
+        for (b, e) in m.fs
+            (b.kind === :base && e == -1) || continue
+            S = b.args[1]::Sum
+            length(S.t) > 1 || continue
+            r = cancel_one_base(s, b, S)
+            r === nothing || return cancel_base_inv(r)
+        end
+    end
+    s
+end
+
+# In each term, powers of positive rational constants with the same denominator in their
+# exponents are combined, so that perfect powers come out: sqrt(10) sqrt(3) sqrt(5)
+# sqrt(6) = 30
+function merge_const_roots(s::Sum)::Sum
+    any(m -> count(p -> p.first.kind === :base && (r = ratconst(p.first.args[1]::Sum); r !== nothing && r > 0), m.fs) > 1, keys(s.t)) || return s
+    out = zeroS()
+    for (m, c) in s.t
+        byden = Dict{BigInt,Q}()                     # d => Π c_i^(n_i)
+        others = Pair{Atom,Q}[]
+        for (a, e) in m.fs
+            r = a.kind === :base ? ratconst(a.args[1]::Sum) : nothing
+            if r !== nothing && r > 0
+                d = denominator(e)
+                byden[d] = get(byden, d, Q(1)) * r^numerator(e)
+            else
+                push!(others, a => e)
+            end
+        end
+        term = monoS(Mono(others), c)
+        for (d, v) in byden
+            term = mulS(term, powS(constS(v), Q(1) // d))
+        end
+        out = addS(out, term)
+    end
+    out
+end
+
+function cancel_one_base(s::Sum, b::Atom, S::Sum)
+    satoms = Set(a.key for m in keys(S.t) for (a, _) in m.fs)
+    groups = Dict{Mono,Sum}()
+    rest = zeroS()
+    for (m, c) in s.t
+        if any(p -> p.first == b && p.second == -1, m.fs)
+            k = Mono(filter(p -> p.first != b && !(p.first.key in satoms), m.fs))
+            v = monoS(Mono(filter(p -> p.first.key in satoms, m.fs)), c)
+            groups[k] = addS(get(groups, k, zeroS()), v)
+        else
+            rest = addS(rest, monoS(m, c))
+        end
+    end
+    σ0, c0 = first(sort!(collect(S.t); by = p -> p.first.key))
+    changed = false
+    for (k, v) in groups
+        cv = get(v.t, σ0, nothing)
+        if cv !== nothing && skey(v) == skey(scaleS(S, cv / c0))
+            rest = addS(rest, monoS(k, cv / c0))
+            changed = true
+        else
+            rest = addS(rest, mulS(monoS(k, Q(1)), mulS(v, powS(atomS(b), Q(-1)))))
+        end
+    end
+    changed ? rest : nothing
+end
+
 function subs_atoms(s::Sum, f)::Sum
     res = zeroS()
     for (m, c) in s.t

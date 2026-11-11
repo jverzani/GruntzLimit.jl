@@ -885,14 +885,44 @@ end
 # at 256), so going further only delays the error.
 const LEADTERM_MAXP = Q(64)
 
+# Terms grouped by their factors in x or w whose constant coefficient is numerically 0
+# (a zero the simplifier does not see, such as L/L - 1 with L = log(5) - log(2) - log(3),
+# from powers u^u with like exponents, SymPy #13332) are dropped. Outside cases, and only
+# for coefficients without parameters (see `zerostate`).
+function drop_zero_groups(f::Sum, w::Atom, x::Atom)
+    CONTEXT[].cases && return f
+    length(f.t) > 1 || return f
+    var(a) = hasleaf(a, x.key) || hasleaf(a, w.key)
+    groups = Dict{Mono,Sum}()
+    for (m, c) in f.t
+        k = Mono(filter(p -> var(p.first), m.fs))
+        groups[k] = addS(get(groups, k, zeroS()), monoS(Mono(filter(p -> !var(p.first), m.fs)), c))
+    end
+    length(groups) == length(f.t) && return f      # nothing to combine
+    out = zeroS()
+    changed = false
+    for (k, g) in groups
+        if length(g.t) > 1 && zerostate(g) === true
+            changed = true
+            continue
+        end
+        out = addS(out, mulS(monoS(k, Q(1)), g))
+    end
+    changed ? out : f
+end
+
 function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom; maxP::Q = LEADTERM_MAXP)
+    f = drop_zero_groups(f, w, x)
     P = Q(4)
     while P <= maxP
         try
             ps = series(f, w, logw, P, x)
             ks = sort!(collect(keys(ps.c)))
-            i = findfirst(k -> !numzero(ps.c[k], x), ks)
-            i === nothing || return ps.c[ks[i]], ks[i]
+            for k in ks
+                c = drop_zero_groups(ps.c[k], w, x)
+                (isempty(c.t) || numzero(c, x)) && continue
+                return c, k
+            end
             # an exact series with only zero coefficients: f is 0, as under a condition
             # c = 0 not solved for a parameter (see `solve_cases`), (a^3 + a + 1) x, or
             # for a cancellation the simplifier does not see: L - L²/L, L = log(2) -
