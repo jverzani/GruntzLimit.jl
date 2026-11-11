@@ -50,6 +50,8 @@ function numval(a::Atom)
         ν, t = Float64(numval(a.args[2]::Sum)), Float64(v)
         J = BigFloat(SpecialFunctions.besselj(ν, t))
         return a.head === :besselj ? J : J / (v / 2)^BigFloat(ν)
+    elseif a.head === :uigamma
+        return BigFloat(SpecialFunctions.gamma(Float64(v), Float64(numval(a.args[2]::Sum))))
     elseif a.head in (:erfcxre, :erfcxim)
         w = SpecialFunctions.erfcx(complex(Float64(v), Float64(numval(a.args[2]::Sum))))
         return BigFloat(a.head === :erfcxre ? real(w) : imag(w))

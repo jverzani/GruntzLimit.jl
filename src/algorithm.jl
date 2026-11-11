@@ -226,8 +226,9 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma, :cbrt, :li2)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma, :cbrt, :li2, :uigamma)) ||
             return nothing
+        a.head === :uigamma && return subs_atoms(resolve_uigamma(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x), res)
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
         u = subs_atoms(a.args[1]::Sum, res)
         a.head === :altsign && return resolve_altsign(u, x)
@@ -275,6 +276,28 @@ function resolve_cbrt(u::Sum, x::Atom)
         z isa NeedSign && throw(z)
     end
     mulS(mksign(u), powS(mkabs(u), Q(1) // 3))
+end
+
+# gamma(s, z), the upper incomplete gamma function. For s -> +oo, z constant and
+# positive: gamma(s) - z^s exp(-z) igs(s, z), igs(s, z) = Σ_(k>=0) z^k/(s (s+1)...(s+k))
+# having a series in 1/s (see `igsPS`). For z -> +oo, s constant: z^(s-1) exp(-z)
+# igz(z, s), igz having the asymptotic series Σ_k (s-1)(s-2)...(s-k) z^(-k).
+function resolve_uigamma(s::Sum, z::Sum, x::Atom)
+    hs, hz = hasleaf(s, x.key), hasleaf(z, x.key)
+    (hs || hz) || return mkuigamma(s, z)
+    unsupported = GruntzError("gamma(s, z) is supported only for s -> +oo with z constant, " *
+                              "or z -> +oo with s constant")
+    (hs && hz) && throw(unsupported)
+    if hs
+        L = limitinf(s, x)
+        (L isa Infinity && signof(L) > 0) || throw(unsupported)
+        csign(z) > 0 || throw(unsupported)
+        ig = atomS(funatom(:igs, Sum[s, z]))
+        return subS(mkgamma(s), mulS(mulS(mkexp(subS(mulS(s, mklog(z)), z)), ig), oneS()))
+    end
+    L = limitinf(z, x)
+    (L isa Infinity && signof(L) > 0) || throw(unsupported)
+    mulS(mulS(mkpow(z, subS(s, oneS())), mkexp(negS(z))), atomS(funatom(:igz, Sum[z, s])))
 end
 
 # li2(u): for u -> -oo, by the inversion formula -π²/6 - log(-u)²/2 - li2(1/u); for u -> 1

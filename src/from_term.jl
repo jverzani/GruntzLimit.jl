@@ -188,6 +188,8 @@ function apply_op(op, a::Vector{Sum})
         mklambertw(a[1])
     elseif n === :gamma && na == 1
         mkgamma(a[1])
+    elseif n === :gamma && na == 2                    # the upper incomplete gamma function
+        mkuigamma(a[1], a[2])
     elseif n in (:digamma, :trigamma) && na == 1      # ψ = polygamma(0, ⋅), ψ' = polygamma(1, ⋅)
         mkpolygamma(n === :digamma ? 0 : 1, a[1])
     elseif n === :polygamma && na == 2 && (k = ratconst(a[1]); k !== nothing && isinteger(k) && k >= 0)

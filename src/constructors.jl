@@ -250,6 +250,16 @@ function mkbinomial(a::Sum, b::Sum)
     mulS(g(a), powS(mulS(g(b), g(subS(a, b))), Q(-1)))
 end
 
+# The upper incomplete gamma function gamma(s, z) = ∫_z^∞ t^(s-1) exp(-t) dt, stored as
+# funatom(:uigamma, [s, z]). gamma(s, 0) = gamma(s), gamma(1, z) = exp(-z). Its limits
+# are taken for s -> +oo with z constant, or z -> +oo with s constant (see
+# `resolve_uigamma`).
+function mkuigamma(s::Sum, z::Sum)
+    ratconst(z) == 0 && return mkgamma(s)
+    ratconst(s) == 1 && return mkexp(negS(z))
+    atomS(funatom(:uigamma, Sum[s, z]))
+end
+
 # The dilogarithm li2(u) = -∫₀^u log(1 - t)/t dt = Σ u^k/k² (SymPy's polylog(2, u)), real
 # for u <= 1. Its values at 0, ±1 and 1/2 are known.
 function mkli2(s::Sum)
@@ -442,7 +452,8 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :gamma ? mkgamma(a[1]) :
     h === :lgrem ? mklgrem(a[1]) :
     h === :fracpart ? atomS(funatom(:fracpart, Sum[a[1]])) :
-    h in (:erfcxre, :erfcxim) ? atomS(funatom(h, a)) :
+    h in (:erfcxre, :erfcxim, :oscrem, :igs, :igz) ? atomS(funatom(h, a)) :
+    h === :uigamma ? mkuigamma(a[1], a[2]) :
     h === :cbrt ? mkcbrt(a[1]) :
     h === :clausen2 ? mkclausen2(a[1]) :
     h === :li2 ? mkli2(a[1]) :

@@ -15,6 +15,15 @@ Ex(q::Integer) = Ex(Q(q))
 function Ex(q::Q, r::Sum)
     rc = ratconst(r)
     rc !== nothing && return Ex(q + rc)
+    # the rational part of r is moved to q, so that equal exponents compare equal:
+    # w^(2 - L) and w^1 w^(1 - L), L = log(3)/log(2), from 2^x (2/3)^x and (4/3)^x
+    for (m, c) in r.t
+        if isempty(m.fs)
+            q += c
+            r = subS(r, constS(c))
+            break
+        end
+    end
     Ex(q, r, skey(r))
 end
 israt(a::Ex) = a.rkey == "0"
@@ -67,7 +76,9 @@ Base.:-(p::Prec, d::Ex) = Prec([b - d for b in p.bs])
 addprec(p::Prec, q::Prec) = reduce(pmin, [Prec(b + c) for b in p.bs for c in q.bs])
 const HUGE_P = Prec(HUGE_EX)
 # exact: no bound, or only a shifted HUGE_EX (w^-1 is exact to HUGE - 1)
-isexact(p::Prec) = all(b -> iszero(b.r) && b.q > HUGE / 2, p.bs)
+# (HUGE dominates a parameter or an irrational exponent: an exact series times w^r,
+# r = log(3)/log(2), is exact)
+isexact(p::Prec) = all(b -> b.q > HUGE / 2, p.bs)
 
 struct PS
     c::Dict{Ex,Sum}   # exponent -> nonzero coefficient (an x-expression)
@@ -451,6 +462,39 @@ function li2PS(a::PS, P::Q)
     addPS(polyPS(u, coef, 1, P), constPS(mkli2(c0)))
 end
 
+# igs(s, z) = Σ_(k>=0) z^k/(s (s+1)...(s+k)), s -> +oo, z constant: with t = 1/s, the
+# term k is z^k Π_(j=0..k) t/(1 + j t), of order t^(k+1)
+function igsPS(a::PS, z::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 || throw(GruntzError("internal error: igs of a bounded argument"))
+    t = powPS(a, Q(-1), P)
+    v = val(t)
+    K = israt(v) ? Int(ceil(BigInt, P / v.q)) : 4
+    prec = israt(v) ? Prec(Ex(min(P, v.q * (K + 1)))) : Prec(v * Q(K + 1))
+    term = t
+    acc = t
+    for k in 1:K
+        r = powPS(addPS(onePS(), scalePS(t, constS(Q(k)))), Q(-1), P)
+        term = scalePS(mulPS(mulPS(term, t), r), z)
+        acc = addPS(acc, term)
+    end
+    PS(Dict{Ex,Sum}(k => c for (k, c) in acc.c if below(k, prec)), pmin(acc.prec, prec))
+end
+
+# igz(z, s) = Σ_k (s-1)(s-2)...(s-k) z^(-k), z -> +oo (asymptotic)
+function igzPS(a::PS, s::Sum, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 || throw(GruntzError("internal error: igz of a bounded argument"))
+    C = Sum[oneS()]
+    function coef(k)
+        while length(C) <= k
+            push!(C, mulS(C[end], subS(s, constS(Q(length(C))))))
+        end
+        C[k+1]
+    end
+    polyPS(powPS(a, Q(-1), P), coef, 0, P)
+end
+
 # besselk(ν, c + u), u -> 0, c > 0, by Taylor's series:
 #   K_ν^(n) = (-1/2)^n sum_j C(n, j) K_(ν-n+2j),  K_(-μ) = K_μ
 function besselkPS(a::PS, ν::Sum, logw::Sum, P::Q)
@@ -750,6 +794,10 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :jred ? jredPS(arg, a.args[2]::Sum, P) :
     h === :iaux ? kauxPS(arg, a.args[2]::Sum, P; alt = true) :
     h === :fracpart ? throw(GruntzError(OSC_MSG)) :        # bounded, decided by `bounded_limit`
+    h === :igs ? igsPS(arg, a.args[2]::Sum, P) :
+    h === :igz ? igzPS(arg, a.args[2]::Sum, P) :
+    h === :uigamma ? throw(GruntzError("internal error: gamma(s, z) not resolved")) :
+    h === :oscrem ? throw(GruntzError(OSC_MSG)) :            # bounded, see `expand_dominated`
     h in (:erfcxre, :erfcxim) ? (sign(val(arg)) < 0 ? throw(GruntzError(OSC_MSG)) :
                                  throw(GruntzError("erf of a complex argument is supported only where its real part tends to ±oo"))) :
     h === :sin ? trigPS(arg, P)[1] :
@@ -815,8 +863,14 @@ end
 # are tested, and dropped when zero
 function dropzeros(a::PS)
     if !CONTEXT[].cases
-        # outside cases only a leading p - |p| is tested (see `zerostate`)
-        isempty(a.c) || numzero(a.c[val(a)], CONTEXT[].x)
+        # outside cases a leading p - |p| is tested (see `zerostate`), and a leading
+        # constant that is numerically zero is dropped: cos(c) for a c equal to π/2 that
+        # the simplifier does not reduce (cos(4πx - x/3) at x = 3π/(24π - 2))
+        while !isempty(a.c)
+            v = val(a)
+            numzero(a.c[v], CONTEXT[].x) === true || break
+            a = PS(Dict{Ex,Sum}(k => c for (k, c) in a.c if k != v), a.prec)
+        end
         return a
     end
     ks = sort!(collect(keys(a.c)))
@@ -840,8 +894,10 @@ function leadterm(f::Sum, w::Atom, logw::Sum, x::Atom; maxP::Q = LEADTERM_MAXP)
             i = findfirst(k -> !numzero(ps.c[k], x), ks)
             i === nothing || return ps.c[ks[i]], ks[i]
             # an exact series with only zero coefficients: f is 0, as under a condition
-            # c = 0 not solved for a parameter (see `solve_cases`), (a^3 + a + 1) x
-            CONTEXT[].cases && isexact(ps.prec) && return zeroS(), EX0
+            # c = 0 not solved for a parameter (see `solve_cases`), (a^3 + a + 1) x, or
+            # for a cancellation the simplifier does not see: L - L²/L, L = log(2) -
+            # log(3)/2 from (4/3)^x, or 2^x (2/3)^x - (4/3)^x
+            isexact(ps.prec) && return zeroS(), EX0
         catch err
             err isa NeedMorePrecision || rethrow()
         end
