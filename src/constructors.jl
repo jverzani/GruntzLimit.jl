@@ -538,6 +538,7 @@ mkaltsign(s::Sum) = atomS(funatom(:altsign, Sum[s]))
 # powers u^u, SymPy #13332). Atoms' arguments are simplified first.
 function cancel_base_inv(s::Sum)::Sum
     s = subs_atoms(s, a -> a.kind === :fun ? mkfun(a.head, Sum[cancel_base_inv(u::Sum) for u in a.args]) : nothing)
+    s = merge_const_roots(s)
     for (m, _) in s.t
         for (b, e) in m.fs
             (b.kind === :base && e == -1) || continue
@@ -548,6 +549,33 @@ function cancel_base_inv(s::Sum)::Sum
         end
     end
     s
+end
+
+# In each term, powers of positive rational constants with the same denominator in their
+# exponents are combined, so that perfect powers come out: sqrt(10) sqrt(3) sqrt(5)
+# sqrt(6) = 30
+function merge_const_roots(s::Sum)::Sum
+    any(m -> count(p -> p.first.kind === :base && (r = ratconst(p.first.args[1]::Sum); r !== nothing && r > 0), m.fs) > 1, keys(s.t)) || return s
+    out = zeroS()
+    for (m, c) in s.t
+        byden = Dict{BigInt,Q}()                     # d => Π c_i^(n_i)
+        others = Pair{Atom,Q}[]
+        for (a, e) in m.fs
+            r = a.kind === :base ? ratconst(a.args[1]::Sum) : nothing
+            if r !== nothing && r > 0
+                d = denominator(e)
+                byden[d] = get(byden, d, Q(1)) * r^numerator(e)
+            else
+                push!(others, a => e)
+            end
+        end
+        term = monoS(Mono(others), c)
+        for (d, v) in byden
+            term = mulS(term, powS(constS(v), Q(1) // d))
+        end
+        out = addS(out, term)
+    end
+    out
 end
 
 function cancel_one_base(s::Sum, b::Atom, S::Sum)

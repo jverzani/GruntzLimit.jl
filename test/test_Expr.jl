@@ -536,6 +536,9 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:((5k+2)^(5k+2)/(5k)^(5k)*(6k)^(6k)/(6k+2)^(6k+2)), :k) == 25//36
         @test gruntz_limit(:((3k+1)^(3k+1)/(3k)^(3k)*(2k)^(2k)/(2k+1)^(2k+1)), :k) == 3//2
         @test gruntz_limit(:(k*((5k+2)^(5k+2)/(5k)^(5k)*(6k)^(6k)/(6k+2)^(6k+2) - 25//36)), :k) == 5//108
+        # roots of constants combine: sqrt(10) sqrt(3) sqrt(5) sqrt(6) = 30 (as SymJ splits them)
+        @test gruntz_limit(:(sqrt(10)*sqrt(3)*sqrt(5)*sqrt(6)*k/(216k)), :k) == 5//36
+        @test string(gruntz_limit(:(sqrt(2)*sqrt(3)*k/k), :k)) == "sqrt(6)"
     end
 
     @testset "the dilogarithm li2" begin
