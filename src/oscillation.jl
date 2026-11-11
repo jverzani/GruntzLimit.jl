@@ -316,8 +316,8 @@ function expand_dominated(e::Sum, x::Atom, k::Int)
             sp = split(B)
             sp === nothing && return powS(B, q)
             A, δ = sp
-            ser = foldl(addS, (scaleS(powS(δ, Q(j)), binomq(q, j)) for j in 0:k-1))
-            return mulS(powS(A, q), addS(ser, rem(δ, 2, q)))
+            taylor = foldl(addS, (scaleS(powS(δ, Q(j)), binomq(q, j)) for j in 0:k-1))
+            return mulS(powS(A, q), addS(taylor, rem(δ, 2, q)))
         end
         a.kind === :fun || return powS(atomS(a), q)
         args = Sum[tr(u::Sum) for u in a.args]
@@ -325,8 +325,8 @@ function expand_dominated(e::Sum, x::Atom, k::Int)
             sp = split(args[1])
             if sp !== nothing
                 A, δ = sp
-                ser = foldl(addS, (scaleS(powS(δ, Q(j)), Q(isodd(j) ? 1 : -1) // j) for j in 1:k-1); init = zeroS())
-                return powS(addS(mklog(A), addS(ser, rem(δ, 1, Q(1)))), q)
+                taylor = foldl(addS, (scaleS(powS(δ, Q(j)), Q(isodd(j) ? 1 : -1) // j) for j in 1:k-1); init = zeroS())
+                return powS(addS(mklog(A), addS(taylor, rem(δ, 1, Q(1)))), q)
             end
         end
         powS(mkfun(a.head, args), q)
