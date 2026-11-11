@@ -483,6 +483,52 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws GruntzError gruntz_limit(:(erf(x + im)), :x, 0)
     end
 
+    @testset "a constant that is numerically zero" begin
+        # SymPy #14411: 4πx - x/3 is π/2 at x = 3π/(24π - 2), not reduced by the simplifier
+        p = :(3π/(-2 + 24π))
+        @test gruntz_limit(:(3*sec(4π*x - x/3)), :x, p) == -Inf
+        @test gruntz_limit(:(3*sec(4π*x - x/3)), :x, p; dir = :-) == Inf
+        @test_throws GruntzError gruntz_limit(:(3*sec(4π*x - x/3)), :x, p; dir = :both)
+    end
+
+    @testset "exponentials with irrational exponent ratios" begin
+        # SymPy #14811: exp((4/3)^x (2/3 - 3/4 log 2)) -> oo
+        @test gruntz_limit(:((1 + (2//3)^(x + 1))^(2^x) / 2^((4//3)^(x - 1))), :x) == Inf
+        @test gruntz_limit(:((1 + (2//3)^(x + 1))^(2^x) / 2^((4//3)^(x - 1)) * exp(-(4//3)^x)), :x) == 0
+        @test gruntz_limit(:((1 + (2//3)^(x + 1))^(2^x) / 2^((4//3)^(x - 1)) * exp(-(4//3)^x/10)), :x) == Inf
+        # equal powers of w written differently cancel (this gave Inf)
+        @test gruntz_limit(:(2^x*log(1 + (2//3)^(x + 1)) - (2//3)*(4//3)^x), :x) == 0
+        @test gruntz_limit(:(2^x*(2//3)^x - (4//3)^x), :x) == 0
+        @test gruntz_limit(:(2^x*(2//3)^x*x - (4//3)^x*x + 1), :x) == 1
+        @test gruntz_limit(:((4//3)^x*(1 - log(2))), :x) == Inf
+        @test gruntz_limit(:(3^x*(4//3)^x - 4^x - 2^x), :x) == -Inf
+    end
+
+    @testset "dominated oscillating terms under powers and logs" begin
+        # SymPy #14503 and #14298
+        @test gruntz_limit(:(x - sqrt(x^2 + sin(x))), :x) == 0
+        @test gruntz_limit(:(x - sqrt(x^2 + cos(x))), :x) == 0
+        @test gruntz_limit(:((n^2 + n)*log(1 + 1/(n^2 + cos(n)))), :n) == 1
+        @test gruntz_limit(:(x^2*log(1 + 1/(x^2 + sin(x)))), :x) == 1
+        @test gruntz_limit(:(log(x + sin(x)) - log(x)), :x) == 0
+        @test gruntz_limit(:(sqrt(x + sin(x)) - sqrt(x)), :x) == 0
+        # -sin(x)/2 and sin(x) in the limit: no limit
+        @test_throws GruntzError gruntz_limit(:(x*(x - sqrt(x^2 + sin(x)))), :x)
+        @test_throws GruntzError gruntz_limit(:(x*(log(x + sin(x)) - log(x))), :x)
+    end
+
+    @testset "the upper incomplete gamma function" begin
+        # SymPy #13571
+        @test gruntz_limit(:(gamma(n, 1)/gamma(n)), :n) == 1
+        @test gruntz_limit(:((gamma(n) - gamma(n, 1))*n*exp(1)), :n) == 1
+        @test gruntz_limit(:((gamma(n) - gamma(n, 2))*n*exp(2)/2^n), :n) == 1
+        @test gruntz_limit(:(gamma(1//2, x)*exp(x)*sqrt(x)), :x) == 1
+        @test gruntz_limit(:((gamma(3, x)*exp(x) - x^2)/x), :x) == 2
+        @test gruntz_limit(:(gamma(s, x)*exp(x)*x^(1 - s)), :x) == 1
+        @test string(gruntz_limit(:(gamma(1, x)), :x, 2)) == "exp(1) ^ -2"
+        @test_throws GruntzError gruntz_limit(:(gamma(2, x)), :x, 1)
+    end
+
     @testset "the dilogarithm li2" begin
         # SymPy #17109: ∫ log(x)/(1 - x²) on (0, ∞) = -π²/4, on (0, 1) = -π²/8, from this
         # antiderivative

@@ -71,7 +71,7 @@ function hasosc(a::Atom, x::Atom, memo::Dict{String,Bool})
         hasleaf(a, x.key) || return false
         any(u -> hasosc(u::Sum, x, memo), a.args) && return true
         a.kind === :fun && a.head in (:sin, :cos, :clausen2) && limitinf(a.args[1]::Sum, x) isa Infinity ||
-            a.kind === :fun && a.head in (:fracpart, :erfcxre, :erfcxim)
+            a.kind === :fun && a.head in (:fracpart, :erfcxre, :erfcxim, :oscrem)
     end
 end
 hasosc(s::Sum, x::Atom, memo) = any(m -> any(p -> hasosc(p.first, x, memo), m.fs), keys(s.t))
@@ -176,6 +176,7 @@ function rate_atom(R::OscRater, a::Atom)::Rated
         a.head === :clausen2 && return Rated(oneS(), Iv(-CL2_MAX, CL2_MAX, diverges(R, u)))   # 2π-periodic
         a.head === :fracpart && return Rated(oneS(), Iv(0.0, 1.0, false))   # u - floor(u), u -> ±oo
         a.head in (:erfcxre, :erfcxim) && return Rated(oneS(), Iv(-1.0, 1.0, false))   # |w(z)| <= 1
+        a.head === :oscrem && (b = oscrem_bound(a); return Rated(oneS(), Iv(-b, b, false)))
         a.head === :exp && return rate_exp(R, u)
         a.head === :log && return rate_log(R, u)
         a.head === :abs && return rate_abs(R, u)
@@ -235,8 +236,105 @@ function rate_abs(R::OscRater, u::Sum)
     Rated(P, Iv(lo, hi, iv.exact))
 end
 
-# The limit of e, x -> +oo, where Gruntz's algorithm met an oscillating subexpression
+# The limit of e, x -> +oo, where Gruntz's algorithm met an oscillating subexpression.
+# When the rating fails, dominated oscillating terms under powers and logs are expanded
+# (see `expand_dominated`) and the rating is tried again.
 function bounded_limit(e::Sum, x::Atom)
+    err0 = try
+        return _bounded_limit(e, x)
+    catch err
+        (err isa GruntzError && err.msg == OSC_MSG) || rethrow()
+        err
+    end
+    for k in (2, 4)
+        e2 = expand_dominated(e, x, k)
+        skey(e2) == skey(e) && break
+        try
+            return _bounded_limit(e2, x)
+        catch err
+            (err isa GruntzError && err.msg == OSC_MSG) || rethrow()
+        end
+    end
+    throw(err0)
+end
+
+# A power or log of B = A + O, O the terms of B with an oscillating factor and δ = O/A
+# tending to 0 (sqrt(x² + sin(x)), log(1 + 1/(n² + cos(n)))), whose rating as a whole
+# loses the cancellation of A against other terms (x - sqrt(x² + sin(x))). B^q =
+# A^q (1 + δ)^q and log(B) = log(A) + log(1 + δ) are expanded to k terms, with Taylor's
+# remainder ρ δ^k, ρ a bounded atom `oscrem` (see `oscrem_bound`).
+mkoscrem(δ::Sum, kind::Int, q::Q, k::Int) =
+    atomS(funatom(:oscrem, Sum[δ, constS(Q(kind)), constS(q), constS(Q(k))]))
+
+# For |δ| <= 1/2 (eventually, as δ -> 0) and |ξ| <= |δ|: the remainder of (1 + δ)^q
+# (kind 2) is binomial(q, k) (1 + ξ)^(q - k) δ^k, its coefficient at most
+# |binomial(q, k)| max(2^(k - q), (3/2)^(q - k)); that of log(1 + δ) (kind 1) is
+# ± (1 + ξ)^(-k)/k δ^k, at most 2^k/k.
+function oscrem_bound(a::Atom)
+    kind, q, k = (ratconst(a.args[i]::Sum)::Q for i in 2:4)
+    kind == 1 && return 2.0^Float64(k) / Float64(k)
+    b = abs(Float64(prod((q - j) / (j + 1) for j in 0:Int(k)-1; init = Q(1))))
+    b * max(2.0^Float64(k - q), 1.5^Float64(q - k))
+end
+
+function expand_dominated(e::Sum, x::Atom, k::Int)
+    memo = Dict{String,Bool}()
+    osc(a) = hasosc(a, x, memo)
+    function split(B::Sum)                  # (A, δ), or nothing
+        A, O = zeroS(), zeroS()
+        for (m, c) in B.t
+            t = monoS(m, c)
+            any(p -> osc(p.first), m.fs) ? (O = addS(O, t)) : (A = addS(A, t))
+        end
+        (isempty(A.t) || isempty(O.t)) && return nothing
+        δ = mulS(O, powS(A, Q(-1)))
+        small = try
+            L = bounded_limit(δ, x)
+            L isa Sum && numzero(L, x) === true
+        catch err
+            err isa GruntzError || rethrow()
+            false
+        end
+        small ? (A, δ) : nothing
+    end
+    rem(δ, kind, q) = mulS(mkoscrem(δ, kind, q, k), powS(δ, Q(k)))
+    function tr(s::Sum)::Sum
+        res = zeroS()
+        for (m, c) in s.t
+            term = constS(c)
+            for (a, q) in m.fs
+                term = mulS(term, trpow(a, q))
+            end
+            res = addS(res, term)
+        end
+        res
+    end
+    function trpow(a::Atom, q::Q)
+        (a.kind === :leaf || !osc(a)) && return powS(atomS(a), q)
+        if a.kind === :base
+            B = tr(a.args[1]::Sum)
+            sp = split(B)
+            sp === nothing && return powS(B, q)
+            A, δ = sp
+            taylor = foldl(addS, (scaleS(powS(δ, Q(j)), binomq(q, j)) for j in 0:k-1))
+            return mulS(powS(A, q), addS(taylor, rem(δ, 2, q)))
+        end
+        a.kind === :fun || return powS(atomS(a), q)
+        args = Sum[tr(u::Sum) for u in a.args]
+        if a.head === :log
+            sp = split(args[1])
+            if sp !== nothing
+                A, δ = sp
+                taylor = foldl(addS, (scaleS(powS(δ, Q(j)), Q(isodd(j) ? 1 : -1) // j) for j in 1:k-1); init = zeroS())
+                return powS(addS(mklog(A), addS(taylor, rem(δ, 1, Q(1)))), q)
+            end
+        end
+        powS(mkfun(a.head, args), q)
+    end
+    tr(e)
+end
+
+function _bounded_limit(e::Sum, x::Atom)
     R = OscRater(x)
     r = rate(R, e)
     L = lim(R, r.P)
