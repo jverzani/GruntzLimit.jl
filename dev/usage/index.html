@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=8db08825">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=6eb16e30">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -392,7 +392,7 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p>hyperbolic: <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code>, <code class="md-code-inline">tanh</code>, <code class="md-code-inline">sech</code>, <code class="md-code-inline">csch</code>, <code class="md-code-inline">coth</code>;</p>
 </li>
-<li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>;</p>
+<li><p>inverse hyperbolic: <code class="md-code-inline">asinh</code>, <code class="md-code-inline">acosh</code>, <code class="md-code-inline">atanh</code>, <code class="md-code-inline">asech</code>, <code class="md-code-inline">acsch</code>, <code class="md-code-inline">acoth</code>; <code class="md-code-inline">acosh</code> and <code class="md-code-inline">asech</code> of an argument in <code class="md-code-inline">x</code> take their principal values, <code class="md-code-inline">acosh(u) = i acos(u)</code> for <code class="md-code-inline">-1 &lt; u &lt; 1</code>, so <code class="md-code-inline">asech(x)</code> tends to <code class="md-code-inline">iπ/2</code> at <code class="md-code-inline">+∞</code>;</p>
 </li>
 <li><p>the error function <code class="md-code-inline">erf</code> and <code class="md-code-inline">erfc</code>, as in SpecialFunctions.jl, and <code class="md-code-inline">erf(u, v) = erf(v) - erf(u)</code>;</p>
 </li>
@@ -409,6 +409,8 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 <li><p><code class="md-code-inline">besselj(ν, u)</code> (also <code class="md-code-inline">besselj0</code>, <code class="md-code-inline">besselj1</code>), at a finite limit: at 0 as <code class="md-code-inline">(u/2)^ν/Γ(ν + 1) (1 + O(u²))</code>, for a parameter order too (<code class="md-code-inline">besselj(7, z)/z^7</code> tends to <code class="md-code-inline">1/645120</code>), elsewhere by Taylor&#39;s series; at <code class="md-code-inline">±∞</code> it oscillates and is not supported;</p>
 </li>
 <li><p><code class="md-code-inline">besselk(ν, u)</code> and <code class="md-code-inline">besseli(ν, u)</code>, for a rational order <code class="md-code-inline">ν</code>: at <code class="md-code-inline">+∞</code> by Hankel&#39;s expansions <code class="md-code-inline">K_ν(u) = sqrt(π/(2u)) exp(-u) (1 + (4ν^2 - 1)/(8u) + …)</code> and <code class="md-code-inline">I_ν(u) = exp(u)/sqrt(2πu) (1 - (4ν^2 - 1)/(8u) + …)</code>, by their Taylor series at finite points, and at 0 by their series there (<code class="md-code-inline">K_1(u) = 1/u + …</code>, so <code class="md-code-inline">x*besselk(1, x)</code> tends to 1). For a negative argument, their principal values: <code class="md-code-inline">K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v)</code>;</p>
+</li>
+<li><p><code class="md-code-inline">airyai</code> and <code class="md-code-inline">airybi</code>, for an argument that is positive near the limit point (<code class="md-code-inline">+∞</code> included), through <code class="md-code-inline">Ai(u) = sqrt(u/3) K_{1/3}(ζ)/π</code> and <code class="md-code-inline">Bi(u) = sqrt(u/3) (I_{-1/3}(ζ) + I_{1/3}(ζ))</code>, <code class="md-code-inline">ζ = 2u^(3/2)/3</code>, so that <code class="md-code-inline">airybi(x)*x^(1//4)*exp(-2x^(3//2)/3)</code> tends to <code class="md-code-inline">1/√π</code>. Answers at finite points come back in terms of <code class="md-code-inline">besselk</code> and <code class="md-code-inline">besseli</code>. A negative argument (<code class="md-code-inline">airyai(-x)</code> at <code class="md-code-inline">+∞</code> oscillates) is not supported;</p>
 </li>
 <li><p>complex values: an expression with the imaginary unit (<code class="md-code-inline">im</code>, or a complex number) is split into its real and imaginary parts, whose limits are taken separately. Arithmetic, <code class="md-code-inline">exp</code>, <code class="md-code-inline">log</code>, powers, <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">atan</code> and the functions written with them (<code class="md-code-inline">tan</code>, <code class="md-code-inline">sinh</code>, ...), <code class="md-code-inline">abs</code>, <code class="md-code-inline">real</code>, <code class="md-code-inline">imag</code>, <code class="md-code-inline">conj</code> and <code class="md-code-inline">angle</code> are understood for complex arguments (<code class="md-code-inline">log</code> and fractional powers on their principal branch, so <code class="md-code-inline">sqrt(-1 + im*x)</code> tends to <code class="md-code-inline">im</code> from the right and to <code class="md-code-inline">-im</code> from the left); other functions only for real ones. So <code class="md-code-inline">exp(-(2 + 3im)*x)</code> tends to 0 at <code class="md-code-inline">+∞</code> and <code class="md-code-inline">sqrt(2 + im*x)</code> to <code class="md-code-inline">sqrt(2)</code> at 0. A rational answer comes back as a <code class="md-code-inline">Complex</code>. The limit point and the variable are real.</p>
 </li>
@@ -694,6 +696,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=8db08825"></script>
+  <script src="../assets/materialdocs.js?v=6eb16e30"></script>
 </body>
 </html>
