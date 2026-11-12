@@ -60,6 +60,8 @@ function numval(a::Atom)
         return BigFloat(a.head === :besseli ? SpecialFunctions.besseli(ν, t) :
                         SpecialFunctions.besselix(ν, t) * sqrt(2π * t))
     end
+    a.head === :airyai && return BigFloat(SpecialFunctions.airyai(Float64(v)))
+    a.head === :airybi && return BigFloat(SpecialFunctions.airybi(Float64(v)))
     a.head === :polygamma &&
         return BigFloat(SpecialFunctions.polygamma(Int(numval(a.args[2]::Sum)), Float64(v)))
     if a.head === :psiaux                    # ψ^(k)(v), less log(v) for k = 0

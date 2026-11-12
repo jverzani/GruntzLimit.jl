@@ -11,7 +11,8 @@ const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log =
                                   :expinti => SpecialFunctions.expinti, :besselk => SpecialFunctions.besselk,
                                   :besseli => SpecialFunctions.besseli, :besselj => SpecialFunctions.besselj,
                                   :polygamma => SpecialFunctions.polygamma, :clausen2 => clausen2, :li2 => li2,
-                                  :uigamma => SpecialFunctions.gamma)
+                                  :uigamma => SpecialFunctions.gamma,
+                                  :airyai => SpecialFunctions.airyai, :airybi => SpecialFunctions.airybi)
 default_build(op, args...) = op(args...)
 
 # Build `op(args...)` for constant arguments WITHOUT evaluating it, for callable

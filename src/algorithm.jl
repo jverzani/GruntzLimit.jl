@@ -226,7 +226,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :polygamma, :cbrt, :li2, :uigamma)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :polygamma, :cbrt, :li2, :uigamma)) ||
             return nothing
         a.head === :uigamma && return subs_atoms(resolve_uigamma(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x), res)
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
@@ -238,6 +238,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :besselk && return resolve_besselk(u, a.args[2]::Sum, x)
         a.head === :besseli && return resolve_besseli(u, a.args[2]::Sum, x)
         a.head === :besselj && return resolve_besselj(u, a.args[2]::Sum, x)
+        a.head in (:airyai, :airybi) && return resolve_airy(a.head, u, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
@@ -443,6 +444,27 @@ function resolve_besseli(u::Sum, ν::Sum, x::Atom)
     L isa Infinity || return mkbesseli(ν, u)
     k = powS(mulS(scaleS(atomS(PI_ATOM), Q(2)), u), -Q(1) // 2)
     mulS(mulS(k, mkexp(u)), mkiaux(u, ν))
+end
+
+# airyai(u), airybi(u) for u positive near the limit point (u -> +oo in particular), with
+# ζ = 2/3 u^(3/2): Ai(u) = sqrt(u/3) K_(1/3)(ζ)/π and Bi(u) = sqrt(u/3) (I_(-1/3)(ζ) +
+# I_(1/3)(ζ)) (DLMF 9.6.1, 9.6.3). For u -> -oo they oscillate; there and at finite
+# points with u <= 0 they are not supported.
+function resolve_airy(h::Symbol, u::Sum, x::Atom)
+    if hasleaf(u, x.key)
+        L = limitinf(u, x)
+        pos = L isa Infinity ? signof(L) > 0 : (s = csign(L); s > 0 || (s == 0 && sgn(u, x) > 0))
+        pos || throw(GruntzError("$h is supported only for an argument that is positive near the limit point"))
+    else         # a constant: rewritten as well when positive, so that Ai(x) - Ai(1) cancels
+        s = csign(u)
+        s == 0 && isempty(u.t) &&     # Ai(0) = 3^(-2/3)/Γ(2/3), Bi(0) = 3^(-1/6)/Γ(2/3)
+            return mulS(powS(constS(Q(3)), h === :airyai ? -Q(2) // 3 : -Q(1) // 6), powS(mkgamma(constS(Q(2) // 3)), Q(-1)))
+        s > 0 || return mkairy(h, u)
+    end
+    ζ = scaleS(powS(u, Q(3) // 2), Q(2) // 3)
+    k = powS(scaleS(u, Q(1) // 3), Q(1) // 2)
+    h === :airyai && return mulS(mulS(k, powS(atomS(PI_ATOM), Q(-1))), resolve_besselk(ζ, constS(Q(1) // 3), x))
+    mulS(k, addS(resolve_besseli(ζ, constS(Q(1) // 3), x), resolve_besseli(ζ, constS(Q(-1) // 3), x)))
 end
 
 # besselk(ν, u): for u -> +oo, sqrt(π/(2u)) exp(-u) kaux(u); at a positive finite limit by

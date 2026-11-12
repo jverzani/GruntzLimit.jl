@@ -302,6 +302,10 @@ function mkbesselk(ν::Sum, s::Sum)
 end
 mkkaux(s::Sum, ν::Sum) = atomS(funatom(:kaux, Sum[s, ν]))
 
+# The Airy functions airyai and airybi (h), resolved through besselk and besseli where
+# their argument is positive (see `resolve_airy`)
+mkairy(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
+
 # The modified Bessel function besseli(ν, u), for a rational order ν, stored as besselk
 # is. I_(-n) = I_n for an integer n. For u -> +oo, I_ν(u) = exp(u)/sqrt(2πu) iaux_ν(u).
 function mkbesseli(ν::Sum, s::Sum)
@@ -469,6 +473,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :pow ? mkpow(a[1], a[2]) :
     h === :carg ? mkcarg(a[1], a[2]) :
     h === :expinti ? mkexpinti(a[1]) :
+    h in (:airyai, :airybi) ? mkairy(h, a[1]) :
     h === :eiaux ? mkaux(h, a[1]) :
     h === :besselk ? mkbesselk(a[2], a[1]) :
     h === :kaux ? mkkaux(a[1], a[2]) :
