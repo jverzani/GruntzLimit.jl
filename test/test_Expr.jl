@@ -77,7 +77,7 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
 
         # complex-valued near the limit point
         @test_throws GruntzError gruntz_limit(:(asin(x)), :x, 1; dir = :+)
-        @test_throws GruntzError gruntz_limit(:(acosh(x)), :x, 0)
+        @test eval(gruntz_limit(:(acosh(x)), :x, 0)) ≈ π/2*im   # i acos(x) on the principal branch
     end
 
     @testset "exact Expr results" begin
@@ -870,6 +870,20 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test string(gruntz_limit(:((besseli(0, x) - besseli(0, 1))/(x - 1)), :x, 1; dir = :both)) == "besseli(1, 1)"
         @test eval(gruntz_limit(:(besseli(-1//2, x)*sqrt(x)), :x, 0)) ≈ sqrt(2/π)
         @test_throws GruntzError gruntz_limit(:(besselk(a, x)), :x)
+        # airyai, airybi: through besselk and besseli for a positive argument (SymPy #10804)
+        @test eval(gruntz_limit(:(airybi(x)*x^(1//4)*exp(-2x^(3//2)/3)), :x)) ≈ 1/sqrt(π)
+        @test eval(gruntz_limit(:(airyai(x)*x^(1//4)*exp(2x^(3//2)/3)), :x)) ≈ 1/(2sqrt(π))
+        @test gruntz_limit(:(airyai(x)), :x) == 0
+        @test gruntz_limit(:(airybi(x)), :x) == Inf
+        @test gruntz_limit(:(airyai(x)/airyai(x + 1)), :x) == Inf
+        @test gruntz_limit(:(x^(5//4)*exp(2x^(3//2)/3)*airyai(x)*2*sqrt(π) - x), :x) == 0
+        SF = GruntzLimit.SpecialFunctions
+        ev(r) = eval(:(let gamma = $(SF.gamma), besselk = $(SF.besselk); $r end))
+        @test ev(gruntz_limit(:(airyai(x)), :x, 0; dir = :+)) ≈ 3^(-2/3)/SF.gamma(2/3)
+        @test ev(gruntz_limit(:((airybi(x) - airybi(0))/x), :x, 0; dir = :+)) ≈ 3^(1/6)/SF.gamma(1/3)
+        @test ev(gruntz_limit(:((airyai(x) - airyai(1))/(x - 1)), :x, 1; dir = :both)) ≈ SF.airyaiprime(1.0)
+        @test gruntz_limit(:(airyai(-1) + x), :x, 0) == :(airyai(-1))
+        @test_throws "positive near the limit point" gruntz_limit(:(airyai(-x)), :x)
     end
 
     @testset "complex values" begin
@@ -883,6 +897,14 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:((x - 5)^(1//3)), :x, -3)) ≈ 1 + sqrt(3)*im
         @test eval(gruntz_limit(:(log(x)), :x, -1)) ≈ π*im
         @test eval(gruntz_limit(:(sqrt(x - 1)), :x, 0)) ≈ im
+        # acosh(u) = i acos(u) for -1 < u < 1 (SymPy #10868)
+        @test eval(gruntz_limit(:(asech(x)), :x)) ≈ π/2*im
+        @test eval(gruntz_limit(:(acosh(x)), :x, 0; dir = :+)) ≈ π/2*im
+        @test eval(gruntz_limit(:(asech(-x)), :x)) ≈ π/2*im
+        @test eval(gruntz_limit(:(acosh(x/2)), :x, 1)) ≈ π/3*im
+        @test eval(gruntz_limit(:(log(x) + asech(x)), :x, 0; dir = :+)) ≈ log(2)
+        @test_throws "direction of the complex plane" gruntz_limit(:(log(x) + asech(x)), :x)   # oo + iπ/2
+        @test_throws "direction of the complex plane" gruntz_limit(:(acosh(-x)), :x)          # oo + iπ
         # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
         @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2

@@ -253,7 +253,9 @@ The operations understood are
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
 * hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
-* inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`;
+* inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`; `acosh` and
+  `asech` of an argument in `x` take their principal values, `acosh(u) = i acos(u)` for
+  `-1 < u < 1`, so `asech(x)` tends to `iπ/2` at `+∞`;
 * the error function `erf` and `erfc`, as in SpecialFunctions.jl, and `erf(u, v) = erf(v) - erf(u)`;
 * `lambertw`, the principal branch of Lambert's W function (also written `lambertw(u, 0)`),
   for an argument that tends to `+∞` (`W(u) = log(u) - log(log(u)) + …`) or to a limit above
@@ -286,6 +288,12 @@ The operations understood are
   `I_ν(u) = exp(u)/sqrt(2πu) (1 - (4ν^2 - 1)/(8u) + …)`, by their Taylor series at finite
   points, and at 0 by their series there (`K_1(u) = 1/u + …`, so `x*besselk(1, x)` tends to 1).
   For a negative argument, their principal values: `K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v)`;
+* `airyai` and `airybi`, for an argument that is positive near the limit point (`+∞`
+  included), through `Ai(u) = sqrt(u/3) K_{1/3}(ζ)/π` and
+  `Bi(u) = sqrt(u/3) (I_{-1/3}(ζ) + I_{1/3}(ζ))`, `ζ = 2u^(3/2)/3`, so that
+  `airybi(x)*x^(1//4)*exp(-2x^(3//2)/3)` tends to `1/√π`. Answers at finite points come back
+  in terms of `besselk` and `besseli`. A negative argument (`airyai(-x)` at `+∞` oscillates)
+  is not supported;
 * complex values: an expression with the imaginary unit (`im`, or a complex number) is split
   into its real and imaginary parts, whose limits are taken separately. Arithmetic, `exp`,
   `log`, powers, `sin`, `cos`, `atan` and the functions written with them (`tan`, `sinh`, ...),

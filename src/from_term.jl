@@ -214,6 +214,8 @@ function apply_op(op, a::Vector{Sum})
         mkexpinti(a[1])
     elseif n === :besselk && na == 2
         mkbesselk(a[1], a[2])
+    elseif n in (:airyai, :airybi) && na == 1
+        mkairy(n, a[1])
     elseif n === :besseli && na == 2
         mkbesseli(a[1], a[2])
     elseif n === :besselj && na == 2

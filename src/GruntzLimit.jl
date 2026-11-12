@@ -42,11 +42,11 @@ Operations understood (given as `Function`s; `Symbol` names are accepted too):
 their inverses `asinh acosh atanh asech acsch acoth`, `erf erfc` (as defined by
 SpecialFunctions.jl), `gamma loggamma factorial` for an argument that tends to `+∞`
 or to a finite limit, `digamma trigamma polygamma(k, u)` likewise, `binomial` (as a ratio of gammas, a polynomial when the second argument, or the difference of the two, is an integer), `sinint cosint erfi`, `expinti`, `clausen2`, the dilogarithm `li2` (real for `u <= 1`; also `polylog(2, u)` or `li(2, u)`, with `li0`, `li1` and their two-argument forms), `besselk(ν, u)` and
-`besseli(ν, u)` (rational ν), `besselj(ν, u)` at a finite limit, `lambertw` (the
+`besseli(ν, u)` (rational ν), `besselj(ν, u)` at a finite limit, `airyai airybi` of an argument that is positive near the limit point (`+∞` included), `lambertw` (the
 principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
 number of arguments). Complex expressions (with `im`) are split into real and imaginary
 parts, for arithmetic, `exp`, `log`, powers, `sin`, `cos`, `atan` and functions written with
-them; `cosint`, `besselk` and `besseli` of a negative argument take their principal values, as do `log` and fractional powers of an argument in `x` that is negative near the limit point. A power `c^u` of a negative constant `c` is taken, where `u` tends
+them; `cosint`, `besselk` and `besseli` of a negative argument take their principal values, as do `log` and fractional powers of an argument in `x` that is negative near the limit point, and `acosh asech` of an argument in `x` (`acosh(u) = i acos(u)` for `-1 < u < 1`). A power `c^u` of a negative constant `c` is taken, where `u` tends
 to `±∞`, as a sequence's: `(-1)^u` oscillates. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 

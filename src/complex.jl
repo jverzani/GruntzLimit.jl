@@ -193,6 +193,13 @@ function apply_op_c(op, a::Vector{CS})::CS
             m = powS(mkabs(u), q)
             return CS(mulS(m, mkcos(θ)), mulS(m, mksin(θ)))
         end
+        # acosh(u) = log(u + sqrt(u - 1) sqrt(u + 1)) on the principal branch, i acos(u)
+        # for -1 < u < 1 (asech(x) at oo is iπ/2); asech(u) = acosh(1/u)
+        if n in (:acosh, :asech) && na == 1
+            u = n === :asech ? powS(u, Q(-1)) : u
+            s = cmul(apply_op_c(:sqrt, [realC(subS(u, oneS()))]), apply_op_c(:sqrt, [realC(addS(u, oneS()))]))
+            return clog(cadd(realC(u), s))
+        end
     end
     # besselk and besseli of a real argument in x, on their principal branches: for v > 0,
     # K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v) and I_ν(-v) = exp(iνπ) I_ν(v) (DLMF 10.34.1-2)

@@ -182,11 +182,11 @@ const BRANCH_MSGS = ("log of a negative number", "complex power of a negative nu
 function complex_limit(re, im_, xa::Atom)
     if im_ isa Sum && numzero(im_, xa)
         re isa Infinity && signof(re)
-        return re
+        return re isa Sum ? cancel_base_inv(re) : re
     end
     (re isa Infinity || im_ isa Infinity) &&
         throw(GruntzError("the limit is infinite, in a direction of the complex plane"))
-    addS(re, mulS(atomS(IM_ATOM), im_))
+    cancel_base_inv(addS(re, mulS(atomS(IM_ATOM), im_)))
 end
 
 function user_value(bd::Builder, L)
