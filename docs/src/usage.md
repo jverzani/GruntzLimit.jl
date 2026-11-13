@@ -288,12 +288,16 @@ The operations understood are
   `I_ν(u) = exp(u)/sqrt(2πu) (1 - (4ν^2 - 1)/(8u) + …)`, by their Taylor series at finite
   points, and at 0 by their series there (`K_1(u) = 1/u + …`, so `x*besselk(1, x)` tends to 1).
   For a negative argument, their principal values: `K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v)`;
-* `airyai` and `airybi`, for an argument that is positive near the limit point (`+∞`
-  included), through `Ai(u) = sqrt(u/3) K_{1/3}(ζ)/π` and
-  `Bi(u) = sqrt(u/3) (I_{-1/3}(ζ) + I_{1/3}(ζ))`, `ζ = 2u^(3/2)/3`, so that
+* `airyai`, `airybi`, `airyaiprime` and `airybiprime`, for an argument that is positive near
+  the limit point (`+∞` included), through `Ai(u) = sqrt(u/3) K_{1/3}(ζ)/π`,
+  `Bi(u) = sqrt(u/3) (I_{-1/3}(ζ) + I_{1/3}(ζ))`, `Ai'(u) = -u K_{2/3}(ζ)/(π√3)` and
+  `Bi'(u) = u/√3 (I_{-2/3}(ζ) + I_{2/3}(ζ))`, `ζ = 2u^(3/2)/3`, so that
   `airybi(x)*x^(1//4)*exp(-2x^(3//2)/3)` tends to `1/√π`. Answers at finite points come back
-  in terms of `besselk` and `besseli`. A negative argument (`airyai(-x)` at `+∞` oscillates)
-  is not supported;
+  in terms of `besselk` and `besseli`, whose orders for a constant argument are brought into
+  `[-1, 1]` by the recurrences. For an argument that tends to `-∞` they oscillate, as
+  `Ai(-v) ~ sin(ζ + π/4)/(√π v^(1/4))`: `airyai(-x)` tends to 0 and `x^(1//4)*airyai(-x)`
+  has no limit. Other arguments that are not positive near the limit point are not
+  supported;
 * complex values: an expression with the imaginary unit (`im`, or a complex number) is split
   into its real and imaginary parts, whose limits are taken separately. Arithmetic, `exp`,
   `log`, powers, `sin`, `cos`, `atan` and the functions written with them (`tan`, `sinh`, ...),

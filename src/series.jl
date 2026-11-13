@@ -303,13 +303,22 @@ end
 # The auxiliary functions of sinint and cosint, and dawson, for v -> +oo as w -> 0:
 #   fsi(v) ~ sum_k (-1)^k (2k)! v^(-2k-1),  gsi(v) ~ sum_k (-1)^k (2k+1)! v^(-2k-2),
 #   dawson(v) ~ sum_k (2k-1)!! / 2^(k+1) v^(-2k-1),  eiaux(v) ~ sum_k k! v^(-k-1) (also for
-#   v -> -oo),
+#   v -> -oo), and airyp, airyq, airyr, airys (see `resolve_airy`),
 # asymptotic series truncated as erfs's is.
+# u_k = (6k)!/(864^k (3k)! (2k)!), v_k = -(6k + 1)/(6k - 1) u_k (DLMF 9.7.2)
+airy_u(k::Int) = Q(factorial(big(6k)) // (big(864)^k * factorial(big(3k)) * factorial(big(2k))))
+airy_v(k::Int) = k == 0 ? Q(1) : -Q(6k + 1, 6k - 1) * airy_u(k)
 function auxPS(h::Symbol, a::PS, P::Q)
     isempty(a.c) && throw(NeedMorePrecision())
     sign(val(a)) < 0 ||
         throw(GruntzError("$h: the argument does not tend to infinity in the expansion variable"))
     function coef(j)
+        if h in (:airyp, :airyq, :airyr, :airys)    # P, Q: even, odd terms of sum (-1)^k u_k ζ^-k
+            even = h in (:airyp, :airyr)            # R, S: the same with v_k
+            (iseven(j) == even) || return Q(0)
+            k = j ÷ 2
+            return Q((-1)^k) * (h in (:airyp, :airyq) ? airy_u(j) : airy_v(j))
+        end
         if h === :gsi
             (j < 2 || isodd(j)) && return Q(0)
             k = (j - 2) ÷ 2
@@ -321,7 +330,8 @@ function auxPS(h::Symbol, a::PS, P::Q)
         h === :fsi && return Q((-1)^k * factorial(big(2k)))
         prod(Q(2i - 1) for i in 1:k; init = Q(1)) / Q(2)^(k + 1)
     end
-    polyPS(powPS(a, Q(-1), P), coef, 1, P)
+    # the Airy functions' P and R start with 1
+    polyPS(powPS(a, Q(-1), P), coef, h in (:airyp, :airyr) ? 0 : 1, P)
 end
 
 # sinint, cosint and erfi of a bounded argument c + u, u -> 0, by Taylor's series, with
@@ -783,7 +793,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :polygamma ? polygammaPS(arg, Int(ratconst(a.args[2]::Sum)::Q), P) :
     h === :psiaux ? psiauxPS(arg, Int(ratconst(a.args[2]::Sum)::Q), P) :
     h === :wexp ? wexpPS(arg, logw, P) :
-    h in (:fsi, :gsi, :dawson, :eiaux) ? auxPS(h, arg, P) :
+    h in (:fsi, :gsi, :dawson, :eiaux, :airyp, :airyq, :airyr, :airys) ? auxPS(h, arg, P) :
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
     h === :clausen2 ? clausen2PS(arg, logw, P) :
     h === :li2 ? li2PS(arg, P) :

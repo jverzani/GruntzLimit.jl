@@ -226,7 +226,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :polygamma, :cbrt, :li2, :uigamma)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :airyaiprime, :airybiprime, :polygamma, :cbrt, :li2, :uigamma)) ||
             return nothing
         a.head === :uigamma && return subs_atoms(resolve_uigamma(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x), res)
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
@@ -238,7 +238,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :besselk && return resolve_besselk(u, a.args[2]::Sum, x)
         a.head === :besseli && return resolve_besseli(u, a.args[2]::Sum, x)
         a.head === :besselj && return resolve_besselj(u, a.args[2]::Sum, x)
-        a.head in (:airyai, :airybi) && return resolve_airy(a.head, u, x)
+        a.head in AIRY_HEADS && return resolve_airy(a.head, u, x)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
@@ -446,25 +446,52 @@ function resolve_besseli(u::Sum, ν::Sum, x::Atom)
     mulS(mulS(k, mkexp(u)), mkiaux(u, ν))
 end
 
-# airyai(u), airybi(u) for u positive near the limit point (u -> +oo in particular), with
-# ζ = 2/3 u^(3/2): Ai(u) = sqrt(u/3) K_(1/3)(ζ)/π and Bi(u) = sqrt(u/3) (I_(-1/3)(ζ) +
-# I_(1/3)(ζ)) (DLMF 9.6.1, 9.6.3). For u -> -oo they oscillate; there and at finite
-# points with u <= 0 they are not supported.
+# airyai(u), airybi(u) and their derivatives airyaiprime, airybiprime. For u positive
+# near the limit point (u -> +oo in particular), with ζ = 2/3 u^(3/2) (DLMF 9.6.1-9.6.3):
+#   Ai(u) = sqrt(u/3) K_(1/3)(ζ)/π,   Bi(u) = sqrt(u/3) (I_(-1/3)(ζ) + I_(1/3)(ζ)),
+#   Ai'(u) = -u K_(2/3)(ζ)/(π√3),     Bi'(u) = u/√3 (I_(-2/3)(ζ) + I_(2/3)(ζ)).
+# For u -> -oo, with v = -u, ζ = 2/3 v^(3/2), θ = ζ - π/4 (DLMF 9.7.9-9.7.12):
+#   Ai(u) = (cos θ P(ζ) + sin θ Q(ζ))/(√π v^(1/4)),  Bi(u) = (-sin θ P(ζ) + cos θ Q(ζ))/(√π v^(1/4)),
+#   Ai'(u) = v^(1/4) (sin θ R(ζ) - cos θ S(ζ))/√π,   Bi'(u) = v^(1/4) (cos θ R(ζ) + sin θ S(ζ))/√π,
+# P, Q, R, S (airyp, ...) having asymptotic series (see `auxPS`); the oscillation is left to
+# `bounded_limit`. At other finite points with u <= 0 they are not supported.
+const AIRY_HEADS = (:airyai, :airybi, :airyaiprime, :airybiprime)
 function resolve_airy(h::Symbol, u::Sum, x::Atom)
+    prime = h in (:airyaiprime, :airybiprime)
+    isai = h in (:airyai, :airyaiprime)
     if hasleaf(u, x.key)
         L = limitinf(u, x)
-        pos = L isa Infinity ? signof(L) > 0 : (s = csign(L); s > 0 || (s == 0 && sgn(u, x) > 0))
-        pos || throw(GruntzError("$h is supported only for an argument that is positive near the limit point"))
+        if L isa Infinity && signof(L) < 0
+            v = negS(u)
+            ζ = scaleS(powS(v, Q(3) // 2), Q(2) // 3)
+            θ = subS(ζ, scaleS(atomS(PI_ATOM), Q(1) // 4))
+            c, s = mkcos(θ), mksin(θ)
+            k = mulS(powS(atomS(PI_ATOM), -Q(1) // 2), powS(v, Q(prime ? 1 : -1) // 4))
+            if prime
+                R, S = mkaux(:airyr, ζ), mkaux(:airys, ζ)
+                return mulS(k, isai ? subS(mulS(s, R), mulS(c, S)) : addS(mulS(c, R), mulS(s, S)))
+            end
+            P, Qa = mkaux(:airyp, ζ), mkaux(:airyq, ζ)
+            return mulS(k, isai ? addS(mulS(c, P), mulS(s, Qa)) : subS(mulS(c, Qa), mulS(s, P)))
+        end
+        pos = L isa Infinity ? true : (s = csign(L); s > 0 || (s == 0 && sgn(u, x) > 0))
+        pos || throw(GruntzError("$h is supported only for an argument that is positive near the limit point, or tends to ±oo"))
     else         # a constant: rewritten as well when positive, so that Ai(x) - Ai(1) cancels
         s = csign(u)
-        s == 0 && isempty(u.t) &&     # Ai(0) = 3^(-2/3)/Γ(2/3), Bi(0) = 3^(-1/6)/Γ(2/3)
-            return mulS(powS(constS(Q(3)), h === :airyai ? -Q(2) // 3 : -Q(1) // 6), powS(mkgamma(constS(Q(2) // 3)), Q(-1)))
+        if s == 0 && isempty(u.t)     # Ai(0) = 3^(-2/3)/Γ(2/3), Bi(0) = 3^(-1/6)/Γ(2/3),
+            # Ai'(0) = -3^(-1/3)/Γ(1/3), Bi'(0) = 3^(1/6)/Γ(1/3)
+            e, g, sg = h === :airyai ? (-Q(2) // 3, Q(2) // 3, 1) : h === :airybi ? (-Q(1) // 6, Q(2) // 3, 1) :
+                       h === :airyaiprime ? (-Q(1) // 3, Q(1) // 3, -1) : (Q(1) // 6, Q(1) // 3, 1)
+            return scaleS(mulS(powS(constS(Q(3)), e), powS(mkgamma(constS(g)), Q(-1))), Q(sg))
+        end
         s > 0 || return mkairy(h, u)
     end
     ζ = scaleS(powS(u, Q(3) // 2), Q(2) // 3)
-    k = powS(scaleS(u, Q(1) // 3), Q(1) // 2)
-    h === :airyai && return mulS(mulS(k, powS(atomS(PI_ATOM), Q(-1))), resolve_besselk(ζ, constS(Q(1) // 3), x))
-    mulS(k, addS(resolve_besseli(ζ, constS(Q(1) // 3), x), resolve_besseli(ζ, constS(Q(-1) // 3), x)))
+    ν = constS(prime ? Q(2) // 3 : Q(1) // 3)
+    k = prime ? scaleS(mulS(u, powS(constS(Q(3)), -Q(1) // 2)), Q(isai ? -1 : 1)) :
+                powS(scaleS(u, Q(1) // 3), Q(1) // 2)
+    isai && return mulS(mulS(k, powS(atomS(PI_ATOM), Q(-1))), resolve_besselk(ζ, ν, x))
+    mulS(k, addS(resolve_besseli(ζ, ν, x), resolve_besseli(ζ, negS(ν), x)))
 end
 
 # besselk(ν, u): for u -> +oo, sqrt(π/(2u)) exp(-u) kaux(u); at a positive finite limit by

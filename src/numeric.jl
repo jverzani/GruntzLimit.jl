@@ -35,6 +35,20 @@ const F64_FUNS = Dict{Symbol,Function}(:sinint => SpecialFunctions.sinint, :cosi
                                        :fsi => fsi, :gsi => gsi, :expinti => SpecialFunctions.expinti,
                                        :eiaux => t -> exp(-t) * SpecialFunctions.expinti(t))
 
+const AIRY_FUNS = Dict(:airyai => SpecialFunctions.airyai, :airybi => SpecialFunctions.airybi,
+                       :airyaiprime => SpecialFunctions.airyaiprime, :airybiprime => SpecialFunctions.airybiprime)
+# the auxiliary functions of the Airy functions at -oo (see `resolve_airy`), at ζ = 2/3 v^(3/2)
+function airyaux(h::Symbol, ζ::Float64)
+    v = (3ζ / 2)^(2 / 3)
+    s, c = sincos(ζ - π / 4)
+    if h in (:airyp, :airyq)
+        ai, bi, k = SpecialFunctions.airyai(-v), SpecialFunctions.airybi(-v), sqrt(π) * v^(1 / 4)
+        return h === :airyp ? k * (ai * c - bi * s) : k * (ai * s + bi * c)
+    end
+    ai, bi, k = SpecialFunctions.airyaiprime(-v), SpecialFunctions.airybiprime(-v), sqrt(π) / v^(1 / 4)
+    h === :airyr ? k * (ai * s + bi * c) : k * (bi * s - ai * c)
+end
+
 function numval(a::Atom)
     if a.kind === :leaf
         return leaf_big(a.head)
@@ -60,8 +74,8 @@ function numval(a::Atom)
         return BigFloat(a.head === :besseli ? SpecialFunctions.besseli(ν, t) :
                         SpecialFunctions.besselix(ν, t) * sqrt(2π * t))
     end
-    a.head === :airyai && return BigFloat(SpecialFunctions.airyai(Float64(v)))
-    a.head === :airybi && return BigFloat(SpecialFunctions.airybi(Float64(v)))
+    a.head in keys(AIRY_FUNS) && return BigFloat(AIRY_FUNS[a.head](Float64(v)))
+    a.head in (:airyp, :airyq, :airyr, :airys) && return BigFloat(airyaux(a.head, Float64(v)))
     a.head === :polygamma &&
         return BigFloat(SpecialFunctions.polygamma(Int(numval(a.args[2]::Sum)), Float64(v)))
     if a.head === :psiaux                    # ψ^(k)(v), less log(v) for k = 0
