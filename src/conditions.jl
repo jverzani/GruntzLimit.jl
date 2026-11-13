@@ -89,7 +89,7 @@ end
 # as are lgrem, fsi and gsi (their arguments tend to +oo) and gamma of a positive number.
 # sinint, erfi and dawson have the sign of their argument, as has li2 (real for u <= 1).
 function atom_sign(a::Atom)
-    a.kind === :fun && a.head in (:exp, :abs, :erfs, :lgrem, :fsi, :gsi) && return 1
+    a.kind === :fun && a.head in (:exp, :abs, :erfs, :lgrem, :fsi, :gsi, :airyp, :airyr) && return 1
     if a.kind === :fun && a.head === :gamma
         return possible_signs(a.args[1]::Sum; facts = false) == [1] ? 1 : nothing
     end

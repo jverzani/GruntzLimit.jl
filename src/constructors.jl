@@ -298,11 +298,19 @@ end
 function mkbesselk(ν::Sum, s::Sum)
     r = ratconst(ν)
     r === nothing && throw(GruntzError("besselk is supported only for a rational order"))
-    atomS(funatom(:besselk, Sum[s, constS(abs(r))]))
+    r = abs(r)
+    if r > 1 && bessel_const_arg(s)  # K_r = K_(r-2) + 2(r - 1)/s K_(r-1), to orders in [0, 1]
+        return addS(mkbesselk(constS(r - 2), s), mulS(scaleS(powS(s, Q(-1)), 2 * (r - 1)), mkbesselk(constS(r - 1), s)))
+    end
+    atomS(funatom(:besselk, Sum[s, constS(r)]))
 end
+# A Bessel function of an argument free of x (and of the expansion variable) is written with
+# orders in [-1, 1] by the recurrences, so that the constants Taylor's series produces
+# (K_(ν±n)(c)) cancel: K_(4/3)(c) = K_(2/3)(c) + 2/(3c) K_(1/3)(c)
+bessel_const_arg(s::Sum) = !hasleaf(s, CONTEXT[].x.key) && !hasleaf(s, WLEAF.key)
 mkkaux(s::Sum, ν::Sum) = atomS(funatom(:kaux, Sum[s, ν]))
 
-# The Airy functions airyai and airybi (h), resolved through besselk and besseli where
+# The Airy functions airyai and airybi and their derivatives (h), resolved through besselk and besseli where
 # their argument is positive (see `resolve_airy`)
 mkairy(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
 
@@ -311,7 +319,12 @@ mkairy(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
 function mkbesseli(ν::Sum, s::Sum)
     r = ratconst(ν)
     r === nothing && throw(GruntzError("besseli is supported only for a rational order"))
-    atomS(funatom(:besseli, Sum[s, constS(isinteger(r) ? abs(r) : r)]))
+    isinteger(r) && (r = abs(r))
+    if abs(r) > 1 && bessel_const_arg(s)   # I_r = I_(r∓2) ∓ 2(r ∓ 1)/s I_(r∓1)
+        σ = r > 0 ? 1 : -1
+        return subS(mkbesseli(constS(r - 2σ), s), mulS(scaleS(powS(s, Q(-1)), 2σ * (r - σ)), mkbesseli(constS(r - σ), s)))
+    end
+    atomS(funatom(:besseli, Sum[s, constS(r)]))
 end
 mkiaux(s::Sum, ν::Sum) = atomS(funatom(:iaux, Sum[s, ν]))
 # besselj(ν, s), stored with the argument first; J_(-n) = (-1)^n J_n for an integer
@@ -473,7 +486,8 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :pow ? mkpow(a[1], a[2]) :
     h === :carg ? mkcarg(a[1], a[2]) :
     h === :expinti ? mkexpinti(a[1]) :
-    h in (:airyai, :airybi) ? mkairy(h, a[1]) :
+    h in (:airyai, :airybi, :airyaiprime, :airybiprime) ? mkairy(h, a[1]) :
+    h in (:airyp, :airyq, :airyr, :airys) ? mkaux(h, a[1]) :
     h === :eiaux ? mkaux(h, a[1]) :
     h === :besselk ? mkbesselk(a[2], a[1]) :
     h === :kaux ? mkkaux(a[1], a[2]) :

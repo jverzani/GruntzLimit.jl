@@ -883,7 +883,25 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test ev(gruntz_limit(:((airybi(x) - airybi(0))/x), :x, 0; dir = :+)) ≈ 3^(1/6)/SF.gamma(1/3)
         @test ev(gruntz_limit(:((airyai(x) - airyai(1))/(x - 1)), :x, 1; dir = :both)) ≈ SF.airyaiprime(1.0)
         @test gruntz_limit(:(airyai(-1) + x), :x, 0) == :(airyai(-1))
-        @test_throws "positive near the limit point" gruntz_limit(:(airyai(-x)), :x)
+        @test_throws "positive near the limit point" gruntz_limit(:(airyai(x)), :x, -1)
+        # at -oo, (cos θ P(ζ) + sin θ Q(ζ))/(√π v^(1/4)), θ = ζ - π/4, ζ = 2/3 v^(3/2), v = -u
+        @test gruntz_limit(:(airyai(-x)), :x) == 0
+        @test gruntz_limit(:(airybi(x)), :x, -Inf) == 0
+        @test gruntz_limit(:(airybi(-x^2)/x), :x) == 0
+        @test_throws "oscillates" gruntz_limit(:(x^(1//4)*airyai(-x)), :x)
+        @test_throws "oscillates" gruntz_limit(:(x^(1//4)*airybi(-x)), :x)
+        @test_throws "oscillates" gruntz_limit(:(airyaiprime(-x)), :x)
+        @test gruntz_limit(:(airybiprime(-x)/x), :x) == 0
+        # airyaiprime, airybiprime: through besselk and besseli of order 2/3
+        @test eval(gruntz_limit(:(airyaiprime(x)*x^(-1//4)*exp(2x^(3//2)/3)), :x)) ≈ -1/(2sqrt(π))
+        @test eval(gruntz_limit(:(airybiprime(x)*x^(-1//4)*exp(-2x^(3//2)/3)), :x)) ≈ 1/sqrt(π)
+        @test gruntz_limit(:(airyaiprime(x)/airyai(x) + sqrt(x)), :x) == 0
+        @test ev(gruntz_limit(:(airyaiprime(x)), :x, 0; dir = :+)) ≈ SF.airyaiprime(0.0)
+        @test ev(gruntz_limit(:(airybiprime(x)), :x, 0; dir = :+)) ≈ SF.airybiprime(0.0)
+        # Bessel functions of constant arguments with orders in [-1, 1], so that these cancel
+        @test gruntz_limit(:((airyai(x) - airyai(1))/(x - 1) - airyaiprime(1)), :x, 1; dir = :both) == 0
+        @test gruntz_limit(:((airybi(x) - airybi(1))/(x - 1) - airybiprime(1)), :x, 1; dir = :both) == 0
+        @test string(gruntz_limit(:(besselk(4//3, 2) + x), :x, 0)) == "1//3 * besselk(1//3, 2) + besselk(2//3, 2)"
     end
 
     @testset "complex values" begin
