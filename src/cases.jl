@@ -22,7 +22,7 @@ const MAX_DEPTH = 12
 # The constant to split on for a needed sign: a product of parameters is split on
 # one factor at a time, log(s) on s - 1.
 function split_target(c::Sum; zerotest::Bool = false)
-    c = clear_factors(c)[1]
+    c = clear_factors(ratsimp(c))[1]
     # whether c = 0, c with two parameters of undecided sign dividing every term,
     # C (M1 + M2) a²: split on one first, as no one substitution solves c = 0 (kept as a
     # condition, it is tested again at each order)

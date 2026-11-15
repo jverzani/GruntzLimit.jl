@@ -310,6 +310,25 @@ end
 bessel_const_arg(s::Sum) = !hasleaf(s, CONTEXT[].x.key) && !hasleaf(s, WLEAF.key)
 mkkaux(s::Sum, ν::Sum) = atomS(funatom(:kaux, Sum[s, ν]))
 
+# Riemann's zeta(s) (one argument), exact at the integers where it is rational or a
+# rational multiple of a power of π: ζ(0) = -1/2, ζ(-n) = -B_(n+1)/(n + 1),
+# ζ(2k) = (-1)^(k+1) B_2k (2π)^2k / (2 (2k)!); a pole at 1 (see `zetaPS` for series)
+function mkzeta(s::Sum)
+    r = ratconst(s)
+    if r !== nothing && isinteger(r)
+        n = Int(r)
+        n == 1 && throw(GruntzError("zeta has a pole at 1", :undefined))
+        n == 0 && return constS(-Q(1) // 2)
+        n < 0 && return constS(-bernoulli(1 - n) / (1 - n))
+        if iseven(n) && n <= 100
+            k = n ÷ 2
+            return mulS(constS(Q((-1)^(k + 1)) * bernoulli(n) * Q(2)^n / (2 * factorial(big(n)))),
+                        powS(atomS(PI_ATOM), Q(n)))
+        end
+    end
+    atomS(funatom(:zeta, Sum[s]))
+end
+
 # The Airy functions airyai and airybi and their derivatives (h), resolved through besselk and besseli where
 # their argument is positive (see `resolve_airy`)
 mkairy(h::Symbol, s::Sum) = atomS(funatom(h, Sum[s]))
@@ -487,6 +506,7 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :carg ? mkcarg(a[1], a[2]) :
     h === :expinti ? mkexpinti(a[1]) :
     h in (:airyai, :airybi, :airyaiprime, :airybiprime) ? mkairy(h, a[1]) :
+    h === :zeta ? mkzeta(a[1]) :
     h in (:airyp, :airyq, :airyr, :airys) ? mkaux(h, a[1]) :
     h === :eiaux ? mkaux(h, a[1]) :
     h === :besselk ? mkbesselk(a[2], a[1]) :
@@ -500,14 +520,15 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
 
+const NEG_SYMPOW_MSG = "power of a negative number with a symbolic exponent, which is " *
+                       "real only for an integer exponent: write it as (-1)^n (-u)^n"
 function mkpow(a::Sum, b::Sum)
     r = ratconst(b)
     r !== nothing && return powS(a, r)
     negconst(a) && hasleaf(b, CONTEXT[].x.key) && return mulS(mkpow(negS(a), b), mkaltsign(b))
     if negbase(a, b)
         hasleaf(b, CONTEXT[].x.key) && return mulS(mkpow(negS(a), b), mkaltsign(b))
-        throw(GruntzError("power of a negative number with a symbolic exponent, which is " *
-                          "real only for an integer exponent: write it as (-1)^n (-u)^n", :undefined))
+        throw(GruntzError(NEG_SYMPOW_MSG, :undefined))
     end
     length(a.t) == 1 && _defer_domain(first(a.t).first) &&
         return atomS(funatom(:pow, Sum[a, b]))          # rebuilt after the substitution
@@ -557,7 +578,7 @@ mkaltsign(s::Sum) = atomS(funatom(:altsign, Sum[s]))
 # powers u^u, SymPy #13332). Atoms' arguments are simplified first.
 function cancel_base_inv(s::Sum)::Sum
     s = subs_atoms(s, a -> a.kind === :fun ? mkfun(a.head, Sum[cancel_base_inv(u::Sum) for u in a.args]) : nothing)
-    s = merge_const_roots(s)
+    s = ratsimp(merge_const_roots(s))
     for (m, _) in s.t
         for (b, e) in m.fs
             (b.kind === :base && e == -1) || continue

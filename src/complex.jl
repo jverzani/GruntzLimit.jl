@@ -163,6 +163,14 @@ end
 csin(a::CS) = CS(mulS(mksin(a.re), apply_op(:cosh, Sum[a.im])), mulS(mkcos(a.re), apply_op(:sinh, Sum[a.im])))
 ccos(a::CS) = CS(mulS(mkcos(a.re), apply_op(:cosh, Sum[a.im])), negS(mulS(mksin(a.re), apply_op(:sinh, Sum[a.im]))))
 
+# whether s is a number (free of x and of parameters)
+numconst(s::Sum) = try
+    numval(s); true
+catch err
+    err isa FreeSymbol || rethrow()
+    false
+end
+
 function apply_op_c(op, a::Vector{CS})::CS
     n = op isa Symbol ? op : (op isa Function ? nameof(op) : Symbol(string(op)))
     na = length(a)
@@ -186,8 +194,15 @@ function apply_op_c(op, a::Vector{CS})::CS
         q = n === :sqrt && na == 1 ? Q(1) // 2 :
             n === :^ && na == 2 ? (r = ratconst(a[2].re); r !== nothing && !isinteger(r) ? r : nothing) : nothing
         neg = scaleS(subS(oneS(), mksign(u)), Q(1) // 2)
+        # a real constant exponent that is not rational: x^(-√2) at 0⁻ (SymPy #7096)
+        b = n === :^ && na == 2 && q === nothing && ratconst(a[2].re) === nothing &&
+            !hasleaf(a[2].re, CONTEXT[].x.key) && numconst(a[2].re) ? a[2].re : nothing
         if n === :log && na == 1
             return CS(mklog(mkabs(u)), mulS(atomS(PI_ATOM), neg))
+        elseif b !== nothing
+            θ = mulS(mulS(atomS(PI_ATOM), b), neg)
+            m = mkpow(mkabs(u), b)
+            return CS(mulS(m, mkcos(θ)), mulS(m, mksin(θ)))
         elseif q !== nothing
             θ = mulS(scaleS(atomS(PI_ATOM), q), neg)
             m = powS(mkabs(u), q)

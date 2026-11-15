@@ -243,7 +243,8 @@ The operations understood are
   polynomial in the parameters, is `sqrt(c) |p|`, with the sign of `p` taken from `signs`:
   `m + 1 - sqrt(m^2 + 2m + 1)` is 0 for `m > -1`. A `log` or fractional power of an
   argument in `x` that is negative near the limit point takes its principal value
-  (`log(u) = log|u| + iπ`, `u^q = |u|^q exp(iqπ)`), so `(x - 5)^(1//3)` tends to `1 + √3 i`
+  (`log(u) = log|u| + iπ`, `u^q = |u|^q exp(iqπ)`, for a rational or irrational constant `q`:
+  `x^(-√2)` at `0⁻` is infinite in a direction of the complex plane), so `(x - 5)^(1//3)` tends to `1 + √3 i`
   at `-3`, `(t + 1)*cos(log(-t - 1))` to 0 at `-1⁺`, and `x*log(x)` to 0 from both sides;
 * `floor` and `ceil`, and `trunc`, `mod` and `rem` written with them
   (`mod(u, v) = u - v*floor(u/v)`): where the argument has a finite limit, by its side of
@@ -288,6 +289,11 @@ The operations understood are
   `I_ν(u) = exp(u)/sqrt(2πu) (1 - (4ν^2 - 1)/(8u) + …)`, by their Taylor series at finite
   points, and at 0 by their series there (`K_1(u) = 1/u + …`, so `x*besselk(1, x)` tends to 1).
   For a negative argument, their principal values: `K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v)`;
+* `zeta(u)`, Riemann's zeta function (also SymJ's `_zeta_num`), for an argument with a finite
+  limit: exact at the integers (`ζ(2) = π²/6`, `ζ(0) = -1/2`, `ζ(-1) = -1/12`), otherwise
+  `zeta(c)`; at the pole 1 as `1/(u - 1) + γ + O(u - 1)`, so `(x - 1)*zeta(x)` tends to 1.
+  Its derivatives are not known, so a limit that needs them (`(zeta(x) - zeta(2))/(x - 2)`)
+  fails, as does `zeta(u)` for `u` tending to `±∞`;
 * `airyai`, `airybi`, `airyaiprime` and `airybiprime`, for an argument that is positive near
   the limit point (`+∞` included), through `Ai(u) = sqrt(u/3) K_{1/3}(ζ)/π`,
   `Bi(u) = sqrt(u/3) (I_{-1/3}(ζ) + I_{1/3}(ζ))`, `Ai'(u) = -u K_{2/3}(ζ)/(π√3)` and
@@ -353,7 +359,11 @@ limit does not depend on the sign, as for
 gruntz_limit(:(x^a / exp(x)), :x)
 ```
 
-which is 0 whatever `a` is. When the limit depends on the sign of a constant, a
+which is 0 whatever `a` is. A constant in the parameters that vanishes identically as a
+rational function (with `cos(a)^2 = 1 - sin(a)^2`), such as `(1 + n)^-1 + n (1 + n)^-1 - 1`
+or `sin(a)^2 + cos(a)^2 - 1`, is recognised as 0, and such rational functions are reduced to
+lowest terms, so `(n + 1) x^(n + 1)/(x^(n + 1) - 1) - x/(x - 1)` tends to `n/2` at 1.
+When the limit depends on the sign of a constant, a
 [`GruntzError`](@ref) names the constant:
 
 ```@example expr

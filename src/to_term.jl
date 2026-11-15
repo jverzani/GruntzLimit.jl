@@ -12,6 +12,7 @@ const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log =
                                   :besseli => SpecialFunctions.besseli, :besselj => SpecialFunctions.besselj,
                                   :polygamma => SpecialFunctions.polygamma, :clausen2 => clausen2, :li2 => li2,
                                   :uigamma => SpecialFunctions.gamma,
+                                  :zeta => SpecialFunctions.zeta,
                                   :airyai => SpecialFunctions.airyai, :airybi => SpecialFunctions.airybi,
                                   :airyaiprime => SpecialFunctions.airyaiprime, :airybiprime => SpecialFunctions.airybiprime)
 default_build(op, args...) = op(args...)

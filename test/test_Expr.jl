@@ -989,6 +989,48 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test_throws "symbolic exponent" gruntz_limit(:(x^n), :x, 0; dir = :both, signs = sg)
         @test gruntz_limit(:((5x)^(n + 2)/x^2), :x, 0; signs = sg) == 0
         @test_throws "symbolic exponent" gruntz_limit(:((5x)^(n + 2)/x^2), :x, 0; dir = :-, signs = sg)
+        # a real constant exponent that is not rational: on the principal branch (SymPy #7096)
+        @test_throws "direction of the complex plane" gruntz_limit(:(x^(-sqrt(2))), :x, 0; dir = :-)
+        @test_throws "direction of the complex plane" gruntz_limit(:(x^(-pi)), :x, 0; dir = :-)
+        @test gruntz_limit(:(x^(-sqrt(2))), :x, 0; dir = :+) == Inf
+        @test gruntz_limit(:(x^sqrt(2)), :x, 0; dir = :-) == 0
+        @test eval(gruntz_limit(:(x^sqrt(2)), :x, -1)) ≈ cis(π*sqrt(2))
+    end
+
+    @testset "parameter constants that vanish identically" begin
+        # sin(a)^2 + cos(a)^2 - 1 is 0, not a generic nonzero coefficient (SymPy #6364)
+        f = :(z/(sqrt(1 + z)*sin(a)^2 + sqrt(1 - z)*cos(a)^2 - 1))
+        r = gruntz_limit(f, :z, 0)
+        @test eval(:(let a = 0.3; $r end)) ≈ -2/cos(0.6)
+        @test eval(gruntz_limit(:(z/(sqrt(1 + z)*sin(3//10)^2 + sqrt(1 - z)*cos(3//10)^2 - 1)), :z, 0; dir = :both)) ≈ -2/cos(0.6)
+        r = gruntz_limit(:(z/(sqrt(1 + z)*sin(a)^2 + sqrt(1 - z)*(1 - sin(a)^2) - 1)), :z, 0; dir = :both)
+        @test eval(:(let a = 0.3; $r end)) ≈ -2/cos(0.6)
+        # (1 + n)^-1 + n (1 + n)^-1 - 1 is 0, and the answer is in lowest terms (SymPy #6843, #6366)
+        R = :((n + 1)*x^(n + 1)/(x^(n + 1) - 1) - x/(x - 1))
+        @test string(gruntz_limit(R, :x, 1; signs = Dict(:n => :positive))) == "1//2 * n"
+        @test string(gruntz_limit(R, :x, 1; dir = :both, signs = Dict(:n => :positive))) == "1//2 * n"
+        @test string(gruntz_limit(R, :x, 1; dir = :-, signs = Dict(:n => :positive))) == "1//2 * n"
+        cs = gruntz_cases(R, :x, 1)
+        @test [join(string.(c.first), ", ") => string(c.second) for c in cs] == ["n == -1" => "undefined", "n != -1" => "1//2 * n"]
+        @test cs(:n => 3) == 3//2
+    end
+
+    @testset "zeta" begin
+        # exact at the integers, by continuity elsewhere, its pole at 1 (SymPy #6909)
+        @test string(gruntz_limit(:(zeta(x)), :x, 2; dir = :both)) == "1//6 * π ^ 2"
+        @test string(gruntz_limit(:(zeta(2x)), :x, 2; dir = :both)) == "1//90 * π ^ 4"
+        @test gruntz_limit(:(zeta(x)), :x, 0) == -1//2
+        @test gruntz_limit(:(zeta(x)), :x, -1) == -1//12
+        @test gruntz_limit(:(zeta(x)), :x, 3) == :(zeta(3))
+        @test gruntz_limit(:(zeta(x)), :x, 1; dir = :+) == Inf
+        @test gruntz_limit(:(zeta(x)), :x, 1; dir = :-) == -Inf
+        @test gruntz_limit(:((x - 1)*zeta(x)), :x, 1; dir = :both) == 1
+        @test string(gruntz_limit(:(zeta(x) - 1/(x - 1)), :x, 1; dir = :both)) == "γ"
+        @test string(gruntz_limit(:(zeta(x)*sin(x - 2)/(x - 2)), :x, 2)) == "1//6 * π ^ 2"
+        @test string(gruntz_limit(:(_zeta_num(x)), :x, 2)) == "1//6 * π ^ 2"   # SymJ's name
+        # its derivatives are not known: such limits fail rather than guess
+        @test_throws "leading term" gruntz_limit(:((zeta(x) - zeta(2))/(x - 2)), :x, 2)
+        @test_throws "tends to infinity" gruntz_limit(:(zeta(x)), :x)
     end
 
     @testset "abs of a power of a negative quantity" begin
