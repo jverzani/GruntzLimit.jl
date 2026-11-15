@@ -74,6 +74,7 @@ function numval(a::Atom)
         return BigFloat(a.head === :besseli ? SpecialFunctions.besseli(ν, t) :
                         SpecialFunctions.besselix(ν, t) * sqrt(2π * t))
     end
+    a.head === :zeta && return BigFloat(SpecialFunctions.zeta(Float64(v)))
     a.head in keys(AIRY_FUNS) && return BigFloat(AIRY_FUNS[a.head](Float64(v)))
     a.head in (:airyp, :airyq, :airyr, :airys) && return BigFloat(airyaux(a.head, Float64(v)))
     a.head === :polygamma &&

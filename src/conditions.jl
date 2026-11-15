@@ -212,6 +212,8 @@ function possible_signs(s::Sum; facts::Bool = true)
     copy(ps)
 end
 function _possible_signs(s::Sum, facts::Bool)
+    s2 = ratsimp(s)            # a rational function in lowest terms (see `ratsimp`)
+    skey(s2) == skey(s) || return possible_signs(s2; facts = facts)
     if facts
         s2, σ = clear_factors(s)
         σ == 1 || return sort!([-p for p in possible_signs(s2)])
@@ -246,11 +248,135 @@ function positive_mono(s::Sum)
     end
 end
 
+# The constant s, free of x, as N * prod(d_i^-k_i): the integer powers of sums d_i in it
+# (bases, nonzero where s is defined) multiplied out of the denominators, and N expanded,
+# with cos(u)^2 written 1 - sin(u)^2. Returns (N, Dict(key => (d_i atom, k_i))), or
+# nothing when there is nothing to do or N grows too large.
+function rational_form(s::Sum)
+    length(s.t) < 2 && return nothing
+    any(m -> any(p -> hasvar(p.first), m.fs), keys(s.t)) && return nothing
+    low = Dict{String,Tuple{Atom,Q}}()
+    frac = Set{String}()
+    trig = false
+    for m in keys(s.t), (a, e) in m.fs
+        if a.kind === :base
+            isone(denominator(e)) || push!(frac, a.key)
+            low[a.key] = (a, min(e, get(low, a.key, (a, e))[2]))
+        elseif a.kind === :fun && a.head === :cos && isinteger(e) && iseven(numerator(e))
+            trig = true
+        end
+    end
+    foreach(k -> delete!(low, k), frac)
+    (isempty(low) && !trig) && return nothing
+    any(((a, e),) -> e < -8, values(low)) && return nothing
+    den = Dict{String,Tuple{Atom,Q}}(k => (a, -e) for (k, (a, e)) in low if e < 0)
+    t = isempty(den) ? s : mulS(s, monoS(mono(Dict{Atom,Q}(a => k for (a, k) in values(den))), Q(1)))
+    N = zeroS()
+    for (m, c) in t.t
+        term = constS(c)
+        for (a, e) in m.fs
+            f = if haskey(low, a.key) && 0 < e <= 8
+                powS(a.args[1]::Sum, e)
+            elseif a.kind === :fun && a.head === :cos && isinteger(e) && 0 < e <= 8 && iseven(numerator(e))
+                powS(subS(oneS(), powS(mksin(a.args[1]::Sum), Q(2))), e / 2)
+            else
+                powS(atomS(a), e)
+            end
+            term = mulS(term, f)
+            length(term.t) > 2000 && return nothing
+        end
+        N = addS(N, term)
+    end
+    N, den
+end
+
+# Whether the constant s vanishes identically as a rational function of its atoms (see
+# `rational_form`): (1 + n)^-1 + n (1 + n)^-1 - 1 and sin(a)^2 + cos(a)^2 - 1 are 0 (SymPy
+# #6843, #6364), which neither the linear reasoning nor, with a parameter, the numeric
+# test sees.
+function ident_zero(s::Sum)
+    r = rational_form(s)
+    r !== nothing && isempty(r[1].t)
+end
+
+# s with the denominators of its rational form (see `rational_form`) that are polynomials
+# in one parameter cancelled where they divide the numerator, when that is shorter:
+# -1 + (1 + n)^-1 (1 + n)^2 - 1/2 (1 + n)^-2 n (1 + n)^2 is n/2 (SymPy #6843)
+function ratsimp(s::Sum)::Sum
+    r = rational_form(s)
+    r === nothing && return s
+    N, den = r
+    isempty(N.t) && return N
+    isempty(den) && return length(N.t) < length(s.t) ? N : s
+    out = Pair{Atom,Q}[]
+    for (a, k) in values(den)
+        d = a.args[1]::Sum
+        while k > 0
+            q = polydiv_exact(N, d)
+            q === nothing && break
+            N, k = q, k - 1
+        end
+        k > 0 && push!(out, a => -k)
+    end
+    t = isempty(out) ? N : mulS(N, monoS(mono(Dict{Atom,Q}(out)), Q(1)))
+    length(t.t) < length(s.t) ? t : s
+end
+
+# N / d when d is a polynomial in one parameter p with rational coefficients and N a
+# polynomial in p (coefficients free of p) that d divides; otherwise nothing
+function polydiv_exact(N::Sum, d::Sum)
+    p = nothing
+    dc = Dict{Int,Q}()
+    for (m, c) in d.t
+        if isempty(m.fs)
+            dc[0] = c
+        elseif length(m.fs) == 1 && isparam(m.fs[1].first) && isinteger(m.fs[1].second) && m.fs[1].second > 0
+            a = m.fs[1].first
+            p === nothing ? (p = a) : (p == a || return nothing)
+            dc[Int(m.fs[1].second)] = c
+        else
+            return nothing
+        end
+    end
+    (p === nothing || length(dc) < 2) && return nothing
+    md = maximum(keys(dc))
+    nc = Dict{Int,Sum}()
+    for (m, c) in N.t
+        e = Q(0)
+        rest = Pair{Atom,Q}[]
+        for (a, q) in m.fs
+            a == p ? (e = q) : push!(rest, a => q)
+        end
+        (isinteger(e) && e >= 0) || return nothing
+        nc[Int(e)] = addS(get(nc, Int(e), zeroS()), monoS(Mono(rest), c))
+    end
+    filter!(kv -> !isempty(kv.second.t), nc)
+    quot = Dict{Int,Sum}()
+    while !isempty(nc)
+        dn = maximum(keys(nc))
+        dn < md && return nothing
+        lc = scaleS(nc[dn], inv(dc[md]))
+        quot[dn - md] = lc
+        for (j, cj) in dc
+            k = dn - md + j
+            nc[k] = subS(get(nc, k, zeroS()), scaleS(lc, cj))
+            isempty(nc[k].t) && delete!(nc, k)
+        end
+    end
+    out = zeroS()
+    pa = atomS(p)
+    for (j, c) in quot
+        out = addS(out, mulS(c, powS(pa, Q(j))))
+    end
+    out
+end
+
 function csign(s::Sum)::Int
     isempty(s.t) && return 0
     r = ratconst(s)
     r !== nothing && return Int(sign(r))
     positive_mono(s) && return Int(sign(first(values(s.t))))
+    ident_zero(s) && return 0
     v = try
         numval(s)
     catch err
@@ -271,6 +397,7 @@ end
 function zerostate(s::Sum)
     isempty(s.t) && return true
     positive_mono(s) && return false
+    ident_zero(s) && return true
     v = try
         numval(s)
     catch err

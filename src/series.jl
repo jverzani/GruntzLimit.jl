@@ -286,6 +286,22 @@ function bernoulli(n::Int)
     BERNOULLI[n+1]
 end
 
+# zeta(c + u), u -> 0: ζ(c) + O(u) for c ≠ 1, 1/u + γ + O(u) at the pole c = 1. The
+# derivatives (and the Stieltjes constants) are not known as constants, so the series stops
+# there, and a limit that needs more terms fails (see `leadterm`) rather than guess.
+function zetaPS(a::PS, P::Q)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) < 0 && throw(GruntzError("internal error: zeta of an unbounded argument"))
+    c0, u = const_and_rest(a)
+    if ratconst(c0) == 1
+        isempty(u.c) && throw(GruntzError("zeta has a pole at 1", :undefined))
+        s = addPS(powPS(u, Q(-1), P), constPS(EULER))
+        return trunc_ps(s.c, pmin(s.prec, Prec(val(u))))
+    end
+    z = mkzeta(c0)
+    isempty(u.c) ? trunc_ps(Dict{Ex,Sum}(EX0 => z), u.prec) : trunc_ps(Dict{Ex,Sum}(EX0 => z), Prec(val(u)))
+end
+
 # lgrem(v), the remainder of Stirling's series, for v -> +oo as w -> 0: the asymptotic
 # series sum_{k>=1} B_2k / (2k (2k - 1)) v^(1 - 2k), truncated as erfs's is.
 function lgremPS(a::PS, P::Q)
@@ -797,6 +813,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h in (:sinint, :cosint, :erfi, :expinti) ? specialPS(h, arg, logw, P) :
     h === :clausen2 ? clausen2PS(arg, logw, P) :
     h === :li2 ? li2PS(arg, P) :
+    h === :zeta ? zetaPS(arg, P) :
     h === :besselk ? besselkPS(arg, a.args[2]::Sum, logw, P) :
     h === :kaux ? kauxPS(arg, a.args[2]::Sum, P) :
     h === :besseli ? besseliPS(arg, a.args[2]::Sum, P) :

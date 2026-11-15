@@ -226,7 +226,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :airyaiprime, :airybiprime, :polygamma, :cbrt, :li2, :uigamma)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :airyaiprime, :airybiprime, :zeta, :polygamma, :cbrt, :li2, :uigamma)) ||
             return nothing
         a.head === :uigamma && return subs_atoms(resolve_uigamma(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x), res)
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
@@ -239,6 +239,11 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :besseli && return resolve_besseli(u, a.args[2]::Sum, x)
         a.head === :besselj && return resolve_besselj(u, a.args[2]::Sum, x)
         a.head in AIRY_HEADS && return resolve_airy(a.head, u, x)
+        if a.head === :zeta     # at finite points by `zetaPS`; not at infinity
+            hasleaf(u, x.key) && limitinf(u, x) isa Infinity &&
+                throw(GruntzError("zeta of an argument that tends to infinity is not supported"))
+            return mkzeta(u)
+        end
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)

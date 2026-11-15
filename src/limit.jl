@@ -3,7 +3,8 @@
 # ---------------------------------------------------------------------------
 function lim_equal(a, b)
     (a isa Infinity && b isa Infinity) && return signof(a) == signof(b)
-    (a isa Sum && b isa Sum) && return skey(a) == skey(b)
+    # the same value written differently: -1/(c² - s²) and 1/(s² - c²) (SymPy #6364)
+    (a isa Sum && b isa Sum) && return skey(a) == skey(b) || zerostate(subS(a, b)) === true
     false
 end
 
@@ -176,7 +177,7 @@ function limit_value(f, xa::Atom, x0, dir::Symbol)
     L isa Sum ? cancel_base_inv(L) : L
 end
 
-const BRANCH_MSGS = ("log of a negative number", "complex power of a negative number")
+const BRANCH_MSGS = ("log of a negative number", "complex power of a negative number", NEG_SYMPOW_MSG)
 
 # re + i im from the limits of the parts
 function complex_limit(re, im_, xa::Atom)
