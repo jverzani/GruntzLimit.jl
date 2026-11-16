@@ -250,7 +250,8 @@ end
 
 # The constant s, free of x, as N * prod(d_i^-k_i): the integer powers of sums d_i in it
 # (bases, nonzero where s is defined) multiplied out of the denominators, and N expanded,
-# with cos(u)^2 written 1 - sin(u)^2. Returns (N, Dict(key => (d_i atom, k_i))), or
+# with cos(u)^2 written 1 - sin(u)^2 and the exps of each term merged, exp(a)^p exp(b)^q =
+# exp(p a + q b) (so exp(A - B)^-1 = exp(A)^-1 exp(B), SymPy #5172). Returns (N, Dict(key => (d_i atom, k_i))), or
 # nothing when there is nothing to do or N grows too large.
 function rational_form(s::Sum)
     length(s.t) < 2 && return nothing
@@ -258,6 +259,7 @@ function rational_form(s::Sum)
     low = Dict{String,Tuple{Atom,Q}}()
     frac = Set{String}()
     trig = false
+    exps = any(m -> count(p -> p.first.kind === :fun && p.first.head === :exp, m.fs) >= 2, keys(s.t))
     for m in keys(s.t), (a, e) in m.fs
         if a.kind === :base
             isone(denominator(e)) || push!(frac, a.key)
@@ -267,14 +269,19 @@ function rational_form(s::Sum)
         end
     end
     foreach(k -> delete!(low, k), frac)
-    (isempty(low) && !trig) && return nothing
+    (isempty(low) && !trig && !exps) && return nothing
     any(((a, e),) -> e < -8, values(low)) && return nothing
     den = Dict{String,Tuple{Atom,Q}}(k => (a, -e) for (k, (a, e)) in low if e < 0)
     t = isempty(den) ? s : mulS(s, monoS(mono(Dict{Atom,Q}(a => k for (a, k) in values(den))), Q(1)))
     N = zeroS()
     for (m, c) in t.t
         term = constS(c)
+        ex = zeroS()                                  # the merged exponent of the exps
         for (a, e) in m.fs
+            if exps && a.kind === :fun && a.head === :exp
+                ex = addS(ex, scaleS(a.args[1]::Sum, e))
+                continue
+            end
             f = if haskey(low, a.key) && 0 < e <= 8
                 powS(a.args[1]::Sum, e)
             elseif a.kind === :fun && a.head === :cos && isinteger(e) && 0 < e <= 8 && iseven(numerator(e))
@@ -285,6 +292,7 @@ function rational_form(s::Sum)
             term = mulS(term, f)
             length(term.t) > 2000 && return nothing
         end
+        isempty(ex.t) || (term = mulS(term, mkexp(ex)))
         N = addS(N, term)
     end
     N, den

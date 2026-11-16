@@ -226,7 +226,7 @@ end
 # exponential takes part in the mrv comparisons (as in SymPy's gruntz).
 function resolve_piecewise(e::Sum, x::Atom)
     function res(a::Atom)
-        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :airyaiprime, :airybiprime, :zeta, :polygamma, :cbrt, :li2, :uigamma)) ||
+        (a.kind === :fun && a.head in (:abs, :sign, :floor, :erf, :gamma, :sinint, :cosint, :erfi, :altsign, :lambertw, :carg, :expinti, :besselk, :besseli, :besselj, :airyai, :airybi, :airyaiprime, :airybiprime, :zeta, :polygamma, :polygammav, :cbrt, :li2, :uigamma)) ||
             return nothing
         a.head === :uigamma && return subs_atoms(resolve_uigamma(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x), res)
         a.head === :carg && return resolve_carg(subs_atoms(a.args[1]::Sum, res), subs_atoms(a.args[2]::Sum, res), x)
@@ -247,6 +247,7 @@ function resolve_piecewise(e::Sum, x::Atom)
         a.head === :floor && return resolve_floor(u, x)
         a.head === :gamma && return resolve_gamma(u, x)
         a.head === :polygamma && return resolve_polygamma(u, Int(ratconst(a.args[2]::Sum)::Q), x)
+        a.head === :polygammav && return resolve_polygammav(u, subs_atoms(a.args[2]::Sum, res), x)
         a.head === :erf && return resolve_erf(u, x)
         a.head === :cbrt && return subs_atoms(resolve_cbrt(u, x), res)
         a.head === :li2 && return resolve_li2(u, x)
@@ -376,6 +377,26 @@ end
 # polygamma(k, u): for u -> +oo, log(u) + psiaux(u, 0) or psiaux(u, k) (see `psiauxPS`);
 # at a finite limit, Taylor's series, or the recurrence at a pole (see `polygammaPS`).
 # For u -> -oo the poles accumulate.
+# polygamma(ν, u) with an order ν in x that tends to an integer m >= 0, at an argument
+# with a finite limit that is not a pole: polygamma(m, u) + O(ν - m), the function being
+# analytic in both there (SymPy #5415: polygamma(2 + 1/x, 3 + exp(-x)) -> polygamma(2, 3)).
+# The O term (`bigO`) has no known coefficients, so a limit that needs them fails. At an
+# argument tending to infinity the order enters the growth (u^-ν), and it is not supported.
+function resolve_polygammav(u::Sum, ν::Sum, x::Atom)
+    Lν = limitinf(ν, x)
+    m = Lν isa Infinity ? nothing : ratconst(Lν)
+    (m !== nothing && isinteger(m) && m >= 0) ||
+        throw(GruntzError("polygamma is supported only for an order that tends to a nonnegative integer"))
+    Lu = hasleaf(u, x.key) ? limitinf(u, x) : u
+    Lu isa Infinity &&
+        throw(GruntzError("polygamma with a varying order is not supported for an argument that tends to infinity"))
+    r = ratconst(Lu)
+    (r !== nothing && isinteger(r) && r <= 0) && throw(GruntzError("polygamma has a pole at $(numerator(r))", :undefined))
+    d = subS(ν, constS(m))
+    p = resolve_polygamma(u, Int(m), x)
+    isempty(d.t) ? p : addS(p, mkaux(:bigO, d))
+end
+
 function resolve_polygamma(u::Sum, k::Int, x::Atom)
     hasleaf(u, x.key) || return mkpolygamma(k, u)
     L = limitinf(u, x)

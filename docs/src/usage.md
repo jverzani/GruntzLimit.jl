@@ -271,7 +271,10 @@ The operations understood are
 * `digamma`, `trigamma` and `polygamma(k, u)` (an integer `k ≥ 0`), for an argument that
   tends to `+∞` (`ψ(u) = log(u) - 1/(2u) - ⋯`), to a finite limit (by Taylor's series, or
   at a pole by `ψ(u) = ψ(u + 1) - 1/u`, so that `digamma(y) + 1/y` tends to `-γ` at 0), or
-  is constant;
+  is constant; exact at the positive integers (`polygamma(2, 3) = 9/4 - 2ζ(3)`). An order
+  in `x` that tends to an integer `m ≥ 0` is allowed at an argument with a finite limit
+  that is not a pole, as `polygamma(m, u) + O(ν - m)`: `polygamma(2 + 1/x, 3 + exp(-x))`
+  tends to `9/4 - 2ζ(3)`, while a limit that needs the dependence on the order fails;
 * `sinint`, `cosint` and `erfi`, as in SpecialFunctions.jl; `cosint` of a negative argument
   is its principal value `cosint(-u) = cosint(u) + iπ`, so that `cosint(3x) - cosint(x)`
   tends to `log(3)` from both sides of 0. At finite points by their Taylor series

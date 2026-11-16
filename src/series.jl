@@ -112,10 +112,18 @@ function mulPS(a::PS, b::PS)
         below(k, prec) || continue
         v = mulS(ca, cb)
         c[k] = haskey(c, k) ? addS(c[k], v) : v
+        length(c[k].t) > MAX_COEF_TERMS && throw(GruntzError(COEF_MSG))
     end
     trunc_ps(c, prec)
 end
 
+# A coefficient of a series larger than this stops the computation: with a symbolic
+# exponent (x^c), the coefficients are polynomials in c, logs and exps that grow
+# combinatorially with the order, without end when the leading term cancels (SymPy
+# #5172 hung). The tests reach 56 terms.
+const MAX_COEF_TERMS = 1000
+const COEF_MSG = "the series coefficients grow too large: the expression is too complicated " *
+                 "for the algorithm as implemented"
 binomq(q::Q, k::Int) = (r = one(Q); for j in 0:k-1; r *= (q - j) // (j + 1); end; r)
 
 const MAX_POLY_TERMS = 64
@@ -284,6 +292,14 @@ function bernoulli(n::Int)
         push!(BERNOULLI, -sum(binomial(big(m + 1), j) * BERNOULLI[j+1] for j in 0:m-1) / (m + 1))
     end
     BERNOULLI[n+1]
+end
+
+# bigO(t), t -> 0: a quantity of the order of t whose coefficients are not known (see
+# `resolve_polygammav`): no terms, exact only below the order of t
+function bigOPS(a::PS)
+    isempty(a.c) && throw(NeedMorePrecision())
+    sign(val(a)) > 0 || throw(GruntzError("internal error: bigO of a quantity that does not tend to 0"))
+    PS(Dict{Ex,Sum}(), pmin(a.prec, Prec(val(a))))
 end
 
 # zeta(c + u), u -> 0: ζ(c) + O(u) for c ≠ 1, 1/u + γ + O(u) at the pole c = 1. The
@@ -807,6 +823,7 @@ function series_atom(a::Atom, w::Atom, logw::Sum, P::Q, x::Atom)
     h === :lambertw ? lambertwPS(arg, P) :
     h === :gamma ? gammaPS(arg, P) :
     h === :polygamma ? polygammaPS(arg, Int(ratconst(a.args[2]::Sum)::Q), P) :
+    h === :bigO ? bigOPS(arg) :
     h === :psiaux ? psiauxPS(arg, Int(ratconst(a.args[2]::Sum)::Q), P) :
     h === :wexp ? wexpPS(arg, logw, P) :
     h in (:fsi, :gsi, :dawson, :eiaux, :airyp, :airyq, :airyr, :airys) ? auxPS(h, arg, P) :

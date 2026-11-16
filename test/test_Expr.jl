@@ -589,6 +589,18 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(polygamma(2, y)*y^2), :y) == -1
         @test gruntz_limit(:(digamma(exp(y)) - y), :y) == 0
         @test_throws GruntzError gruntz_limit(:(digamma(1/y)*y), :y, 0; dir = :-)
+        # exact at the integers for every order, with zeta: ψ''(3) = 9/4 - 2ζ(3)
+        @test string(gruntz_limit(:(polygamma(2, 3 + exp(-x))), :x)) == "9//4 + -2 * zeta(3)"
+        @test string(gruntz_limit(:(polygamma(4, 2 + 1/x)), :x)) == "24 + -24 * zeta(5)"
+        # an order that tends to an integer, at a regular point: polygamma(m, u) + O(ν - m)
+        # (SymPy #5415)
+        @test string(gruntz_limit(:(polygamma(2 + 1/x, 3 + exp(-x))), :x)) == "9//4 + -2 * zeta(3)"
+        @test val(gruntz_limit(:(polygamma(1/x, 2 + 1/x)), :x)) ≈ 1 - g
+        @test val(gruntz_limit(:(polygamma(x, 1 + x)), :x, 0)) ≈ -g
+        @test_throws "leading term" gruntz_limit(:(x*(polygamma(2 + 1/x, 3) - polygamma(2, 3))), :x)
+        @test_throws "tends to infinity" gruntz_limit(:(polygamma(2 + 1/x, x)), :x)
+        @test_throws "nonnegative integer" gruntz_limit(:(polygamma(1//2 + 1/x, 3)), :x)
+        @test_throws "pole at 0" gruntz_limit(:(polygamma(2 + 1/x, 1/x)), :x)
     end
 
     @testset "sin and cos of inverse trigonometric constants" begin
@@ -1013,6 +1025,23 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(R, :x, 1)
         @test [join(string.(c.first), ", ") => string(c.second) for c in cs] == ["n == -1" => "undefined", "n != -1" => "1//2 * n"]
         @test cs(:n => 3) == 3//2
+    end
+
+    @testset "a symbolic exponent whose leading coefficient can vanish" begin
+        # SymPy #5172: the case tree ends; where the leading coefficient vanishes
+        # (r = 1 - 2^c) the series coefficients, polynomials in c, grow without end, and
+        # the computation stops with an error instead of hanging
+        F = :(((2n*(n - r + 1)/(n + r*(n - r + 1)))^c + (r - 1)*(n*(n - r + 2)/(n + r*(n - r + 1)))^c - n)/(n^c - n))
+        L = gruntz_limit(F, :n; signs = Dict(:(c - 1) => :positive, :(r + 1) => :positive))
+        @test eval(:(let c = 2, r = 1; $L end)) ≈ 1                  # (r + 3)/(r + 1)^2
+        @test eval(:(let c = 3, r = 2; $L end)) ≈ 9/27                # (2^c + r - 1)/(r + 1)^c
+        cs = gruntz_cases(F, :n)
+        @test cs(:c => -1, :r => 2) == 1
+        @test cs(:c => 1//2, :r => 2) == 1
+        @test cs(:c => 1, :r => 2) === :undefined
+        @test cs(:c => 3, :r => 2) ≈ 1/3
+        G = Meta.parse(replace(string(F), r"\br\b" => "(1 - 2^c)"))
+        @test_throws "too complicated" gruntz_limit(G, :n; signs = Dict(:(c - 1) => :positive))
     end
 
     @testset "zeta" begin
