@@ -12,7 +12,7 @@ const OPS = Dict{Symbol,Function}(:+ => +, :* => *, :^ => ^, :exp => exp, :log =
                                   :besseli => SpecialFunctions.besseli, :besselj => SpecialFunctions.besselj,
                                   :polygamma => SpecialFunctions.polygamma, :clausen2 => clausen2, :li2 => li2,
                                   :uigamma => SpecialFunctions.gamma,
-                                  :zeta => SpecialFunctions.zeta,
+                                  :zeta => SpecialFunctions.zeta, :polygammav => SpecialFunctions.polygamma,
                                   :airyai => SpecialFunctions.airyai, :airybi => SpecialFunctions.airybi,
                                   :airyaiprime => SpecialFunctions.airyaiprime, :airybiprime => SpecialFunctions.airybiprime)
 default_build(op, args...) = op(args...)
@@ -160,7 +160,7 @@ atom_term(b, a::Atom) =
     a.kind === :leaf ? (a.head isa Union{AbstractIrrational,Complex} ? b.lift(a.head) : a.head) :
     a.kind === :base ? to_term(b, a.args[1]::Sum) :
     a.head === :wexp ? mk(b, :lambertw, Any[mk(b, :exp, Any[to_term(b, a.args[1]::Sum)])]) :
-    a.head in (:besselk, :besseli, :besselj, :polygamma) ? mk(b, a.head, Any[to_term(b, a.args[2]::Sum), to_term(b, a.args[1]::Sum)]) :
+    a.head in (:besselk, :besseli, :besselj, :polygamma, :polygammav) ? mk(b, a.head, Any[to_term(b, a.args[2]::Sum), to_term(b, a.args[1]::Sum)]) :
     a.head === :uigamma ? mk(b, a.head, Any[to_term(b, a.args[1]::Sum), to_term(b, a.args[2]::Sum)]) :
     mk(b, a.head, Any[to_term(b, a.args[1]::Sum)])
 

@@ -398,7 +398,7 @@ mklgrem(s::Sum) = atomS(funatom(:lgrem, Sum[s]))
 function mkpolygamma(k::Int, c::Sum)
     r = ratconst(c)
     # at an integer n > 1, from ψ^(k)(1): ψ^(k)(n) = ψ^(k)(1) + (-1)^k k! sum_(j<n) j^(-k-1)
-    if r !== nothing && isinteger(r) && 1 < r <= 64 && (k == 0 || isodd(k))
+    if r !== nothing && isinteger(r) && 1 < r <= 64
         s = sum(Q(1) // big(j)^(k + 1) for j in 1:Int(r)-1)
         return addS(mkpolygamma(k, oneS()), constS(Q((-1)^k * factorial(big(k))) * s))
     end
@@ -409,6 +409,7 @@ function mkpolygamma(k::Int, c::Sum)
             z = Q((-1)^(n + 1)) * bernoulli(2n) * Q(2)^(2n) / (2 * factorial(big(2n)))
             return scaleS(powS(atomS(PI_ATOM), Q(2n)), Q((-1)^(k + 1) * factorial(big(k))) * z)
         end
+        return scaleS(mkzeta(constS(Q(k + 1))), Q((-1)^(k + 1) * factorial(big(k))))   # -2ζ(3) for k = 2
     end
     atomS(funatom(:polygamma, Sum[c, constS(Q(k))]))
 end
@@ -516,6 +517,8 @@ function mkfun(h::Symbol, a::Vector{Sum})
     h === :besselj ? mkbesselj(a[2], a[1]) :
     h === :jred ? mkjred(a[1], a[2]) :
     h === :polygamma ? mkpolygamma(Int(ratconst(a[2])::Q), a[1]) :
+    h === :polygammav ? atomS(funatom(:polygammav, Sum[a[1], a[2]])) :
+    h === :bigO ? mkaux(h, a[1]) :
     h === :psiaux ? mkpsiaux(a[1], Int(ratconst(a[2])::Q)) :
     h === :cos ? mkcos(a[1]) : throw(GruntzError("unsupported function $h"))
 end
