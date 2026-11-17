@@ -215,6 +215,15 @@ function apply_op_c(op, a::Vector{CS})::CS
             s = cmul(apply_op_c(:sqrt, [realC(subS(u, oneS()))]), apply_op_c(:sqrt, [realC(addS(u, oneS()))]))
             return clog(cadd(realC(u), s))
         end
+        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)) on the principal branch, so
+        # asin(u) = ±(π/2 - i acosh|u|) for ±u > 1, and acos(u) = π/2 - asin(u): i acosh(u)
+        # for u > 1 (acos(1 + x) at 0⁺ is 0, as SymPy has acos(2) = i acosh(2))
+        if n in (:asin, :acos) && na == 1
+            s = cmul(apply_op_c(:sqrt, [realC(subS(oneS(), u))]), apply_op_c(:sqrt, [realC(addS(oneS(), u))]))
+            L = clog(cadd(CS(zeroS(), u), s))
+            n === :asin && return CS(L.im, negS(L.re))
+            return CS(subS(scaleS(atomS(PI_ATOM), Q(1) // 2), L.im), L.re)
+        end
     end
     # besselk and besseli of a real argument in x, on their principal branches: for v > 0,
     # K_ν(-v) = exp(-iνπ) K_ν(v) - iπ I_ν(v) and I_ν(-v) = exp(iνπ) I_ν(v) (DLMF 10.34.1-2)

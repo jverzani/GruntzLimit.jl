@@ -19,11 +19,19 @@
 # products and sums of two bounded quantities are not exact (sin(x) and cos(x) are
 # taken to be independent). Intervals are computed in floating point and widened, so
 # that a bound that is 0 is never taken for a sign.
+#
+# A fractional power of a β that changes sign is complex (the principal value of
+# sqrt(x sin(1/x)) at 0⁺); such a β is `cplx`, and [lo, hi] = [-M, M] only bounds its
+# modulus by M: it has no sign, and its limit is known only when P -> 0.
 struct Iv
     lo::Float64
     hi::Float64
     exact::Bool
+    cplx::Bool
 end
+Iv(lo, hi, exact) = Iv(lo, hi, exact, false)
+modbound(iv::Iv) = max(abs(iv.lo), abs(iv.hi))
+cplxiv(M) = Iv(-M - IV_TOL * (1 + M), M + IV_TOL * (1 + M), false, true)
 struct Rated
     P::Sum
     iv::Union{Nothing,Iv}
@@ -33,13 +41,14 @@ oscfail() = throw(GruntzError(OSC_MSG))
 const IV_TOL = 1e-12
 const SIGN_TOL = 1e-9     # beyond the widening: a bound that is surely not 0
 widen(lo, hi, exact) = Iv(lo - IV_TOL * (1 + abs(lo)), hi + IV_TOL * (1 + abs(hi)), exact)
-positive(iv::Iv) = iv.lo > 0
-negative(iv::Iv) = iv.hi < 0
+positive(iv::Iv) = !iv.cplx && iv.lo > 0
+negative(iv::Iv) = !iv.cplx && iv.hi < 0
 onesigned(iv::Iv) = positive(iv) || negative(iv)
 
 function ivmul(a::Union{Nothing,Iv}, b::Union{Nothing,Iv})
     a === nothing && return b
     b === nothing && return a
+    (a.cplx || b.cplx) && return cplxiv(modbound(a) * modbound(b))
     ps = (a.lo * b.lo, a.lo * b.hi, a.hi * b.lo, a.hi * b.hi)
     widen(minimum(ps), maximum(ps), false)
 end
@@ -48,6 +57,7 @@ end
 function ivpow(a::Iv, e::Q)
     e < 0 && !onesigned(a) && oscfail()
     f = Float64(e)
+    a.cplx && return cplxiv(modbound(a)^f)
     lo, hi = a.lo^f, a.hi^f
     lo, hi = min(lo, hi), max(lo, hi)
     isinteger(e) && iseven(numerator(e)) && a.lo < 0 < a.hi && (lo = 0.0)
@@ -127,6 +137,9 @@ function rate(R::OscRater, s::Sum)::Rated
         abs(t) > IV_TOL * sum(p -> abs(p[1]), same) || oscfail()
         return Rated(foldl(addS, (p[2].P for p in same); init = zeroS()), nothing)
     end
+    if any(p -> p[2].iv !== nothing && p[2].iv.cplx, same)
+        return Rated(D, cplxiv(sum(p -> abs(p[1]) * (p[2].iv === nothing ? 1.0 : modbound(p[2].iv)), same)))
+    end
     lo = hi = 0.0
     for (v, r) in same
         a, b = r.iv === nothing ? (1.0, 1.0) : (r.iv.lo, r.iv.hi)
@@ -142,25 +155,27 @@ function rate_mono(R::OscRater, m::Mono, c::Q)
     P = constS(c)
     iv = nothing
     for (a, e) in m.fs
-        r = rate_pow(rate_atom(R, a), e)
+        r = rate_pow(R, rate_atom(R, a), e)
         P = mulS(P, r.P)
         iv = iv === nothing ? r.iv : ivmul(iv, r.iv)
     end
     Rated(P, iv)
 end
 
-function rate_pow(r::Rated, e::Q)
+function rate_pow(R::OscRater, r::Rated, e::Q)
     isone(e) && return r
     iv = r.iv
     iv === nothing && return Rated(powS(r.P, e), nothing)
     isinteger(e) && return Rated(powS(r.P, e), ivpow(iv, e))
-    # a fractional power: β nonnegative, or nonpositive (a bound 0 is widened: clamped)
-    if iv.lo > -SIGN_TOL
+    # a fractional power: β nonnegative, or nonpositive (a bound 0 is widened: clamped);
+    # otherwise complex, |P β|^e = |P|^e |β|^e
+    if iv.cplx || (iv.lo <= -SIGN_TOL && iv.hi >= SIGN_TOL)
+        e < 0 && oscfail()
+        return Rated(powS(scaleS(r.P, Q(sgn(r.P, R.x))), e), cplxiv(modbound(iv)^Float64(e)))
+    elseif iv.lo > -SIGN_TOL
         Rated(powS(r.P, e), ivpow(Iv(max(iv.lo, 0.0), iv.hi, iv.exact), e))
     elseif iv.hi < SIGN_TOL
         Rated(powS(negS(r.P), e), ivpow(Iv(max(-iv.hi, 0.0), -iv.lo, iv.exact), e))
-    else
-        oscfail()
     end
 end
 
@@ -188,6 +203,7 @@ end
 function diverges(R::OscRater, u::Sum)
     hasosc(R, u) || return true             # an oscillating sin or cos: u -> ±oo
     r = rate(R, u)
+    r.iv !== nothing && r.iv.cplx && oscfail()  # sin of a complex u need not be bounded
     lim(R, r.P) isa Infinity && (r.iv === nothing || onesigned(r.iv))
 end
 
@@ -203,6 +219,7 @@ function rate_exp(R::OscRater, u::Sum)
     L = lim(R, r.P)
     L isa Infinity && oscfail()
     numzero(L, R.x) && return Rated(mkexp(U0), nothing)
+    r.iv !== nothing && r.iv.cplx && oscfail()
     v = float_or_nothing(L)
     v === nothing && oscfail()
     a, b = r.iv === nothing ? (1.0, 1.0) : (r.iv.lo, r.iv.hi)
@@ -232,6 +249,7 @@ function rate_abs(R::OscRater, u::Sum)
     P = scaleS(r.P, Q(sgn(r.P, R.x)))
     iv = r.iv
     iv === nothing && return Rated(P, nothing)
+    iv.cplx && return Rated(P, Iv(0.0, modbound(iv), false))
     lo, hi = iv.lo >= 0 ? (iv.lo, iv.hi) : iv.hi <= 0 ? (-iv.hi, -iv.lo) : (0.0, max(-iv.lo, iv.hi))
     Rated(P, Iv(lo, hi, iv.exact))
 end
