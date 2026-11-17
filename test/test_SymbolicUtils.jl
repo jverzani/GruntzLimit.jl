@@ -46,7 +46,7 @@ PI = SymbolicUtils.maketerm(typeof(x), identity, Any[π], nothing)
 
     @testset "errors" begin
         @test_throws GruntzError gruntz_limit(sin(1/x), x, 0)
-        @test_throws GruntzError gruntz_limit(asin(x), x, 1; dir = :+)
+        @test_throws GruntzError gruntz_limit(sqrt(sin(1/x)), x, 0; dir = :+)
     end
 
     @testset "complex values" begin

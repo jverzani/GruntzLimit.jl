@@ -75,8 +75,8 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
             @test ev(gruntz_limit(f, :x, x0)) ≈ val
         end
 
-        # complex-valued near the limit point
-        @test_throws GruntzError gruntz_limit(:(asin(x)), :x, 1; dir = :+)
+        # complex-valued near the limit point, on the principal branch
+        @test eval(gruntz_limit(:(asin(x)), :x, 1; dir = :+)) ≈ π/2
         @test eval(gruntz_limit(:(acosh(x)), :x, 0)) ≈ π/2*im   # i acos(x) on the principal branch
     end
 
@@ -502,6 +502,19 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test gruntz_limit(:(2^x*(2//3)^x*x - (4//3)^x*x + 1), :x) == 1
         @test gruntz_limit(:((4//3)^x*(1 - log(2))), :x) == Inf
         @test gruntz_limit(:(3^x*(4//3)^x - 4^x - 2^x), :x) == -Inf
+        # a fractional power of a vanishing oscillating product: complex, its modulus -> 0
+        # (SymPy #4131)
+        @test gruntz_limit(:(log(2 + sqrt(atan(x)*sin(1/x)))), :x, 0; dir = :+) == :(log(2))
+        @test gruntz_limit(:(sqrt(x*sin(1/x))), :x, 0; dir = :+) == 0
+        @test gruntz_limit(:((x*sin(1/x))^(2//3)), :x, 0; dir = :+) == 0
+        @test gruntz_limit(:(exp(sqrt(x*sin(1/x)))), :x, 0; dir = :+) == 1
+        @test gruntz_limit(:(sqrt(sin(x))/x), :x) == 0
+        # no sign or limit is read off a complex bounded factor
+        @test_throws GruntzError gruntz_limit(:(sqrt(sin(1/x))), :x, 0; dir = :+)
+        @test_throws GruntzError gruntz_limit(:(sqrt(sin(1/x))/x), :x, 0; dir = :+)
+        @test_throws GruntzError gruntz_limit(:(x + x*sqrt(sin(x))/2), :x)
+        @test_throws GruntzError gruntz_limit(:(log(2 + sqrt(sin(x)))), :x)
+        @test_throws GruntzError gruntz_limit(:(sin(x*sqrt(sin(x)))), :x)
     end
 
     @testset "dominated oscillating terms under powers and logs" begin
@@ -935,6 +948,19 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:(log(x) + asech(x)), :x, 0; dir = :+)) ≈ log(2)
         @test_throws "direction of the complex plane" gruntz_limit(:(log(x) + asech(x)), :x)   # oo + iπ/2
         @test_throws "direction of the complex plane" gruntz_limit(:(acosh(-x)), :x)          # oo + iπ
+        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)), acos(u) = π/2 - asin(u), with
+        # Julia's values on the cuts, at u + 0i: acos(2 + 0im) = -i acosh(2) (SymPy #4004)
+        @test gruntz_limit(:(acos(1/(1 - x))), :x, 0; dir = :+) == 0
+        @test gruntz_limit(:(acos(1/(1 - x))), :x, 0; dir = :both) == 0
+        @test gruntz_limit(:(acos(1 + x)), :x, 0; dir = :+) == 0
+        @test eval(gruntz_limit(:(acos(1 + x)/sqrt(x)), :x, 0; dir = :+)) ≈ -sqrt(2)*im
+        @test eval(gruntz_limit(:((asin(1 + x) - π/2)/sqrt(x)), :x, 0; dir = :+)) ≈ sqrt(2)*im
+        @test eval(gruntz_limit(:(acos(-1 - x)), :x, 0; dir = :+)) ≈ π
+        @test eval(gruntz_limit(:((acos(-1 - x) - π)/sqrt(x)), :x, 0; dir = :+)) ≈ -sqrt(2)*im
+        for u in (2, -2, 3//2, -5//2)
+            @test eval(gruntz_limit(:(acos($u + x)), :x, 0)) ≈ acos(complex(float(u), 0.0))
+            @test eval(gruntz_limit(:(asin($u + x)), :x, 0)) ≈ asin(complex(float(u), 0.0))
+        end
         # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
         @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2

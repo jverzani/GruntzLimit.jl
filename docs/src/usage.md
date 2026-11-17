@@ -252,7 +252,10 @@ The operations understood are
   `x*floor(1/x)` tends to 1 at 0 and `floor(x) - x` has no limit;
 * `exp`, and `log` (one or two arguments);
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
-* inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`;
+* inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`; `asin` and
+  `acos` of an argument in `x` take their principal values where it leaves `[-1, 1]`,
+  `acos(u) = -i acosh(u)` for `u > 1` (the value of Julia's `acos` at `u + 0im`), so
+  `acos(1 + x)` tends to 0 at `0⁺`;
 * hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
 * inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`; `acosh` and
   `asech` of an argument in `x` take their principal values, `acosh(u) = i acos(u)` for
@@ -510,8 +513,10 @@ gruntz_limit(sin(x)/x, x), gruntz_limit(x + cos(x), x), gruntz_limit(x*(2 + sin(
 ```
 
 A term that dominates a bounded one is kept (`x + 2cos(x)` behaves as `x`), so
-`x/(x + 2cos(x))` tends to 1. When the bounds do not decide, the error is of kind `:fail`
-(`sin(x)^2 + cos(x)^2`: `sin` and `cos` are bounded independently), and of kind
+`x/(x + 2cos(x))` tends to 1. A fractional power of a bounded factor that changes sign
+is complex, and only its modulus is bounded: `sqrt(x*sin(1/x))` tends to 0 at `0⁺`, and
+`log(2 + sqrt(atan(x)*sin(1/x)))` to `log(2)`. When the bounds do not decide, the error
+is of kind `:fail` (`sin(x)^2 + cos(x)^2`: `sin` and `cos` are bounded independently), and of kind
 `:nolimit` only where the limit is known not to exist, as for `sin(x)`.
 
 Or one-sided limits that disagree, with `dir = :both`:
