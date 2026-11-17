@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=988ee103">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=ba2c8fd0">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -388,7 +388,7 @@ gruntz_limit(:(sin(x)/x), :x, 0)</code></pre>
 </li>
 <li><p>trigonometric: <code class="md-code-inline">sin</code>, <code class="md-code-inline">cos</code>, <code class="md-code-inline">tan</code>, <code class="md-code-inline">sec</code>, <code class="md-code-inline">csc</code>, <code class="md-code-inline">cot</code>;</p>
 </li>
-<li><p>inverse trigonometric: <code class="md-code-inline">asin</code>, <code class="md-code-inline">acos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">asec</code>, <code class="md-code-inline">acsc</code>, <code class="md-code-inline">acot</code>; <code class="md-code-inline">asin</code> and <code class="md-code-inline">acos</code> of an argument in <code class="md-code-inline">x</code> take their principal values where it leaves <code class="md-code-inline">[-1, 1]</code>, <code class="md-code-inline">acos(u) = i acosh(u)</code> for <code class="md-code-inline">u &gt; 1</code>, so <code class="md-code-inline">acos(1 + x)</code> tends to 0 at <code class="md-code-inline">0⁺</code>;</p>
+<li><p>inverse trigonometric: <code class="md-code-inline">asin</code>, <code class="md-code-inline">acos</code>, <code class="md-code-inline">atan</code>, <code class="md-code-inline">asec</code>, <code class="md-code-inline">acsc</code>, <code class="md-code-inline">acot</code>; <code class="md-code-inline">asin</code> and <code class="md-code-inline">acos</code> of an argument in <code class="md-code-inline">x</code> take their principal values where it leaves <code class="md-code-inline">[-1, 1]</code>, <code class="md-code-inline">acos(u) = -i acosh(u)</code> for <code class="md-code-inline">u &gt; 1</code> (the value of Julia&#39;s <code class="md-code-inline">acos</code> at <code class="md-code-inline">u + 0im</code>), so <code class="md-code-inline">acos(1 + x)</code> tends to 0 at <code class="md-code-inline">0⁺</code>;</p>
 </li>
 <li><p>hyperbolic: <code class="md-code-inline">sinh</code>, <code class="md-code-inline">cosh</code>, <code class="md-code-inline">tanh</code>, <code class="md-code-inline">sech</code>, <code class="md-code-inline">csch</code>, <code class="md-code-inline">coth</code>;</p>
 </li>
@@ -698,6 +698,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=988ee103"></script>
+  <script src="../assets/materialdocs.js?v=ba2c8fd0"></script>
 </body>
 </html>
