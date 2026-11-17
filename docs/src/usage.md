@@ -254,7 +254,8 @@ The operations understood are
 * trigonometric: `sin`, `cos`, `tan`, `sec`, `csc`, `cot`;
 * inverse trigonometric: `asin`, `acos`, `atan`, `asec`, `acsc`, `acot`; `asin` and
   `acos` of an argument in `x` take their principal values where it leaves `[-1, 1]`,
-  `acos(u) = i acosh(u)` for `u > 1`, so `acos(1 + x)` tends to 0 at `0⁺`;
+  `acos(u) = -i acosh(u)` for `u > 1` (the value of Julia's `acos` at `u + 0im`), so
+  `acos(1 + x)` tends to 0 at `0⁺`;
 * hyperbolic: `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`;
 * inverse hyperbolic: `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth`; `acosh` and
   `asech` of an argument in `x` take their principal values, `acosh(u) = i acos(u)` for

@@ -948,15 +948,19 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:(log(x) + asech(x)), :x, 0; dir = :+)) ≈ log(2)
         @test_throws "direction of the complex plane" gruntz_limit(:(log(x) + asech(x)), :x)   # oo + iπ/2
         @test_throws "direction of the complex plane" gruntz_limit(:(acosh(-x)), :x)          # oo + iπ
-        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)), acos(u) = π/2 - asin(u) (SymPy #4004)
+        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)), acos(u) = π/2 - asin(u), with
+        # Julia's values on the cuts, at u + 0i: acos(2 + 0im) = -i acosh(2) (SymPy #4004)
         @test gruntz_limit(:(acos(1/(1 - x))), :x, 0; dir = :+) == 0
         @test gruntz_limit(:(acos(1/(1 - x))), :x, 0; dir = :both) == 0
         @test gruntz_limit(:(acos(1 + x)), :x, 0; dir = :+) == 0
-        @test eval(gruntz_limit(:(acos(1 + x)/sqrt(x)), :x, 0; dir = :+)) ≈ sqrt(2)*im
-        @test eval(gruntz_limit(:(acos(2 + x)), :x, 0)) ≈ acosh(2)*im
+        @test eval(gruntz_limit(:(acos(1 + x)/sqrt(x)), :x, 0; dir = :+)) ≈ -sqrt(2)*im
+        @test eval(gruntz_limit(:((asin(1 + x) - π/2)/sqrt(x)), :x, 0; dir = :+)) ≈ sqrt(2)*im
         @test eval(gruntz_limit(:(acos(-1 - x)), :x, 0; dir = :+)) ≈ π
-        @test eval(gruntz_limit(:(asin(-2 - x)), :x, 0)) ≈ -π/2 + acosh(2)*im
-        @test eval(gruntz_limit(:((asin(1 + x) - π/2)/sqrt(x)), :x, 0; dir = :+)) ≈ -sqrt(2)*im
+        @test eval(gruntz_limit(:((acos(-1 - x) - π)/sqrt(x)), :x, 0; dir = :+)) ≈ -sqrt(2)*im
+        for u in (2, -2, 3//2, -5//2)
+            @test eval(gruntz_limit(:(acos($u + x)), :x, 0)) ≈ acos(complex(float(u), 0.0))
+            @test eval(gruntz_limit(:(asin($u + x)), :x, 0)) ≈ asin(complex(float(u), 0.0))
+        end
         # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
         @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2

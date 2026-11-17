@@ -215,11 +215,15 @@ function apply_op_c(op, a::Vector{CS})::CS
             s = cmul(apply_op_c(:sqrt, [realC(subS(u, oneS()))]), apply_op_c(:sqrt, [realC(addS(u, oneS()))]))
             return clog(cadd(realC(u), s))
         end
-        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)) on the principal branch, so
-        # asin(u) = ±(π/2 - i acosh|u|) for ±u > 1, and acos(u) = π/2 - asin(u): i acosh(u)
-        # for u > 1 (acos(1 + x) at 0⁺ is 0, as SymPy has acos(2) = i acosh(2))
+        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)), and acos(u) = π/2 - asin(u), with
+        # Julia's values on the cuts, those at u + 0i: there 1 - u is on the lower side of
+        # its cut, so sqrt(1 - u) is the conjugate of the principal value. Then
+        # asin(u) = π/2 + i acosh(u), acos(u) = -i acosh(u) for u > 1 (Julia's
+        # acos(2 + 0im) = -1.317im), and asin(u) = -π/2 + i acosh(-u),
+        # acos(u) = π - i acosh(-u) for u < -1
         if n in (:asin, :acos) && na == 1
-            s = cmul(apply_op_c(:sqrt, [realC(subS(oneS(), u))]), apply_op_c(:sqrt, [realC(addS(oneS(), u))]))
+            s1 = apply_op_c(:sqrt, [realC(subS(oneS(), u))])
+            s = cmul(CS(s1.re, negS(s1.im)), apply_op_c(:sqrt, [realC(addS(oneS(), u))]))
             L = clog(cadd(CS(zeroS(), u), s))
             n === :asin && return CS(L.im, negS(L.re))
             return CS(subS(scaleS(atomS(PI_ATOM), Q(1) // 2), L.im), L.re)
