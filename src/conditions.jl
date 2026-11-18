@@ -507,7 +507,19 @@ function require_positive(s::Sum; strict::Bool = true, what::String = "log")
         s
     end
     ratconst(k) === nothing || return
-    any(m -> any(p -> numval_or_nothing(p.first) === nothing, m.fs), keys(k.t)) || return
+    if !any(m -> any(p -> numval_or_nothing(p.first) === nothing, m.fs), keys(k.t))
+        # a numeric constant: one that is surely negative (log(-2 + √3), the limit of
+        # acosh(u) = log(u + sqrt(u^2 - 1)) at u = -2) is retried on the principal branch
+        v = try
+            numval(k)
+        catch err
+            err isa Union{GruntzError,DomainError} || rethrow()
+            return
+        end
+        v < -1e-30 && throw(GruntzError(what == "log" ? "log of a negative number" :
+                                        "complex power of a negative number", :undefined))
+        return
+    end
     ps = possible_signs(k)
     (ps == [1] || ps == [0]) && return
     any(p -> p > 0 || (p == 0 && !strict), ps) ||

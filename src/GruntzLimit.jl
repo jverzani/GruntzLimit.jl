@@ -46,7 +46,7 @@ or to a finite limit, `digamma trigamma polygamma(k, u)` likewise, `binomial` (a
 principal branch, also `lambertw(u, 0)`), `erf(u, v) = erf(v) - erf(u)`, and `min max` (of any
 number of arguments). Complex expressions (with `im`) are split into real and imaginary
 parts, for arithmetic, `exp`, `log`, powers, `sin`, `cos`, `atan` and functions written with
-them; `cosint`, `besselk` and `besseli` of a negative argument take their principal values, as do `log` and fractional or irrational constant powers of an argument in `x` that is negative near the limit point, and `acosh asech` of an argument in `x` (`acosh(u) = i acos(u)` for `-1 < u < 1`). A power `c^u` of a negative constant `c` is taken, where `u` tends
+them; `cosint`, `besselk` and `besseli` of a negative argument take their principal values, as do `log` and fractional or irrational constant powers of an argument in `x` that is negative near the limit point, and `asin acos asec acsc acosh atanh asech acoth` of an argument in `x`, with the values of Julia's functions at `u + 0im` on their branch cuts (`acosh(u) = i acos(u)` for `-1 < u < 1`, `acos(u) = -i acosh(u)` for `u > 1`). A power `c^u` of a negative constant `c` is taken, where `u` tends
 to `±∞`, as a sequence's: `(-1)^u` oscillates. Limits that do not
 exist because of bounded oscillation (e.g. `sin(x)` at Inf) raise `GruntzError`.
 

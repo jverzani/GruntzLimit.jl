@@ -940,10 +940,11 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:((x - 5)^(1//3)), :x, -3)) ≈ 1 + sqrt(3)*im
         @test eval(gruntz_limit(:(log(x)), :x, -1)) ≈ π*im
         @test eval(gruntz_limit(:(sqrt(x - 1)), :x, 0)) ≈ im
-        # acosh(u) = i acos(u) for -1 < u < 1 (SymPy #10868)
-        @test eval(gruntz_limit(:(asech(x)), :x)) ≈ π/2*im
+        # acosh(u) = i acos(u) for -1 < u < 1 (SymPy #10868); asech(u) at u + 0i is
+        # acosh(1/u - 0i), as in Julia: asech(2 + 0im) = -iπ/3
+        @test eval(gruntz_limit(:(asech(x)), :x)) ≈ -π/2*im
         @test eval(gruntz_limit(:(acosh(x)), :x, 0; dir = :+)) ≈ π/2*im
-        @test eval(gruntz_limit(:(asech(-x)), :x)) ≈ π/2*im
+        @test eval(gruntz_limit(:(asech(-x)), :x)) ≈ -π/2*im
         @test eval(gruntz_limit(:(acosh(x/2)), :x, 1)) ≈ π/3*im
         @test eval(gruntz_limit(:(log(x) + asech(x)), :x, 0; dir = :+)) ≈ log(2)
         @test_throws "direction of the complex plane" gruntz_limit(:(log(x) + asech(x)), :x)   # oo + iπ/2
@@ -957,10 +958,17 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(gruntz_limit(:((asin(1 + x) - π/2)/sqrt(x)), :x, 0; dir = :+)) ≈ sqrt(2)*im
         @test eval(gruntz_limit(:(acos(-1 - x)), :x, 0; dir = :+)) ≈ π
         @test eval(gruntz_limit(:((acos(-1 - x) - π)/sqrt(x)), :x, 0; dir = :+)) ≈ -sqrt(2)*im
-        for u in (2, -2, 3//2, -5//2)
-            @test eval(gruntz_limit(:(acos($u + x)), :x, 0)) ≈ acos(complex(float(u), 0.0))
-            @test eval(gruntz_limit(:(asin($u + x)), :x, 0)) ≈ asin(complex(float(u), 0.0))
+        # the inverse functions on their cuts are Julia's at complex(u, 0.0), as SymJ's N
+        for f in (:asin, :acos, :asec, :acsc, :acosh, :asech, :atanh, :acoth),
+            u in (3, 2, 3//2, 1//2, -1//2, -3//2, -2, -5//2)
+            @test eval(gruntz_limit(:($f($u + x)), :x, 0)) ≈ getfield(Base, f)(complex(float(u), 0.0))
         end
+        @test eval(gruntz_limit(:(acoth(1/x)), :x)) ≈ -π/2*im
+        @test eval(gruntz_limit(:(atanh(1 + x) + log(x)/2), :x, 0; dir = :+)) ≈ log(2)/2 + π/2*im
+        @test eval(gruntz_limit(:(asec(1 - x)/sqrt(x)), :x, 0; dir = :+)) ≈ sqrt(2)*im
+        # log of a quantity that tends to an irrational negative constant
+        @test eval(gruntz_limit(:(log(x - 2 + sqrt(3))), :x, 0)) ≈ log(complex(sqrt(3) - 2))
+        @test eval(gruntz_limit(:(sqrt(x - 2 + sqrt(3))), :x, 0)) ≈ sqrt(complex(sqrt(3) - 2))
         # atan(z) = i/2 (log(1 - i*z) - log(1 + i*z)) (SymPy #23760)
         @test eval(gruntz_limit(:(atan(x - im)), :x)) ≈ π/2
         @test eval(gruntz_limit(:(atan(x + 2im)), :x)) ≈ π/2

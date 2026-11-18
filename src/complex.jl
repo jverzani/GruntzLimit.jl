@@ -96,6 +96,7 @@ end
 
 cadd(a::CS, b::CS) = CS(addS(a.re, b.re), addS(a.im, b.im))
 cneg(a::CS) = CS(negS(a.re), negS(a.im))
+conjC(a::CS) = CS(a.re, negS(a.im))
 cmul(a::CS, b::CS) = CS(subS(mulS(a.re, b.re), mulS(a.im, b.im)), addS(mulS(a.re, b.im), mulS(a.im, b.re)))
 cscale(a::CS, s::Sum) = CS(mulS(a.re, s), mulS(a.im, s))
 abs2C(a::CS) = cancel_base(addS(mulS(a.re, a.re), mulS(a.im, a.im)))
@@ -208,25 +209,37 @@ function apply_op_c(op, a::Vector{CS})::CS
             m = powS(mkabs(u), q)
             return CS(mulS(m, mkcos(θ)), mulS(m, mksin(θ)))
         end
-        # acosh(u) = log(u + sqrt(u - 1) sqrt(u + 1)) on the principal branch, i acos(u)
-        # for -1 < u < 1 (asech(x) at oo is iπ/2); asech(u) = acosh(1/u)
-        if n in (:acosh, :asech) && na == 1
-            u = n === :asech ? powS(u, Q(-1)) : u
+        # The inverse trigonometric and hyperbolic functions, with Julia's values on the
+        # cuts: those at u + 0i, as SymJ's `N` gives. Julia defines asech, asec, acsc and
+        # acoth at z through 1/z, and 1/(u + 0i) = 1/u - 0i is on the lower side of the
+        # cut: there the value is the conjugate of that at 1/u + 0i (the value is real off
+        # the cut, so the conjugate can be taken everywhere)
+        if n in (:asech, :asec, :acsc, :acoth) && na == 1
+            return conjC(apply_op_c(INVERSES[n], [realC(powS(u, Q(-1)))]))
+        end
+        # acosh(u) = log(u + sqrt(u - 1) sqrt(u + 1)): i acos(u) for -1 < u < 1,
+        # log(-u + sqrt(u^2 - 1)) + iπ for u < -1
+        if n === :acosh && na == 1
             s = cmul(apply_op_c(:sqrt, [realC(subS(u, oneS()))]), apply_op_c(:sqrt, [realC(addS(u, oneS()))]))
             return clog(cadd(realC(u), s))
         end
-        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)), and acos(u) = π/2 - asin(u), with
-        # Julia's values on the cuts, those at u + 0i: there 1 - u is on the lower side of
-        # its cut, so sqrt(1 - u) is the conjugate of the principal value. Then
-        # asin(u) = π/2 + i acosh(u), acos(u) = -i acosh(u) for u > 1 (Julia's
-        # acos(2 + 0im) = -1.317im), and asin(u) = -π/2 + i acosh(-u),
+        # asin(u) = -i log(iu + sqrt(1 - u) sqrt(1 + u)), and acos(u) = π/2 - asin(u): at
+        # u + 0i, 1 - u is on the lower side of its cut, so sqrt(1 - u) is the conjugate
+        # of the principal value. Then asin(u) = π/2 + i acosh(u), acos(u) = -i acosh(u)
+        # for u > 1 (Julia's acos(2 + 0im) = -1.317im), and asin(u) = -π/2 + i acosh(-u),
         # acos(u) = π - i acosh(-u) for u < -1
         if n in (:asin, :acos) && na == 1
-            s1 = apply_op_c(:sqrt, [realC(subS(oneS(), u))])
-            s = cmul(CS(s1.re, negS(s1.im)), apply_op_c(:sqrt, [realC(addS(oneS(), u))]))
+            s = cmul(conjC(apply_op_c(:sqrt, [realC(subS(oneS(), u))])), apply_op_c(:sqrt, [realC(addS(oneS(), u))]))
             L = clog(cadd(CS(zeroS(), u), s))
             n === :asin && return CS(L.im, negS(L.re))
             return CS(subS(scaleS(atomS(PI_ATOM), Q(1) // 2), L.im), L.re)
+        end
+        # atanh(u) = (log(1 + u) - log(1 - u))/2, log(1 - u) on the lower side of its cut:
+        # atanh(u) = acoth(u) + iπ/2 for |u| > 1 (Julia's atanh(2 + 0im) = 0.549 + 1.571im)
+        if n === :atanh && na == 1
+            l1 = apply_op_c(:log, [realC(addS(oneS(), u))])
+            l2 = conjC(apply_op_c(:log, [realC(subS(oneS(), u))]))
+            return cscale(cadd(l1, cneg(l2)), constS(Q(1) // 2))
         end
     end
     # besselk and besseli of a real argument in x, on their principal branches: for v > 0,
