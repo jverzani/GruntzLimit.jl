@@ -57,7 +57,11 @@ Known weaknesses:
   `:undefined`. Expressions are not reduced modulo the condition, so a limit that needs that
   (a^3 replaced by -a - 1) can still fail.
 - `gruntz_limit` still assumes undecided constants are nonzero (generic answers).
-- Square roots of parameters are not checked for `>= 0` (only `log` is).
+- Logs and fractional powers of parameters are checked against the context (`sqrt(1 - a)`
+  given `a > 1` is undefined). The sign test is Fourier-Motzkin on linear forms, where `a`
+  and `a^2` are unrelated; a polynomial in one parameter is also decided on that
+  parameter's interval, by counting its real roots there (Sturm), so `1 - a^2 < 0` for
+  `a > 1`. Polynomials in several parameters are not.
 
 ## Before this work
 
