@@ -30,6 +30,17 @@ function split_target(c::Sum; zerotest::Bool = false)
         ps = filter(a -> atom_sign(a) === nothing, common_params(c))
         length(ps) >= 2 && return atomS(ps[1])
     end
+    # a polynomial in one parameter p with a rational root r on both sides of which p may
+    # lie: split on p - r (1 - a^2 on a + 1 and a - 1), its sign then decided on each
+    # interval (see `poly_signs`)
+    up = univariate_poly(c)
+    if up !== nothing && length(ptrim!(up[2])) > 2
+        p, P = up
+        for r in rational_roots(P)
+            t = subS(atomS(p), constS(r))
+            length(possible_signs(t)) > 1 && return t
+        end
+    end
     vars = Dict{String,Mono}()
     a, k0 = linform(c, vars)
     (length(a) == 1 && abs(k0) <= FM_TOL) || return c
