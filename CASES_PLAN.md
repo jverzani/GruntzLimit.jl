@@ -50,8 +50,11 @@ How it works (src/conditions.jl and src/cases.jl):
 Known weaknesses:
 
 - Merging is pairwise, so `max(a, b)` (problem 11) is correct but listed in 9 cases.
-- FM treats `log(a)` and `a` as unrelated, so a condition such as `a <= b` held as
-  `log(b) - log(a) >= 0` does not prune `b > 1` given `a > 1`.
+- FM treats `log(a)` and `a` as unrelated. A sum `k log(±p) + r`, with `r` free of `p`, is
+  therefore also read as `p - (±exp(-r/k))` (log is increasing), both as a condition of the
+  context and when its sign is asked: `log(b) - log(a) >= 0` gives `b >= a`, and
+  `log(b) - 1` is positive for `b > 3`. Products of powers that do not reduce to one
+  parameter (`2log(a) - log(b)` against `a^2 > b`) are still not related.
 - A zero case that cannot be solved for a parameter (`a^3 + a + 1 == 0`) is computed with
   the condition in the context: zero tests use it, and a division by such a quantity is
   `:undefined`. Expressions are not reduced modulo the condition, so a limit that needs that
