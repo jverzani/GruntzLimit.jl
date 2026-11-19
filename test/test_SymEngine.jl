@@ -33,4 +33,13 @@ ONE, PI = one(x), SymEngine.PI
 
     # a complex base (SymPy #23915)
     @test gruntz_limit((1//10 + SymEngine.IM/10)^x, x) == 0
+
+    # atan of an argument tending to ±i written with real radicals, sqrt(b)/sqrt(-b): a
+    # GruntzError, not a division by zero in GMP (SymJ's ∫₀^π 2/(1 - a²cos²x) dx)
+    c = sqrt(a^2 - 1)/sqrt(1 - a^2)
+    @test_throws "tends to ±i" gruntz_limit(atan(x + c), x, 0; dir = :-, signs = [a - 1 => :positive])
+    @test_throws "tends to ±i" gruntz_limit(atan(x + c), x, 0)
+    @test_throws "tends to ±i" gruntz_limit(atan(tan(x)/sqrt(1 - a^2)), x, acos(1/a); dir = :-,
+                                            signs = [a - 1 => :positive])
+    @test gruntz_limit(1/(x + 1 + c^2), x, 0; dir = :+, signs = [a - 1 => :positive]) == Inf
 end
