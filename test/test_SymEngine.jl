@@ -56,4 +56,14 @@ ONE, PI = one(x), SymEngine.PI
     @test gruntz_limit(x^(a^2 - 2a + 1), x; signs = [a - 1 => :positive]) == Inf
     # a root inside the interval: undecided, so the generic answer
     @test gruntz_limit(x*sqrt(a^2 - 4), x; signs = [a => :positive]) == Inf
+
+    # a log of a parameter and the parameter are related (log is increasing): conditions
+    # on logs give conditions on the parameters, and the other way round
+    @test gruntz_limit(x^(b - 1), x; signs = [a - 1 => :positive, log(b) - log(a) => :nonnegative]) == Inf
+    @test gruntz_limit(x^(log(b) - log(a)), x; signs = [b - a => :positive, a => :positive]) == Inf
+    @test gruntz_limit(x^(log(b) - 1), x; signs = [b - 3 => :positive]) == Inf
+    @test gruntz_limit(x^(log(-b) - 1), x; signs = [b + 3 => :negative]) == Inf
+    @test gruntz_limit(x^(log(b) + 1), x; signs = [b => :positive, b - 1//10 => :negative]) == 0
+    # log(b) > 1 is b > e, which does not decide b - 3
+    @test_throws "sign of `b - 3`" gruntz_limit(x^(b - 3), x; signs = [log(b) - 1 => :positive])
 end

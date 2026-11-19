@@ -75,12 +75,42 @@ end
 
 
 function ineqs(cd::Cond, vars::Dict{String,Mono})
-    a, k = linform(cd.c, vars)
-    cd.rel === :> ? [Ineq(a, k, true)] :
-    cd.rel === :< ? [Ineq(negate(a), -k, true)] :
-    cd.rel === :>= ? [Ineq(a, k, false)] :
-    cd.rel === :<= ? [Ineq(negate(a), -k, false)] :
-    cd.rel === :(==) ? [Ineq(a, k, false), Ineq(negate(a), -k, false)] : Ineq[]
+    out = ineqs(cd.c, cd.rel, vars)
+    # a condition on a log of a parameter also as one on the parameter (see `delog`):
+    # log(b) - log(a) >= 0 as b - a >= 0
+    dl = delog(cd.c)
+    dl === nothing || append!(out, ineqs(dl[1], dl[2] < 0 ? flip(cd.rel) : cd.rel, vars))
+    out
+end
+function ineqs(c::Sum, rel::Symbol, vars::Dict{String,Mono})
+    a, k = linform(c, vars)
+    rel === :> ? [Ineq(a, k, true)] :
+    rel === :< ? [Ineq(negate(a), -k, true)] :
+    rel === :>= ? [Ineq(a, k, false)] :
+    rel === :<= ? [Ineq(negate(a), -k, false)] :
+    rel === :(==) ? [Ineq(a, k, false), Ineq(negate(a), -k, false)] : Ineq[]
+end
+
+# c = k log(±p) + r, r free of the parameter p, has the sign of σ (p - v) with
+# v = ±exp(-r/k), log being increasing: (p - v, σ), or nothing. log(b) - log(a) has the
+# sign of b - a, log(a) - 1 that of a - exp(1), 2log(a) - log(b) that of a - sqrt(b).
+function delog(c::Sum)
+    for (m, k) in sort!(collect(c.t); by = p -> p.first.key)
+        (length(m.fs) == 1 && isone(m.fs[1].second)) || continue
+        pw = param_of(m.fs[1].first)
+        (pw === nothing || pw[2] === :id) && continue
+        p, how = pw
+        r = subS(c, monoS(m, k))
+        hasleaf(r, p.key) && continue
+        v = try
+            param_value(how, scaleS(r, -inv(k)))
+        catch err
+            err isa GruntzError || rethrow()
+            continue
+        end
+        return subS(atomS(p), v), (k < 0) ⊻ (how === :neglog) ? -1 : 1
+    end
+    nothing
 end
 
 # The sign of an atom with parameters, from the context (linear reasoning only):
@@ -239,6 +269,15 @@ function _possible_signs(s::Sum, facts::Bool)
     if length(out) > 1
         ps = poly_signs(s)
         ps === nothing || isempty(intersect(out, ps)) || (out = intersect(out, ps))
+    end
+    # and takes log(p) and p as unrelated: a sum k log(p) + r is decided as p - exp(-r/k)
+    if length(out) > 1
+        dl = delog(s)
+        if dl !== nothing
+            ps = possible_signs(dl[1])
+            dl[2] < 0 && (ps = sort!(-ps))
+            isempty(intersect(out, ps)) || (out = intersect(out, ps))
+        end
     end
     out
 end
