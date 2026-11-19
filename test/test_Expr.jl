@@ -337,6 +337,13 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(:(log(a*b)*x), :x)
         @test cs(:a => -2, :b => -1//2) == 0 && cs(:a => -2, :b => -1) == Inf && cs(:a => -2, :b => -1//4) == -Inf
         @test cs(:a => 2, :b => 1//2) == 0 && cs(:a => -2, :b => 1) == :undefined
+        # cases merged across conditions on logs of parameters (a < b held as log(b) - log(a) > 0),
+        # each stating where its logs are real
+        cs = gruntz_cases(:((a^x - b^x)/(a^x + b^x)), :x)
+        @test length(cs) == 5
+        @test cs(:a => 1//2, :b => 3) == -1 && cs(:a => 2, :b => 2) == 0 && cs(:a => 3, :b => 1//3) == 1
+        @test cs(:a => -1, :b => 2) == :undefined && cs(:a => 2, :b => -1) == :undefined
+        @test all(c -> any(d -> string(d) in ("a > 0", "b > 0"), c.first) || c.second === :undefined, cs)
         @test shown(gruntz_cases(:(log(-a) - 1 + 0*x), :x)) == Set(["a < 0" => "-1 + log(-1a)", "a >= 0" => :undefined])
         # signs restrict the cases; a limit without parameters has one case
         @test shown(gruntz_cases(:(x^(a - 2)), :x; signs = Dict(:a => :negative))) == Set(["always" => 0])
