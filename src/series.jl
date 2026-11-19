@@ -211,6 +211,8 @@ constPS(s::Sum) = PS(isempty(s.t) ? Dict{Ex,Sum}() : Dict{Ex,Sum}(EX0 => s), HUG
 atanSeries(v::PS, P::Q) =
     polyPS(v, k -> iseven(k) ? Q(0) : Q((-1)^((k - 1) ÷ 2)) // k, 0, P)
 
+const ATAN_POLE_MSG = "atan of an argument that tends to ±i: the limit is infinite, in a direction of the complex plane"
+
 function atanPS(a::PS, x::Atom, P::Q)
     isempty(a.c) && throw(NeedMorePrecision())
     if sign(val(a)) < 0
@@ -223,7 +225,11 @@ function atanPS(a::PS, x::Atom, P::Q)
     end
     # atan(c + u) = atan(c) + atan(u / (1 + c^2 + c u)), valid for every real c
     c0, u = const_and_rest(a)
-    den = addPS(constPS(addS(oneS(), mulS(c0, c0))), scalePS(u, c0))
+    k = addS(oneS(), mulS(c0, c0))
+    # c^2 = -1: an argument written with real radicals of opposite signs that tends to ±i,
+    # sqrt(b)/sqrt(-b), where atan is infinite (the inverse below would divide by 0)
+    (iszero(k) || numzero(k, x) === true) && throw(GruntzError(ATAN_POLE_MSG, :fail))
+    den = addPS(constPS(k), scalePS(u, c0))
     v = mulPS(u, powPS(den, Q(-1), P))
     addPS(atanSeries(v, P), constPS(mkatan(c0)))
 end
