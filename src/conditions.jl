@@ -234,7 +234,142 @@ function _possible_signs(s::Sum, facts::Bool)
     !known_nonzero(s) && feasible(append!(copy(base), [Ineq(a, k, false), Ineq(negate(a), -k, false)])) &&
         push!(out, 0)
     feasible(push!(copy(base), Ineq(a, k, true))) && push!(out, 1)
+    # Fourier-Motzkin takes the powers of a parameter as unrelated (a and a^2): a
+    # polynomial in one parameter is decided on the parameter's interval (`poly_signs`)
+    if length(out) > 1
+        ps = poly_signs(s)
+        ps === nothing || isempty(intersect(out, ps)) || (out = intersect(out, ps))
+    end
     out
+end
+
+# ---------------------------------------------------------------------------
+# Signs of a polynomial in one parameter
+# ---------------------------------------------------------------------------
+# A constant that is a polynomial in a single parameter p, with rational coefficients,
+# has its signs on the interval for p given by the conditions of the context that are
+# linear in p alone (a > 1, 2a - 3 <= 0): roots at the ends are divided out, and the
+# real roots inside are counted with Sturm's sequence, in exact arithmetic. With none
+# inside, the sign there is that at one point. 1 - a^2 < 0 for a > 1.
+
+# (p, coefficients from degree 0 up), or nothing
+function univariate_poly(s::Sum)
+    p = nothing
+    for m in keys(s.t), (a, e) in m.fs
+        (a.kind === :leaf && isone(denominator(e)) && e > 0 && numval_or_nothing(a) === nothing) ||
+            return nothing
+        p === nothing ? (p = a) : (p.key == a.key || return nothing)
+    end
+    p === nothing && return nothing
+    deg(m) = isempty(m.fs) ? 0 : Int(numerator(m.fs[1].second))
+    cs = zeros(Q, maximum(deg, keys(s.t)) + 1)
+    for (m, c) in s.t
+        cs[deg(m)+1] += c
+    end
+    p, cs
+end
+
+ptrim!(P::Vector{Q}) = (while length(P) > 1 && iszero(P[end]); pop!(P); end; P)
+function peval(P::Vector{Q}, t::Q)
+    acc = zero(Q)
+    for c in Iterators.reverse(P)
+        acc = acc * t + c
+    end
+    acc
+end
+pderiv(P::Vector{Q}) = length(P) == 1 ? [zero(Q)] : [P[i] * (i - 1) for i in 2:length(P)]
+function prem(A::Vector{Q}, B::Vector{Q})
+    r = copy(A)
+    while length(r) >= length(B)
+        f = r[end] / B[end]
+        sh = length(r) - length(B)
+        for i in eachindex(B)
+            r[i+sh] -= f * B[i]
+        end
+        pop!(r)
+        isempty(r) && return [zero(Q)]
+    end
+    ptrim!(r)
+end
+# P(t) = (t - r) q(t) + P(r)
+function deflate(P::Vector{Q}, r::Q)
+    n = length(P) - 1
+    q = zeros(Q, n)
+    acc = zero(Q)
+    for i in n:-1:1
+        acc = acc * r + P[i+1]
+        q[i] = acc
+    end
+    q
+end
+function sturm(P::Vector{Q})
+    seq = [P, pderiv(P)]
+    while !(length(seq[end]) == 1 && iszero(seq[end][1]))
+        push!(seq, -prem(seq[end-1], seq[end]))
+    end
+    pop!(seq)
+    seq
+end
+# sign changes of the sequence at t, a rational or ±Inf (nothing for -oo / +oo by `side`)
+function variations(seq, t::Union{Q,Nothing}, side::Int)
+    sg = Int[]
+    for P in seq
+        v = t === nothing ? sign(P[end]) * (side < 0 && isodd(length(P) - 1) ? -1 : 1) : sign(peval(P, t))
+        iszero(v) || push!(sg, Int(v))
+    end
+    count(i -> sg[i] != sg[i+1], 1:length(sg)-1)
+end
+
+# the interval for p from the conditions linear in p alone: (lo, lo strict, hi, hi strict)
+function param_interval(p::Atom)
+    lo, los, hi, his = nothing, false, nothing, false
+    lower(v, st) = (lo === nothing || v > lo || (v == lo && st)) && ((lo, los) = (v, st))
+    upper(v, st) = (hi === nothing || v < hi || (v == hi && st)) && ((hi, his) = (v, st))
+    for cd in CONTEXT[].conds
+        up = univariate_poly(cd.c)
+        (up === nothing || up[1].key != p.key || length(ptrim!(up[2])) != 2) && continue
+        c0, c1 = up[2]
+        v = -c0 / c1
+        rel = c1 > 0 ? cd.rel : get(Dict(:> => :<, :>= => :<=, :< => :>, :<= => :>=), cd.rel, cd.rel)
+        rel in (:>, :>=, :(==)) && lower(v, rel === :>)
+        rel in (:<, :<=, :(==)) && upper(v, rel === :<)
+    end
+    lo, los, hi, his
+end
+
+# the possible signs of s, a polynomial in one parameter, or nothing
+function poly_signs(s::Sum)
+    up = univariate_poly(s)
+    up === nothing && return nothing
+    p, P = up
+    length(ptrim!(P)) < 2 && return nothing
+    lo, los, hi, his = param_interval(p)
+    if lo !== nothing && hi !== nothing
+        lo > hi && return nothing
+        lo == hi && return (los || his) ? nothing : [Int(sign(peval(P, lo)))]
+    end
+    out = Int[]
+    R, jh = copy(P), 0
+    if lo !== nothing
+        los || push!(out, Int(sign(peval(P, lo))))
+        while length(R) > 1 && iszero(peval(R, lo))
+            R = deflate(R, lo)
+        end
+    end
+    if hi !== nothing
+        his || push!(out, Int(sign(peval(P, hi))))
+        while length(R) > 1 && iszero(peval(R, hi))
+            R, jh = deflate(R, hi), jh + 1
+        end
+    end
+    if length(R) > 1
+        seq = sturm(R)
+        variations(seq, lo, -1) - variations(seq, hi, 1) > 0 && return nothing
+    end
+    # no root inside: the sign at one point, with (t - lo)^j > 0 and (t - hi)^j of sign (-1)^j
+    t = lo !== nothing && hi !== nothing ? (lo + hi) / 2 : lo !== nothing ? lo + 1 : hi !== nothing ? hi - 1 : zero(Q)
+    push!(out, Int(sign(peval(R, t))) * (isodd(jh) ? -1 : 1))
+    sort!(unique!(out))
 end
 
 # c times a product of exp atoms, π and powers of positive rational constants: never
