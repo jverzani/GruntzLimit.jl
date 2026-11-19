@@ -49,7 +49,12 @@ How it works (src/conditions.jl and src/cases.jl):
 
 Known weaknesses:
 
-- Merging is pairwise, so `max(a, b)` (problem 11) is correct but listed in 9 cases.
+- Merging is pairwise. Conditions on logs of parameters are related to the parameters
+  in merging (`log(b) - log(a) > 0` with `a < b`, logs taken to be real where the
+  conditions assumed imply it), so `(a^x - b^x)/(a^x + b^x)` has 5 cases (it had 13), and
+  each merged case states its logs' domains (`a > 0`). `max(a, b)` (problem 11) is still
+  listed in 7 cases (it had 9): the point `a == b == 1` lies in a case of `a`, so the
+  cases of `b` only merge three at a time.
 - FM treats `log(a)` and `a` as unrelated. A sum `k log(±p) + r`, with `r` free of `p`, is
   therefore also read as `p - (±exp(-r/k))` (log is increasing), both as a condition of the
   context and when its sign is asked: `log(b) - log(a) >= 0` gives `b >= a`, and

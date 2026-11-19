@@ -74,12 +74,13 @@ function linform(c::Sum, vars::Dict{String,Mono})
 end
 
 
-function ineqs(cd::Cond, vars::Dict{String,Mono})
-    out = ineqs(cd.c, cd.rel, vars)
-    # a condition on a log of a parameter also as one on the parameter (see `delog`):
-    # log(b) - log(a) >= 0 as b - a >= 0
-    dl = delog(cd.c)
-    dl === nothing || append!(out, ineqs(dl[1], dl[2] < 0 ? flip(cd.rel) : cd.rel, vars))
+ineqs(cd::Cond, vars::Dict{String,Mono}) = cond_ineqs(cd.c, cd.rel, vars)
+# c rel 0, and a condition on a log of a parameter also as one on the parameter (see
+# `delog`): log(b) - log(a) >= 0 also as b - a >= 0
+function cond_ineqs(c::Sum, rel::Symbol, vars::Dict{String,Mono})
+    out = ineqs(c, rel, vars)
+    dl = delog(c)
+    dl === nothing || append!(out, ineqs(dl[1], dl[2] < 0 ? flip(rel) : rel, vars))
     out
 end
 function ineqs(c::Sum, rel::Symbol, vars::Dict{String,Mono})
@@ -170,24 +171,55 @@ function fact_ineqs(vars::Dict{String,Mono})
 end
 
 # whether the conditions `c rel 0` (rel one of < <= == != >= >) and the context
-# can hold together
-function satisfiable(clist::Vector{Tuple{Sum,Symbol}})
+# can hold together. The logs of parameters in the conditions `domain` are taken to be
+# real: log(p) needs p > 0, log(-p) needs p < 0 (for merging cases; only those of the
+# conditions assumed, not of one tested, which would be implied vacuously)
+const SAT_CACHE = ScopedValue{Union{Nothing,Dict{String,Bool}}}(nothing)   # see `merge_cases`
+condkey(l::Vector{Tuple{Sum,Symbol}}) = join(sort!(["$(skey(c)) $rel" for (c, rel) in l]), "; ")
+function satisfiable(clist::Vector{Tuple{Sum,Symbol}}; domain = nothing)
+    cache = SAT_CACHE[]
+    cache === nothing && return _satisfiable(clist, domain)
+    get!(() -> _satisfiable(clist, domain), cache, condkey(clist) * " | " * (domain === nothing ? "-" : condkey(domain)))
+end
+function _satisfiable(clist::Vector{Tuple{Sum,Symbol}}, domain)
     i = findfirst(l -> l[2] === :!=, clist)
     if i !== nothing
         c, rest = clist[i][1], deleteat!(copy(clist), i)
-        return satisfiable(push!(copy(rest), (c, :<))) || satisfiable(push!(rest, (c, :>)))
+        return satisfiable(push!(copy(rest), (c, :<)); domain) || satisfiable(push!(rest, (c, :>)); domain)
     end
     vars = Dict{String,Mono}()
     base = Ineq[]
     for cd in CONTEXT[].conds
         append!(base, ineqs(cd, vars))
     end
+    # the conditions assumed, with their logs' domains
+    assumed = domain === nothing ? Tuple{Sum,Symbol}[] : [domain; domain_conds(domain)]
+    for (c, rel) in assumed
+        append!(base, ineqs(c, rel, vars))
+    end
+    # a condition on logs is also read without them (`delog`) only where they are real:
+    # where the assumed conditions imply its logs' domains (p > 0 for log(p))
+    holds = Dict{Tuple{String,Symbol},Bool}()
+    known(l) = get!(holds, (skey(l[1]), l[2])) do
+        !isempty(assumed) && !satisfiable(push!(copy(assumed), (l[1], l[2] === :> ? :<= : :>=)))
+    end
     for (c, rel) in clist
-        a, k = linform(c, vars)
-        rel in (:>, :>=, :(==)) && push!(base, Ineq(a, k, rel === :>))
-        rel in (:<, :<=, :(==)) && push!(base, Ineq(negate(a), -k, rel === :<))
+        dl = domain_conds([(c, rel)])
+        real = !isempty(dl) && all(known, dl)
+        append!(base, real ? cond_ineqs(c, rel, vars) : ineqs(c, rel, vars))
     end
     feasible(append!(base, fact_ineqs(vars)))
+end
+
+# p > 0 for each log(p) of a parameter p in the conditions (p < 0 for log(-p))
+function domain_conds(conds::Vector{Tuple{Sum,Symbol}})
+    out = Tuple{Sum,Symbol}[]
+    for (c, _) in conds, m in keys(c.t), (a, _) in m.fs
+        pw = param_of(a)
+        (pw === nothing || pw[2] === :id) && continue
+        push!(out, (atomS(pw[1]), pw[2] === :log ? :> : :<))
+    end
+    unique(l -> (skey(l[1]), l[2]), out)
 end
 negations(rel::Symbol) = rel === :< ? [:>=] : rel === :<= ? [:>] : rel === :> ? [:<=] :
                          rel === :>= ? [:<] : rel === :(==) ? [:<, :>] : [:(==)]

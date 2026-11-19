@@ -162,19 +162,22 @@ end
 const CondList = Vector{Tuple{Sum,Symbol}}
 
 # whether the conditions `a` imply the condition `l`
-implies(a::CondList, l::Tuple{Sum,Symbol}) = !any(r -> satisfiable(push!(copy(a), (l[1], r))), negations(l[2]))
+# (with `domain`, the logs of parameters in `a` are taken to be real; see `satisfiable`)
+implies(a::CondList, l::Tuple{Sum,Symbol}; domain::Bool = false) =
+    !any(r -> satisfiable(push!(copy(a), (l[1], r)); domain = domain ? a : nothing), negations(l[2]))
 
 # whether `k` implies `a` or `b`
 function covers(k::CondList, a::CondList, b::CondList)
     nots(x) = [(c, r) for (c, rel) in x for r in negations(rel)]
     (isempty(a) || isempty(b)) && return true
-    !any(na -> any(nb -> satisfiable([k; na; nb]), nots(b)), nots(a))
+    !any(na -> any(nb -> satisfiable([k; na; nb]; domain = k), nots(b)), nots(a))
 end
 
 # Cases of the flattened tree with the same limit are merged when their union is
 # described by some of their conditions (a <= 0 and 0 < a < 2 give a < 2), and
 # conditions implied by the others of a case are dropped.
-function merge_cases(cases)
+merge_cases(cases) = with(() -> _merge_cases(cases), SAT_CACHE => Dict{String,Bool}())
+function _merge_cases(cases)
     prune(a::CondList) = (a = copy(a); i = 1;
         while i <= length(a)
             implies(deleteat!(copy(a), i), a[i]) ? deleteat!(a, i) : (i += 1)
@@ -189,7 +192,10 @@ function merge_cases(cases)
             v === nothing && continue
             cands = unique(l -> (skey(l[1]), l[2]),
                            [(c, r) for (c, rel) in [a; b] for r in (rel, rel === :< ? :<= : rel === :> ? :>= : rel)])
-            filter!(l -> implies(a, l) && implies(b, l), cands)
+            filter!(l -> implies(a, l; domain = true) && implies(b, l; domain = true), cands)
+            # fewer conditions describe a larger set: when all of them do not describe
+            # the union, no subset does
+            covers(cands, a, b) || continue
             k = nothing
             for n in 0:min(3, length(cands)), sub in subsets_of(cands, n)
                 if covers(sub, a, b)
@@ -198,7 +204,8 @@ function merge_cases(cases)
                 end
             end
             k === nothing && continue
-            cases[i] = prune(k) => v
+            # the logs' domains, taken as implied in merging, are stated
+            cases[i] = prune([k; domain_conds(k)]) => v
             deleteat!(cases, j)
             merged = true
             break
