@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Usage — GruntzLimit.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=af43b58f">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=a6725f1d">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <meta name="title" content="Usage — GruntzLimit.jl">
   <meta property="og:title" content="Usage — GruntzLimit.jl">
@@ -573,7 +573,7 @@ cs(:a =&gt; 2, :b =&gt; 3), cs(:a =&gt; -1, :b =&gt; 2)</code></pre>
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
 <pre><code class="language-julia">cs[:a =&gt; 2, :b =&gt; 3]</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">Pair{Vector{GruntzLimit.CaseCondition}, Any}(GruntzLimit.CaseCondition[a &gt; 1, b &gt; 1, a &lt;= b], :b)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">Pair{Vector{GruntzLimit.CaseCondition}, Any}(GruntzLimit.CaseCondition[b &gt; 1, a &gt;= 1, a &lt;= b], :b)</code></pre>
 </div>
 <p>A condition <code class="md-code-inline">c == 0</code> is solved for a parameter when it is linear in one, also with other parameters as coefficients (<code class="md-code-inline">a*b + 1 == 0</code> as <code class="md-code-inline">a = -1/b</code>, with <code class="md-code-inline">b != 0</code>), and <code class="md-code-inline">exp(u) - 1 == 0</code> is solved as <code class="md-code-inline">u == 0</code>. A case whose condition cannot be solved (<code class="md-code-inline">a^3 + a + 1 == 0</code>, say) is computed with the condition kept: quantities that are 0 under it are taken as 0, and a division by one makes the limit <code class="md-code-inline">:undefined</code>. Merging is pairwise, so a union of several cases may be listed in parts.</p>
 <h3 id="Giving-signs" class="md-heading">Giving signs<a href="#Giving-signs" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
@@ -698,6 +698,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=af43b58f"></script>
+  <script src="../assets/materialdocs.js?v=a6725f1d"></script>
 </body>
 </html>
