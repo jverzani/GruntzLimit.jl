@@ -70,6 +70,10 @@ Known weaknesses:
   and `a^2` are unrelated; a polynomial in one parameter is also decided on that
   parameter's interval, by counting its real roots there (Sturm), so `1 - a^2 < 0` for
   `a > 1`. Polynomials in several parameters are not.
+- A polynomial in one parameter is split on its rational roots, one at a time (`1 - a^2`
+  on `a + 1`, then `a - 1`), so the cases read `a < -1`, `a == -1`, ... and the case of a
+  double root is solved (`(M + 1)^2 == 0` as `M == -1`). Irrational roots (`a^2 - 2`) are
+  not sought: such a polynomial is split on as a whole.
 
 ## Before this work
 

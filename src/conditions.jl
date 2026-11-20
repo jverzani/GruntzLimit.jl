@@ -408,6 +408,30 @@ function param_interval(p::Atom)
     lo, los, hi, his
 end
 
+# The rational roots of P, increasing, by the rational root theorem (r = ±u/v, u
+# dividing the lowest nonzero coefficient and v the highest, of P with integer
+# coefficients); none sought when those exceed 10^8
+function rational_roots(P::Vector{Q})
+    d = lcm(denominator.(P))
+    A = [numerator(c * d) for c in P]
+    roots = Q[]
+    if iszero(A[1])
+        push!(roots, zero(Q))
+        while length(A) > 1 && iszero(A[1])
+            popfirst!(A)
+        end
+    end
+    length(A) == 1 && return roots
+    a0, an = abs(A[1]), abs(A[end])
+    (a0 > 10^8 || an > 10^8) && return roots
+    divisors(n) = (ds = [k for k in 1:isqrt(n) if n % k == 0]; unique!([ds; [n ÷ k for k in ds]]))
+    for v in divisors(an), u in divisors(a0), σ in (1, -1)
+        r = Q(σ * u, v)
+        iszero(peval(P, r)) && push!(roots, r)
+    end
+    sort!(unique!(roots))
+end
+
 # the possible signs of s, a polynomial in one parameter, or nothing
 function poly_signs(s::Sum)
     up = univariate_poly(s)

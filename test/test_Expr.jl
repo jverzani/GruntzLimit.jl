@@ -337,6 +337,12 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(:(log(a*b)*x), :x)
         @test cs(:a => -2, :b => -1//2) == 0 && cs(:a => -2, :b => -1) == Inf && cs(:a => -2, :b => -1//4) == -Inf
         @test cs(:a => 2, :b => 1//2) == 0 && cs(:a => -2, :b => 1) == :undefined
+        # a polynomial in one parameter is split on its rational roots
+        @test shown(gruntz_cases(:(sqrt(1 - a^2)*x), :x)) ==
+              Set(["a < -1" => :undefined, "a == -1" => 0, "a > -1 && a < 1" => Inf, "a == 1" => 0, "a > 1" => :undefined])
+        @test shown(gruntz_cases(:(x^(a^3 - a)), :x)) ==
+              Set(["a < -1" => 0, "a == -1" => 1, "a > -1 && a < 0" => Inf, "a == 0" => 1,
+                   "a > 0 && a < 1" => 0, "a == 1" => 1, "a > 1" => Inf])
         # cases merged across conditions on logs of parameters (a < b held as log(b) - log(a) > 0),
         # each stating where its logs are real
         cs = gruntz_cases(:((a^x - b^x)/(a^x + b^x)), :x)
@@ -1204,11 +1210,11 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         @test eval(:(let C = 1, a = 1, M1 = 1, M2 = 1; $r end)) ≈ 1/2
         cs = gruntz_cases(:(1/(M + 1 - sqrt((M + 1)^2 - k^2))), :k, 0)
         D = Dict(string(c.first) => c.second for c in cs)
-        # M = -1: 1/(-sqrt(-k^2)) = 1/(-i|k|), infinite in a complex direction
-        @test pop!(D, "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 == 0]") isa GruntzError
-        @test D ==
-              Dict("GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M < -1]" => :((2 + 2M) ^ -1),
-                   "GruntzLimit.CaseCondition[1 + 2M + M ^ 2 != 0, M > -1]" => Inf)
+        # split on M + 1, the root of (M + 1)^2; M = -1: 1/(-sqrt(-k^2)) = 1/(-i|k|),
+        # infinite in a complex direction
+        @test occursin("complex plane", pop!(D, "GruntzLimit.CaseCondition[M == -1]").msg)
+        @test D == Dict("GruntzLimit.CaseCondition[M < -1]" => :((2 + 2M) ^ -1),
+                        "GruntzLimit.CaseCondition[M > -1]" => Inf)
         # (M1 + M2)^2 = 0 is solved as M1 = -M2
         cs = gruntz_cases(d, :k, 0; signs = Dict(:C => :positive, :a => :positive))
         @test any(c -> string(c.first) == "GruntzLimit.CaseCondition[2 * M1 * M2 + M1 ^ 2 + M2 ^ 2 == 0, M2 != 0]" &&
