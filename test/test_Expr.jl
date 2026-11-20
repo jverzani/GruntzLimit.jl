@@ -337,6 +337,12 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(:(log(a*b)*x), :x)
         @test cs(:a => -2, :b => -1//2) == 0 && cs(:a => -2, :b => -1) == Inf && cs(:a => -2, :b => -1//4) == -Inf
         @test cs(:a => 2, :b => 1//2) == 0 && cs(:a => -2, :b => 1) == :undefined
+        # max(a, b): two cases of b merged with the point a == b == 1 of a case of a,
+        # where the limits agree
+        cs = gruntz_cases(:((a^x + b^x)^(1/x)), :x)
+        @test length(cs) == 4
+        @test cs(:a => 2, :b => 3) == 3 && cs(:a => 1//2, :b => 1//3) == 1//2 && cs(:a => 1, :b => 1) == 1
+        @test cs(:a => -1, :b => 2) == :undefined
         # a polynomial in one parameter is split on its rational roots
         @test shown(gruntz_cases(:(sqrt(1 - a^2)*x), :x)) ==
               Set(["a < -1" => :undefined, "a == -1" => 0, "a > -1 && a < 1" => Inf, "a == 1" => 0, "a > 1" => :undefined])

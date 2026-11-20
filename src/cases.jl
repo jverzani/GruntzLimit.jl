@@ -179,7 +179,6 @@ implies(a::CondList, l::Tuple{Sum,Symbol}; domain::Bool = false) =
 
 # whether `k` implies `a` or `b`
 function covers(k::CondList, a::CondList, b::CondList)
-    nots(x) = [(c, r) for (c, rel) in x for r in negations(rel)]
     (isempty(a) || isempty(b)) && return true
     !any(na -> any(nb -> satisfiable([k; na; nb]; domain = k), nots(b)), nots(a))
 end
@@ -194,7 +193,8 @@ function _merge_cases(cases)
             implies(deleteat!(copy(a), i), a[i]) ? deleteat!(a, i) : (i += 1)
         end; a)
     cases = Any[prune(cs) => v for (cs, v) in cases]
-    merged = true
+    merged, absorbing = true, false
+    failed = Set{Tuple{String,String}}()     # pairs of cases (as conditions) not absorbed
     while merged
         merged = false
         for i in eachindex(cases), j in i+1:length(cases)
@@ -205,8 +205,16 @@ function _merge_cases(cases)
                            [(c, r) for (c, rel) in [a; b] for r in (rel, rel === :< ? :<= : rel === :> ? :>= : rel)])
             filter!(l -> implies(a, l; domain = true) && implies(b, l; domain = true), cands)
             # fewer conditions describe a larger set: when all of them do not describe
-            # the union, no subset does
-            covers(cands, a, b) || continue
+            # the union, no subset does; but they may with points of other cases where
+            # the limit is the same (see `absorb`)
+            if !covers(cands, a, b)
+                (absorbing && !isempty(cands)) || continue
+                key = (condkey(a), condkey(b))
+                key in failed && continue
+                absorb!(cases, i, j, cands, v, prune) || (push!(failed, key); continue)
+                merged, absorbing = true, false
+                break
+            end
             k = nothing
             for n in 0:min(3, length(cands)), sub in subsets_of(cands, n)
                 if covers(sub, a, b)
@@ -218,11 +226,76 @@ function _merge_cases(cases)
             # the logs' domains, taken as implied in merging, are stated
             cases[i] = prune([k; domain_conds(k)]) => v
             deleteat!(cases, j)
-            merged = true
+            merged, absorbing = true, false
             break
+        end
+        # no pair merges: once, with points of other cases (see `absorb!`), the slower
+        # test, then pairs again
+        if !merged && !absorbing
+            merged = absorbing = true
         end
     end
     cases
+end
+
+nots(x::CondList) = [(c, r) for (c, rel) in x for r in negations(rel)]
+
+# whether the limits v and w are equal where the conditions hold
+function equal_on(conds::CondList, v, w)
+    same_value(v, w) && return true
+    (v isa Sum && w isa Sum) || return false
+    implies(conds, (subS(v, w), :(==)); domain = true)
+end
+# whether the conditions `p` imply all of `c`
+within(p::CondList, c::CondList) = all(l -> implies(p, l; domain = true), c)
+
+# Cases i and j, of limit v, whose union is k but for points of other cases where the
+# limit is v too (max(a, b): b for 0 < a < 1, a <= b and for a >= 1, b > 1, a <= b; the
+# point a == b == 1 in the case b <= 1, a >= 1 of limit a): merged as k, the other cases
+# keeping their points outside k, when those are described by one more condition
+# (b <= 1, a >= 1, a > b). Each piece of k outside cases i and j must lie in one other
+# case (cases are disjoint, so no other case meets k outside the pieces). Returns
+# whether the cases were merged.
+function absorb!(cases, i::Int, j::Int, k::CondList, v, prune)
+    a, b = cases[i][1], cases[j][1]
+    pieces = CondList[]
+    for na in nots(a), nb in nots(b)
+        P = [k; na; nb]
+        satisfiable(P; domain = k) && push!(pieces, P)
+        length(pieces) > 4 && return false
+    end
+    others = Int[]
+    for P in pieces
+        m = findfirst(eachindex(cases)) do m
+            m != i && m != j && satisfiable([P; cases[m][1]]; domain = P) && within(P, cases[m][1])
+        end
+        (m === nothing || !equal_on(P, cases[m][2], v)) && return false
+        m in others || push!(others, m)
+    end
+    isempty(others) && return false
+    # each other case c, less k: c with one condition l (c with any other negation of k
+    # implies l), or empty
+    rest = Dict{Int,Any}()
+    for m in others
+        c = cases[m][1]
+        ns = filter(n -> satisfiable([c; n]; domain = c), nots(k))
+        if isempty(ns)
+            rest[m] = nothing
+            continue
+        end
+        l = findfirst(ns) do n
+            all(n2 -> n2 === n || !any(r -> satisfiable([c; n2; (n[1], r)]; domain = c), negations(n[2])), ns)
+        end
+        l === nothing && return false
+        rest[m] = [c; ns[l]]
+    end
+    cases[i] = prune([k; domain_conds(k)]) => v
+    for m in others
+        r = rest[m]
+        r === nothing || (cases[m] = prune(r) => cases[m][2])
+    end
+    deleteat!(cases, sort!([j; [m for m in others if rest[m] === nothing]]))
+    true
 end
 
 # The limit for the union of two cases when it is the same in both, possibly after
