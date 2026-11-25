@@ -202,6 +202,18 @@ function varsign(a::Atom)
     end
 end
 
+# (a^e)^q for a parameter a of undecided sign and e even is |a|^(e q) (a^e = |a|^e for a
+# real): sqrt(a^2) is |a|, not a (generic values are nonzero, not positive). Only where
+# a^(e q) and |a|^(e q) differ: e q with an odd numerator or an even denominator (roots
+# of odd order are real, so a^(2/3) is |a|^(2/3) already, and a^2 is |a|^2).
+function _abs_even_undecided(kept::Mono, q::Q)
+    any(p -> _undecided_even(p..., q), kept.fs) || return kept
+    mono(Dict{Atom,Q}(_undecided_even(a, e, q) ? funatom(:abs, Sum[atomS(a)]) => e : a => e for (a, e) in kept.fs))
+end
+_undecided_even(a::Atom, e::Q, q::Q) = isone(denominator(e)) && iseven(numerator(e)) &&
+    (isodd(numerator(e * q)) || iseven(denominator(e * q))) &&
+    !hasvar(a) && numval_or_nothing(a) === nothing && atom_sign(a) === nothing
+
 # c^q = (c^(1/k))^(k q) for the largest k dividing q's denominator with c a perfect
 # k-th power: 4^(1/4) = 2^(1/2)
 function rootreduce(c::Q, q::Q)
@@ -233,6 +245,7 @@ function powS(s::Sum, q::Q)
                 return monoS(Mono(Pair{Atom,Q}[baseatom(s) => q]), Q(1))
             if pf !== nothing                    # otherwise ratpow raises the error
                 c2, kept, negs, grp = pf
+                kept = _abs_even_undecided(kept, q)
                 mm = powMono(kept, q)            # (a^e)^q = ((-a)^e)^q, for a < 0
                 k = Q(1)
                 for (a, e) in negs
