@@ -1230,6 +1230,17 @@ ev(r; a = 2.0, b = 3.0) = eval(:(let a = $a, b = $b; $r end))
         cs = gruntz_cases(d, :k, 0)
         @test length(cs) == 14
         @test count(c -> c.second isa Expr, cs) == 1
+        # an even power of a parameter of undecided sign under a root: |a|, not a (a real
+        # of unknown sign, not a positive one)
+        @test string(gruntz_limit(:(sqrt(a^2) + x), :x, 0)) == "abs(a)"
+        @test string(gruntz_limit(:((a^2)^(3//2) + x), :x, 0)) == "abs(a) ^ 3"
+        @test string(gruntz_limit(:(sqrt(4*a^2) + x), :x, 0)) == "2 * abs(a)"
+        @test string(gruntz_limit(:(sqrt(a^2*x^2)/x), :x, 0; dir = :+)) == "abs(a)"
+        @test string(gruntz_limit(:((a^4)^(1//2) + x), :x, 0)) == "a ^ 2"        # even: no abs
+        @test string(gruntz_limit(:(cbrt(a^2) + x), :x, 0)) == "a ^ 2//3"         # real root: no abs
+        @test occursin("abs(a)", string(gruntz_limit(:((a^2)^(1//6) + x), :x, 0)))
+        @test gruntz_limit(:(sqrt(a^2) + x), :x, 0; signs = Dict(:a => :positive)) == :a
+        @test string(gruntz_limit(:(sqrt(a^2) + x), :x, 0; signs = Dict(:a => :negative))) == string(:(-1a))
     end
 
     @testset "rational literals" begin
